@@ -33,6 +33,6 @@
     "@babel/core": "^7.25.2",
     "@types/react": "~18.2.45",
     "@types/styled-components-react-native": "^5.2.5",
-    "typescript": "^5.5.4"
+    "typescript": "^6.0.3"
   }
 }
