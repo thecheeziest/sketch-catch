@@ -1,0 +1,99 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id                String    @id @default(uuid())
+  provider          Provider
+  providerId        String
+  nickname          String    @unique
+  characterId       String
+  friendCode        String    @unique
+  pushToken         String?
+  createdAt         DateTime  @default(now())
+  nicknameChangedAt DateTime?
+
+  friendsA     Friendship[]    @relation("FriendshipA")
+  friendsB     Friendship[]    @relation("FriendshipB")
+  sentRequests FriendRequest[] @relation("Sender")
+  recvRequests FriendRequest[] @relation("Receiver")
+  replays      GameReplay[]
+
+  @@unique([provider, providerId])
+}
+
+enum Provider {
+  KAKAO
+  APPLE
+}
+
+model FriendRequest {
+  id         String    @id @default(uuid())
+  senderId   String
+  receiverId String
+  status     ReqStatus @default(PENDING)
+  createdAt  DateTime  @default(now())
+
+  sender   User @relation("Sender", fields: [senderId], references: [id])
+  receiver User @relation("Receiver", fields: [receiverId], references: [id])
+
+  @@unique([senderId, receiverId])
+}
+
+enum ReqStatus {
+  PENDING
+  ACCEPTED
+  REJECTED
+}
+
+model Friendship {
+  id        String   @id @default(uuid())
+  userAId   String
+  userBId   String
+  createdAt DateTime @default(now())
+
+  userA User @relation("FriendshipA", fields: [userAId], references: [id])
+  userB User @relation("FriendshipB", fields: [userBId], references: [id])
+
+  @@unique([userAId, userBId])
+}
+
+model GameReplay {
+  id        String   @id @default(uuid())
+  userId    String
+  prompt    String
+  strokes   Json
+  gifUrl    String?
+  expiresAt DateTime
+  createdAt DateTime @default(now())
+
+  user User @relation(fields: [userId], references: [id])
+
+  @@index([userId])
+  @@index([expiresAt])
+}
+
+model WordPool {
+  id        String   @id @default(uuid())
+  word      String   @unique
+  category  Category
+  length    Int
+  createdAt DateTime @default(now())
+
+  @@index([category, length])
+}
+
+enum Category {
+  ANIMAL
+  FOOD
+  OBJECT
+  NATURE
+  PLACE
+  ACTION
+  JOB
+}
