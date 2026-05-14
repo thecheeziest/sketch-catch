@@ -1,0 +1,10 @@
+node_modules
+dist
+build
+.next
+.expo
+coverage
+ios
+android
+*.lock
+pnpm-lock.yaml
