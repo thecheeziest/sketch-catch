@@ -1,0 +1,38 @@
+{
+  "name": "@sketch-catch/mobile",
+  "version": "0.0.0",
+  "private": true,
+  "main": "index.ts",
+  "scripts": {
+    "start": "expo start --dev-client",
+    "ios:dev": "expo run:ios",
+    "aos:dev": "expo run:android",
+    "typecheck": "tsc -p tsconfig.json --noEmit",
+    "lint": "eslint .",
+    "build": "echo 'mobile uses EAS Build — run: eas build --profile development'"
+  },
+  "dependencies": {
+    "@sketch-catch/shared": "workspace:*",
+    "expo": "^51.0.28",
+    "expo-dev-client": "~4.0.25",
+    "expo-router": "~3.5.23",
+    "expo-status-bar": "~1.12.1",
+    "expo-font": "~12.0.10",
+    "expo-splash-screen": "~0.27.5",
+    "expo-linking": "~6.3.1",
+    "expo-constants": "~16.0.2",
+    "react": "18.2.0",
+    "react-native": "0.74.5",
+    "react-native-safe-area-context": "4.10.5",
+    "react-native-screens": "3.31.1",
+    "react-native-gesture-handler": "~2.16.1",
+    "react-native-reanimated": "~3.10.1",
+    "styled-components": "^6.1.13"
+  },
+  "devDependencies": {
+    "@babel/core": "^7.25.2",
+    "@types/react": "~18.2.45",
+    "@types/styled-components-react-native": "^5.2.5",
+    "typescript": "^5.5.4"
+  }
+}

@@ -1,0 +1,38 @@
+{
+  "expo": {
+    "name": "스케치캐치",
+    "slug": "sketch-catch",
+    "scheme": "sketchcatch",
+    "version": "0.0.1",
+    "orientation": "portrait",
+    "icon": "./assets/icon.png",
+    "userInterfaceStyle": "light",
+    "newArchEnabled": false,
+    "splash": {
+      "image": "./assets/splash.png",
+      "resizeMode": "contain",
+      "backgroundColor": "#FAFAF0"
+    },
+    "ios": {
+      "supportsTablet": false,
+      "bundleIdentifier": "com.sketchcatch.app"
+    },
+    "android": {
+      "adaptiveIcon": {
+        "foregroundImage": "./assets/adaptive-icon.png",
+        "backgroundColor": "#FAFAF0"
+      },
+      "package": "com.sketchcatch.app"
+    },
+    "plugins": [
+      "expo-router",
+      "expo-font"
+    ],
+    "experiments": {
+      "typedRoutes": true
+    },
+    "developmentClient": {
+      "silentLaunch": true
+    }
+  }
+}
