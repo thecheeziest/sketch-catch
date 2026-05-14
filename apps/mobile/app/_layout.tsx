@@ -15,12 +15,12 @@ SplashScreen.preventAutoHideAsync().catch(() => {
 
 export default function RootLayout(): React.JSX.Element | null {
   const [fontsLoaded, fontError] = useFonts({
+    // eslint-disable-next-line @typescript-eslint/no-require-imports
     Galmuri11: require('../assets/fonts/Galmuri11.ttf'),
   });
 
   useEffect(() => {
     if (fontsLoaded || fontError) {
-      // eslint-disable-next-line no-console
       console.log('[mobile] shared package version:', SHARED_PACKAGE_VERSION);
       SplashScreen.hideAsync().catch(() => {
         /* noop */
