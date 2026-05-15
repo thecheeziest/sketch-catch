@@ -3,8 +3,8 @@ gsd_state_version: 1.0
 milestone: v1.0
 milestone_name: milestone
 status: Phase complete — ready for verification
-stopped_at: "Completed 02-auth-profile-08-PLAN.md (checkpoint:human-verify)"
-last_updated: "2026-05-15T01:16:51.987Z"
+stopped_at: Completed 02-auth-profile-09-PLAN.md — awaiting human verification checkpoint
+last_updated: "2026-05-15T01:17:04.865Z"
 progress:
   total_phases: 7
   completed_phases: 2
@@ -59,6 +59,7 @@ Plan: 9 of 9
 | Phase 02-auth-profile P07 | 3min | 2 tasks | 10 files |
 | Phase 02-auth-profile P05 | 6min | 2 tasks | 13 files |
 | Phase 02-auth-profile P08 | 8min | 2 tasks | 10 files |
+| Phase 02-auth-profile P09 | 15min | 2 tasks | 8 files |
 
 ## Accumulated Context
 
@@ -98,6 +99,8 @@ Recent decisions affecting current work:
 - [Phase 02-auth-profile]: hydrateAuthStore를 store action이 아닌 외부 함수로 분리: 루트 레이아웃 useEffect에서 직접 호출
 - [Phase 02-auth-profile]: assertNicknameCooldown에 now 파라미터 주입 — 시간 의존성 없이 순수 함수로 단위 테스트 가능
 - [Phase 02-auth-profile]: Stack.Protected 미지원 (Expo Router 3.5): Stack.Screen redirect prop으로 대체
+- [Phase 02-auth-profile]: ProfileCard/ProfileRow 별도 파일 분리: mypage.tsx 비대 방지 + cooldown 비활성 로직 isolated
+- [Phase 02-auth-profile]: computeCooldown 순수 함수 분리: 서버 ISO → 클라이언트 타임존 매핑 (Pitfall 7 회피)
 
 ### Pending Todos
 
@@ -109,6 +112,6 @@ None yet.
 
 ## Session Continuity
 
-Last session: 2026-05-15T01:16:40.722Z
-Stopped at: Completed 02-auth-profile-08-PLAN.md (checkpoint:human-verify)
+Last session: 2026-05-15T01:17:04.863Z
+Stopped at: Completed 02-auth-profile-09-PLAN.md — awaiting human verification checkpoint
 Resume file: None
