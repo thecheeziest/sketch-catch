@@ -3,8 +3,8 @@ gsd_state_version: 1.0
 milestone: v1.0
 milestone_name: milestone
 status: Ready to execute
-stopped_at: Completed 03-friends-03-04-PLAN.md
-last_updated: "2026-05-15T11:18:15.323Z"
+stopped_at: Completed 03-friends-03-05-PLAN.md
+last_updated: "2026-05-15T11:18:32.369Z"
 progress:
   total_phases: 7
   completed_phases: 2
@@ -64,6 +64,7 @@ Plan: 6 of 6
 | Phase 03-friends P02 | 2 | 2 tasks | 4 files |
 | Phase 03-friends P01 | 2min | 2 tasks | 5 files |
 | Phase 03-friends P04 | 1min | 1 tasks | 1 files |
+| Phase 03-friends P05 | 70s | 2 tasks | 2 files |
 
 ## Accumulated Context
 
@@ -112,6 +113,8 @@ Recent decisions affecting current work:
 - [Phase 03-friends]: z.string().refine(v=>v.includes('#')) 사용 — Zod에 .includes() 체인 없어 refine으로 대체
 - [Phase 03-friends]: Redis presence TTL 300초(5분) — 인증 요청마다 fire-and-forget 갱신, Phase 4 소켓 heartbeat 교체 시 한 줄 제거
 - [Phase 03-friends]: getPresence mock을 vi.fn().mockResolvedValue('OFFLINE')으로 기본값 설정 — getFriends presenceStatus 테스트에서 개별 오버라이드
+- [Phase 03-friends]: AddFriendModal: ApiError instanceof 체크 후 code 분기 — TypeScript unknown 타입 에러 핸들러에서 타입 안전 보장
+- [Phase 03-friends]: DeleteFriendModal '삭제하기': PixelButton 미지원 destructive variant → Pressable 직접 사용 (DeleteAccountModal 패턴 계속)
 
 ### Pending Todos
 
@@ -123,6 +126,6 @@ None yet.
 
 ## Session Continuity
 
-Last session: 2026-05-15T11:18:02.799Z
-Stopped at: Completed 03-friends-03-04-PLAN.md
+Last session: 2026-05-15T11:18:32.365Z
+Stopped at: Completed 03-friends-03-05-PLAN.md
 Resume file: None
