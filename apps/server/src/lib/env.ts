@@ -8,7 +8,11 @@ const envSchema = z.object({
   DATABASE_URL: z.string().min(1, 'DATABASE_URL is required'),
   REDIS_URL: z.string().min(1, 'REDIS_URL is required'),
   KAKAO_REST_KEY: z.string().optional(),
-  APPLE_BUNDLE_ID: z.string().optional(),
+  KAKAO_ISSUER: z.string().default('https://kauth.kakao.com'),
+  APPLE_ISSUER: z.string().default('https://appleid.apple.com'),
+  APPLE_BUNDLE_ID: z.string().default('com.sketchcatch.app'),
+  JWT_ACCESS_TTL: z.string().default('15m'),
+  JWT_REFRESH_TTL: z.string().default('30d'),
   JWT_SECRET: z
     .string()
     .min(16, 'JWT_SECRET must be at least 16 chars')
