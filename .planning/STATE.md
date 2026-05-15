@@ -3,13 +3,13 @@ gsd_state_version: 1.0
 milestone: v1.0
 milestone_name: milestone
 status: Ready to execute
-stopped_at: Completed 02-auth-profile-07-PLAN.md
-last_updated: "2026-05-15T01:07:38.887Z"
+stopped_at: Completed 02-auth-profile-05-PLAN.md
+last_updated: "2026-05-15T01:10:22.849Z"
 progress:
   total_phases: 7
   completed_phases: 1
   total_plans: 14
-  completed_plans: 11
+  completed_plans: 12
 ---
 
 # Project State
@@ -24,7 +24,7 @@ See: .planning/PROJECT.md (updated 2026-05-13)
 ## Current Position
 
 Phase: 02 (auth-profile) — EXECUTING
-Plan: 7 of 9
+Plan: 8 of 9
 
 ## Performance Metrics
 
@@ -57,6 +57,7 @@ Plan: 7 of 9
 | Phase 02-auth-profile P06 | 5min | 2 tasks | 8 files |
 | Phase 02-auth-profile P04 | 3min | 2 tasks | 9 files |
 | Phase 02-auth-profile P07 | 3min | 2 tasks | 10 files |
+| Phase 02-auth-profile P05 | 6min | 2 tasks | 13 files |
 
 ## Accumulated Context
 
@@ -94,6 +95,7 @@ Recent decisions affecting current work:
 - [Phase 02-auth-profile]: Redis session:{userId}에 accessToken 저장 → 단일 기기 정책 D-05 구현
 - [Phase 02-auth-profile]: setTokens를 async로 정의: SecureStore.setItemAsync await 후 상태 갱신 보장
 - [Phase 02-auth-profile]: hydrateAuthStore를 store action이 아닌 외부 함수로 분리: 루트 레이아웃 useEffect에서 직접 호출
+- [Phase 02-auth-profile]: assertNicknameCooldown에 now 파라미터 주입 — 시간 의존성 없이 순수 함수로 단위 테스트 가능
 
 ### Pending Todos
 
@@ -105,6 +107,6 @@ None yet.
 
 ## Session Continuity
 
-Last session: 2026-05-15T01:07:38.885Z
-Stopped at: Completed 02-auth-profile-07-PLAN.md
+Last session: 2026-05-15T01:10:22.847Z
+Stopped at: Completed 02-auth-profile-05-PLAN.md
 Resume file: None
