@@ -3,13 +3,13 @@ gsd_state_version: 1.0
 milestone: v1.0
 milestone_name: milestone
 status: Ready to execute
-stopped_at: Completed 02-auth-profile-06-PLAN.md
-last_updated: "2026-05-15T01:06:06.572Z"
+stopped_at: Completed 02-auth-profile-07-PLAN.md
+last_updated: "2026-05-15T01:07:38.887Z"
 progress:
   total_phases: 7
   completed_phases: 1
   total_plans: 14
-  completed_plans: 9
+  completed_plans: 11
 ---
 
 # Project State
@@ -24,7 +24,7 @@ See: .planning/PROJECT.md (updated 2026-05-13)
 ## Current Position
 
 Phase: 02 (auth-profile) — EXECUTING
-Plan: 5 of 9
+Plan: 7 of 9
 
 ## Performance Metrics
 
@@ -55,6 +55,8 @@ Plan: 5 of 9
 | Phase 02-auth-profile P02 | 10min | 2 tasks | 7 files |
 | Phase 02-auth-profile P03 | 3min | 2 tasks | 5 files |
 | Phase 02-auth-profile P06 | 5min | 2 tasks | 8 files |
+| Phase 02-auth-profile P04 | 3min | 2 tasks | 9 files |
+| Phase 02-auth-profile P07 | 3min | 2 tasks | 10 files |
 
 ## Accumulated Context
 
@@ -88,6 +90,10 @@ Recent decisions affecting current work:
 - [Phase 02-auth-profile]: vitest.config.ts에서 path.resolve(__dirname) 사용 — expo/tsconfig.base module 미설정으로 import.meta 불가
 - [Phase 02-auth-profile]: SocialButton/CharacterGrid Logo는 에셋 미존재로 단색 블록 placeholder 사용 — 실 SVG/PNG 추가 시 Image 컴포넌트로 교체
 - [Phase 02-auth-profile]: Toast pointerEvents는 styled CSS가 아닌 RN View prop 방식 사용
+- [Phase 02-auth-profile]: jose 단일 라이브러리로 JWKS 원격 검증 + HS256 자체 JWT 처리 — ESM 네이티브
+- [Phase 02-auth-profile]: Redis session:{userId}에 accessToken 저장 → 단일 기기 정책 D-05 구현
+- [Phase 02-auth-profile]: setTokens를 async로 정의: SecureStore.setItemAsync await 후 상태 갱신 보장
+- [Phase 02-auth-profile]: hydrateAuthStore를 store action이 아닌 외부 함수로 분리: 루트 레이아웃 useEffect에서 직접 호출
 
 ### Pending Todos
 
@@ -99,6 +105,6 @@ None yet.
 
 ## Session Continuity
 
-Last session: 2026-05-15T01:06:06.570Z
-Stopped at: Completed 02-auth-profile-06-PLAN.md
+Last session: 2026-05-15T01:07:38.885Z
+Stopped at: Completed 02-auth-profile-07-PLAN.md
 Resume file: None
