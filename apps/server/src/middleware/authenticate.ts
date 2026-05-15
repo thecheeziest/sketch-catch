@@ -1,6 +1,6 @@
 import type { FastifyRequest, FastifyReply } from 'fastify';
 import { verifyAccessToken } from '../auth/jwt.js';
-import { redis } from '../db/redis.js';
+import { redis, setPresence } from '../db/redis.js';
 
 export async function authenticate(request: FastifyRequest, reply: FastifyReply): Promise<void> {
   const auth = request.headers.authorization;
@@ -21,4 +21,6 @@ export async function authenticate(request: FastifyRequest, reply: FastifyReply)
     return;
   }
   request.userId = payload.sub;
+  // fire-and-forget: presence 갱신 실패해도 인증 흐름 중단하지 않음
+  void setPresence(payload.sub);
 }
