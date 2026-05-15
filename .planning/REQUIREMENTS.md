@@ -23,10 +23,10 @@
 
 ### Friends (FRND)
 
-- [ ] **FRND-01**: 친구코드(`닉네임#코드` 또는 코드만 5자리)로 친구 요청 가능
-- [ ] **FRND-02**: 받은 친구 요청을 수락/거절 가능
-- [ ] **FRND-03**: 친구 목록에서 온라인/오프라인/게임 중 상태 확인 가능
-- [ ] **FRND-04**: 친구 삭제 가능 (양방향 동시 삭제)
+- [x] **FRND-01**: 친구코드(`닉네임#코드` 또는 코드만 5자리)로 친구 요청 가능
+- [x] **FRND-02**: 받은 친구 요청을 수락/거절 가능
+- [x] **FRND-03**: 친구 목록에서 온라인/오프라인/게임 중 상태 확인 가능
+- [x] **FRND-04**: 친구 삭제 가능 (양방향 동시 삭제)
 
 ### Room & Matching (ROOM)
 
@@ -143,10 +143,10 @@
 | PROF-03 | Phase 2 | Complete |
 | PROF-04 | Phase 2 | Complete |
 | PROF-05 | Phase 2 | Complete |
-| FRND-01 | Phase 3 | Pending |
-| FRND-02 | Phase 3 | Pending |
-| FRND-03 | Phase 3 | Pending |
-| FRND-04 | Phase 3 | Pending |
+| FRND-01 | Phase 3 | Complete |
+| FRND-02 | Phase 3 | Complete |
+| FRND-03 | Phase 3 | Complete |
+| FRND-04 | Phase 3 | Complete |
 | ROOM-01 | Phase 4 | Pending |
 | ROOM-02 | Phase 4 | Pending |
 | ROOM-03 | Phase 4 | Pending |

@@ -2,14 +2,14 @@
 gsd_state_version: 1.0
 milestone: v1.0
 milestone_name: milestone
-status: Phase complete — ready for verification
-stopped_at: Completed 02-auth-profile-09-PLAN.md — awaiting human verification checkpoint
-last_updated: "2026-05-15T01:17:04.865Z"
+status: Ready to execute
+stopped_at: Completed 03-friends-03-PLAN.md
+last_updated: "2026-05-15T11:13:49.174Z"
 progress:
   total_phases: 7
   completed_phases: 2
-  total_plans: 14
-  completed_plans: 14
+  total_plans: 20
+  completed_plans: 15
 ---
 
 # Project State
@@ -19,12 +19,12 @@ progress:
 See: .planning/PROJECT.md (updated 2026-05-13)
 
 **Core value:** 친구들이 30초 안에 방을 만들고 바로 그림 게임을 시작할 수 있어야 한다 — 설치 직후 즉시 플레이.
-**Current focus:** Phase 02 — auth-profile
+**Current focus:** Phase 03 — friends
 
 ## Current Position
 
-Phase: 02 (auth-profile) — EXECUTING
-Plan: 9 of 9
+Phase: 03 (friends) — EXECUTING
+Plan: 2 of 6
 
 ## Performance Metrics
 
@@ -60,6 +60,7 @@ Plan: 9 of 9
 | Phase 02-auth-profile P05 | 6min | 2 tasks | 13 files |
 | Phase 02-auth-profile P08 | 8min | 2 tasks | 10 files |
 | Phase 02-auth-profile P09 | 15min | 2 tasks | 8 files |
+| Phase 03-friends P03 | 5min | 1 tasks | 5 files |
 
 ## Accumulated Context
 
@@ -101,6 +102,8 @@ Recent decisions affecting current work:
 - [Phase 02-auth-profile]: Stack.Protected 미지원 (Expo Router 3.5): Stack.Screen redirect prop으로 대체
 - [Phase 02-auth-profile]: ProfileCard/ProfileRow 별도 파일 분리: mypage.tsx 비대 방지 + cooldown 비활성 로직 isolated
 - [Phase 02-auth-profile]: computeCooldown 순수 함수 분리: 서버 ISO → 클라이언트 타임존 매핑 (Pitfall 7 회피)
+- [Phase 03-friends]: PresenceStatus/Friend/FriendRequest 타입 각 파일 inline 정의 — 단일 사용처 기준, UI 구현 시 필요하면 분리
+- [Phase 03-friends]: useSendFriendRequest target = '닉네임#코드' 조합 — D-04, Phase 2 D-01 friendCode @unique 제거 반영
 
 ### Pending Todos
 
@@ -112,6 +115,6 @@ None yet.
 
 ## Session Continuity
 
-Last session: 2026-05-15T01:17:04.863Z
-Stopped at: Completed 02-auth-profile-09-PLAN.md — awaiting human verification checkpoint
+Last session: 2026-05-15T11:13:49.171Z
+Stopped at: Completed 03-friends-03-PLAN.md
 Resume file: None
