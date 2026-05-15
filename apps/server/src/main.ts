@@ -5,6 +5,7 @@ import { logger } from './lib/logger.js';
 import { connectPrisma, disconnectPrisma } from './db/prisma.js';
 import { connectRedis, disconnectRedis } from './db/redis.js';
 import { healthRoutes } from './routes/health.js';
+import { authRoutes } from './routes/auth.js';
 // shared 패키지 import 검증 — 빌드 시 워크스페이스 resolution 확인
 import { SHARED_PACKAGE_VERSION, SOCKET_NAMESPACE } from '@sketch-catch/shared';
 
@@ -15,6 +16,7 @@ async function bootstrap(): Promise<void> {
 
   await app.register(cors, { origin: true });
   await app.register(healthRoutes);
+  await app.register(authRoutes);
 
   await connectPrisma();
   await connectRedis();
