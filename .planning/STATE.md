@@ -2,14 +2,14 @@
 gsd_state_version: 1.0
 milestone: v1.0
 milestone_name: milestone
-status: Ready to execute
-stopped_at: Completed 03-friends-03-05-PLAN.md
-last_updated: "2026-05-15T11:18:32.369Z"
+status: Phase complete — ready for verification
+stopped_at: "Completed 03-friends-03-06-PLAN.md (checkpoint:human-verify)"
+last_updated: "2026-05-15T11:22:02.358Z"
 progress:
   total_phases: 7
-  completed_phases: 2
+  completed_phases: 3
   total_plans: 20
-  completed_plans: 19
+  completed_plans: 20
 ---
 
 # Project State
@@ -65,6 +65,7 @@ Plan: 6 of 6
 | Phase 03-friends P01 | 2min | 2 tasks | 5 files |
 | Phase 03-friends P04 | 1min | 1 tasks | 1 files |
 | Phase 03-friends P05 | 70s | 2 tasks | 2 files |
+| Phase 03-friends P06 | 5min | 2 tasks | 2 files |
 
 ## Accumulated Context
 
@@ -115,6 +116,8 @@ Recent decisions affecting current work:
 - [Phase 03-friends]: getPresence mock을 vi.fn().mockResolvedValue('OFFLINE')으로 기본값 설정 — getFriends presenceStatus 테스트에서 개별 오버라이드
 - [Phase 03-friends]: AddFriendModal: ApiError instanceof 체크 후 code 분기 — TypeScript unknown 타입 에러 핸들러에서 타입 안전 보장
 - [Phase 03-friends]: DeleteFriendModal '삭제하기': PixelButton 미지원 destructive variant → Pressable 직접 사용 (DeleteAccountModal 패턴 계속)
+- [Phase 03-friends]: TabBadge 분리 컴포넌트: Tabs.Screen options 내부 훅 호출 금지 — React hooks 규칙 준수
+- [Phase 03-friends]: deleteTarget nullable state 패턴: visibility와 target 데이터를 하나의 상태로 통합
 
 ### Pending Todos
 
@@ -126,6 +129,6 @@ None yet.
 
 ## Session Continuity
 
-Last session: 2026-05-15T11:18:32.365Z
-Stopped at: Completed 03-friends-03-05-PLAN.md
+Last session: 2026-05-15T11:22:02.354Z
+Stopped at: Completed 03-friends-03-06-PLAN.md (checkpoint:human-verify)
 Resume file: None

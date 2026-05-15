@@ -14,7 +14,7 @@ Decimal phases appear between their surrounding integers in numeric order.
 
 - [ ] **Phase 1: Foundation** - 모노레포 초기화, DB 스키마, 공유 타입, CI 파이프라인
 - [x] **Phase 2: Auth & Profile** - 카카오/애플 로그인, 가입 플로우, 마이페이지 (completed 2026-05-15)
-- [ ] **Phase 3: Friends** - 친구코드 기반 친구 추가/목록/상태 표시
+- [x] **Phase 3: Friends** - 친구코드 기반 친구 추가/목록/상태 표시 (completed 2026-05-15)
 - [ ] **Phase 4: Room & Lobby** - 방 생성/입장/랜덤 매칭, 대기실 슬롯/준비/방장 승계
 - [ ] **Phase 5: Game Mode 1** - 실시간 캔버스, 클래식 캐치마인드, 시상식
 - [ ] **Phase 6: Game Mode 2 & GIF** - 전언게임, GIF 생성/저장
@@ -124,7 +124,7 @@ Phases execute in numeric order: 1 → 2 → 3 → 4 → 5 → 6 → 7
 |-------|----------------|--------|-----------|
 | 1. Foundation | 3/5 | In Progress|  |
 | 2. Auth & Profile | 9/9 | Complete   | 2026-05-15 |
-| 3. Friends | 5/6 | In Progress|  |
+| 3. Friends | 6/6 | Complete   | 2026-05-15 |
 | 4. Room & Lobby | 0/? | Not started | - |
 | 5. Game Mode 1 | 0/? | Not started | - |
 | 6. Game Mode 2 & GIF | 0/? | Not started | - |
