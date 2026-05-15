@@ -15,7 +15,8 @@
     },
     "ios": {
       "supportsTablet": false,
-      "bundleIdentifier": "com.sketchcatch.app"
+      "bundleIdentifier": "com.sketchcatch.app",
+      "usesAppleSignIn": true
     },
     "android": {
       "adaptiveIcon": {
@@ -26,13 +27,30 @@
     },
     "plugins": [
       "expo-router",
-      "expo-font"
+      "expo-font",
+      "expo-secure-store",
+      [
+        "@react-native-seoul/kakao-login",
+        {
+          "kakaoAppKey": "KAKAO_NATIVE_APP_KEY_PLACEHOLDER",
+          "kotlinVersion": "1.9.0"
+        }
+      ]
     ],
     "experiments": {
       "typedRoutes": true
     },
     "developmentClient": {
       "silentLaunch": true
-    }
+    },
+    "extra": {
+      "router": {
+        "origin": false
+      },
+      "eas": {
+        "projectId": "f6970800-ce5d-414d-880e-dc6bbda29d67"
+      }
+    },
+    "owner": "zoazoa"
   }
 }
