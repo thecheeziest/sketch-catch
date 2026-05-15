@@ -1,4 +1,5 @@
 import { z } from 'zod';
+import { CHARACTER_IDS } from '../constants/characters.js';
 
 // 닉네임: 2~10자, 띄어쓰기 포함 가능 (CLAUDE.md / PROJECT.md)
 export const nicknameSchema = z
@@ -18,8 +19,8 @@ export const friendCodeInputSchema = z
   .regex(/^[A-Za-z0-9]{5}$/, '친구코드는 영문/숫자 5자리여야 합니다')
   .transform((s) => s.toUpperCase());
 
-// 캐릭터 ID — 동물 10종 + 과일 10종 (구체적 ID 풀은 Phase 2에서 확정)
-export const characterIdSchema = z.string().min(1).max(40);
+// 캐릭터 ID — 동물 10종 + 과일 10종 (CHARACTER_IDS 풀로 검증)
+export const characterIdSchema = z.enum(CHARACTER_IDS as unknown as [string, ...string[]]);
 
 export const onboardingSchema = z.object({
   nickname: nicknameSchema,
@@ -28,3 +29,16 @@ export const onboardingSchema = z.object({
 });
 
 export type OnboardingInput = z.infer<typeof onboardingSchema>;
+
+// PATCH /me 입력 — 모든 필드는 선택적, 최소 1개 이상 포함되어야 함
+export const updateMeSchema = z
+  .object({
+    nickname: nicknameSchema.optional(),
+    friendCode: friendCodeInputSchema.optional(),
+    characterId: characterIdSchema.optional(),
+  })
+  .refine(
+    (v) => v.nickname !== undefined || v.friendCode !== undefined || v.characterId !== undefined,
+    { message: '변경할 항목을 1개 이상 포함해주세요' }
+  );
+export type UpdateMeInput = z.infer<typeof updateMeSchema>;
