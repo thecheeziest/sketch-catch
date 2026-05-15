@@ -2,14 +2,14 @@
 gsd_state_version: 1.0
 milestone: v1.0
 milestone_name: milestone
-status: Phase complete — ready for verification
-stopped_at: "Completed 01-foundation/01-05-PLAN.md (Task 3 checkpoint: GitHub/Railway 외부 설정 대기)"
-last_updated: "2026-05-14T00:38:50.035Z"
+status: Ready to execute
+stopped_at: Completed 02-auth-profile-02-PLAN.md
+last_updated: "2026-05-15T00:59:56.024Z"
 progress:
   total_phases: 7
   completed_phases: 1
-  total_plans: 5
-  completed_plans: 5
+  total_plans: 14
+  completed_plans: 8
 ---
 
 # Project State
@@ -19,12 +19,12 @@ progress:
 See: .planning/PROJECT.md (updated 2026-05-13)
 
 **Core value:** 친구들이 30초 안에 방을 만들고 바로 그림 게임을 시작할 수 있어야 한다 — 설치 직후 즉시 플레이.
-**Current focus:** Phase 01 — foundation
+**Current focus:** Phase 02 — auth-profile
 
 ## Current Position
 
-Phase: 01 (foundation) — EXECUTING
-Plan: 5 of 5
+Phase: 02 (auth-profile) — EXECUTING
+Plan: 3 of 9
 
 ## Performance Metrics
 
@@ -51,6 +51,8 @@ Plan: 5 of 5
 | Phase 01-foundation P04 | 3 | 2 tasks | 17 files |
 | Phase 01-foundation P03 | 3 | 2 tasks | 13 files |
 | Phase 01-foundation P05 | 2min | 2 tasks | 4 files |
+| Phase 02-auth-profile P01 | 8 | 2 tasks | 6 files |
+| Phase 02-auth-profile P02 | 10min | 2 tasks | 7 files |
 
 ## Accumulated Context
 
@@ -76,6 +78,10 @@ Recent decisions affecting current work:
 - [Phase 01-foundation]: docker 미사용 환경에서 prisma migrate dev 생략 — typecheck + build로 정적 검증 완료
 - [Phase 01-foundation]: ci.yml shared build 순서: packages/shared build를 lint/typecheck 전에 실행 — import 해석 보장
 - [Phase 01-foundation]: railway.json startCommand cd apps/server: Dockerfile runner WORKDIR /app 기준으로 명시적 경로 이동
+- [Phase 02-auth-profile]: D-01 구현: nickname/friendCode 개별 @unique 제거, @@unique([nickname, friendCode]) 복합 제약 적용
+- [Phase 02-auth-profile]: characterIdSchema를 z.enum(CHARACTER_IDS)로 교체 — Phase 2에서 ID 풀 확정
+- [Phase 02-auth-profile]: vitest 선택 (jest 대신): apps/server ESM 환경에서 vitest가 ESM 네이티브로 설정 부담 적음
+- [Phase 02-auth-profile]: vitest globals: false — describe/it/expect를 명시적 import로 사용, 암묵적 전역 방지
 
 ### Pending Todos
 
@@ -87,6 +93,6 @@ None yet.
 
 ## Session Continuity
 
-Last session: 2026-05-14T00:38:50.033Z
-Stopped at: Completed 01-foundation/01-05-PLAN.md (Task 3 checkpoint: GitHub/Railway 외부 설정 대기)
+Last session: 2026-05-15T00:59:56.022Z
+Stopped at: Completed 02-auth-profile-02-PLAN.md
 Resume file: None
