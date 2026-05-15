@@ -3,13 +3,13 @@ gsd_state_version: 1.0
 milestone: v1.0
 milestone_name: milestone
 status: Ready to execute
-stopped_at: Completed 03-friends-03-PLAN.md
-last_updated: "2026-05-15T11:13:49.174Z"
+stopped_at: Completed 03-friends-03-01-PLAN.md
+last_updated: "2026-05-15T11:14:45.779Z"
 progress:
   total_phases: 7
   completed_phases: 2
   total_plans: 20
-  completed_plans: 15
+  completed_plans: 17
 ---
 
 # Project State
@@ -24,7 +24,7 @@ See: .planning/PROJECT.md (updated 2026-05-13)
 ## Current Position
 
 Phase: 03 (friends) — EXECUTING
-Plan: 2 of 6
+Plan: 4 of 6
 
 ## Performance Metrics
 
@@ -61,6 +61,8 @@ Plan: 2 of 6
 | Phase 02-auth-profile P08 | 8min | 2 tasks | 10 files |
 | Phase 02-auth-profile P09 | 15min | 2 tasks | 8 files |
 | Phase 03-friends P03 | 5min | 1 tasks | 5 files |
+| Phase 03-friends P02 | 2 | 2 tasks | 4 files |
+| Phase 03-friends P01 | 2min | 2 tasks | 5 files |
 
 ## Accumulated Context
 
@@ -104,6 +106,10 @@ Recent decisions affecting current work:
 - [Phase 02-auth-profile]: computeCooldown 순수 함수 분리: 서버 ISO → 클라이언트 타임존 매핑 (Pitfall 7 회피)
 - [Phase 03-friends]: PresenceStatus/Friend/FriendRequest 타입 각 파일 inline 정의 — 단일 사용처 기준, UI 구현 시 필요하면 분리
 - [Phase 03-friends]: useSendFriendRequest target = '닉네임#코드' 조합 — D-04, Phase 2 D-01 friendCode @unique 제거 반영
+- [Phase 03-friends]: 캐릭터 아이콘은 실 PNG 미존재로 accentSecondary 단색 블록 placeholder 사용 — 실 에셋 추가 시 Image 컴포넌트로 교체
+- [Phase 03-friends]: SegmentedTab indicator는 Dimensions.get 고정 tabWidth 기반 translateX — Phase 3 가로 모드 미지원으로 충분
+- [Phase 03-friends]: z.string().refine(v=>v.includes('#')) 사용 — Zod에 .includes() 체인 없어 refine으로 대체
+- [Phase 03-friends]: Redis presence TTL 300초(5분) — 인증 요청마다 fire-and-forget 갱신, Phase 4 소켓 heartbeat 교체 시 한 줄 제거
 
 ### Pending Todos
 
@@ -115,6 +121,6 @@ None yet.
 
 ## Session Continuity
 
-Last session: 2026-05-15T11:13:49.171Z
-Stopped at: Completed 03-friends-03-PLAN.md
+Last session: 2026-05-15T11:14:45.775Z
+Stopped at: Completed 03-friends-03-01-PLAN.md
 Resume file: None
