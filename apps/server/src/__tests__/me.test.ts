@@ -1,17 +1,26 @@
 import { describe, it, expect } from 'vitest';
+import { assertNicknameCooldown, NicknameCooldownError } from '../services/me.service.js';
 
-// 이 파일은 Plan 05 (me 라우트)에서 실제 구현 테스트로 채워진다.
-// 커버 대상: PROF-01 (30일 닉네임 제한), PROF-02 (친구코드), PROF-03 (캐릭터), PROF-05 (탈퇴)
-
-describe('me routes', () => {
-  it.todo('GET /me returns UserPrivate for authenticated user');
-  it.todo('PATCH /me updates nickname when more than 30 days since last change');
-  it.todo('PROF-01: PATCH /me with nickname within 30 days returns 429 NICKNAME_CHANGE_COOLDOWN with nextChangeAt');
-  it.todo('PROF-02: PATCH /me with friendCode validates 5 alphanumeric uppercase and checks combo uniqueness');
-  it.todo('PROF-03: PATCH /me with characterId accepts any of CHARACTER_IDS without cooldown');
-  it.todo('PROF-05: DELETE /me cascade-deletes FriendRequest, Friendship, then User');
-
-  it('placeholder — replaced in Plan 05', () => {
-    expect(true).toBe(true);
+describe('assertNicknameCooldown', () => {
+  it('passes when lastChange is null', () => {
+    expect(() => assertNicknameCooldown(null)).not.toThrow();
+  });
+  it('passes when more than 30 days have passed', () => {
+    const lastChange = new Date('2026-01-01T00:00:00Z');
+    const now = new Date('2026-02-15T00:00:00Z'); // 45일 후
+    expect(() => assertNicknameCooldown(lastChange, now)).not.toThrow();
+  });
+  it('throws NicknameCooldownError with nextChangeAt when within 30 days', () => {
+    const lastChange = new Date('2026-01-01T00:00:00Z');
+    const now = new Date('2026-01-15T00:00:00Z'); // 14일 후
+    try {
+      assertNicknameCooldown(lastChange, now);
+      expect.fail('Expected to throw');
+    } catch (err) {
+      expect(err).toBeInstanceOf(NicknameCooldownError);
+      const e = err as NicknameCooldownError;
+      expect(e.code).toBe('NICKNAME_CHANGE_COOLDOWN');
+      expect(e.nextChangeAt).toBe('2026-01-31T00:00:00.000Z');
+    }
   });
 });
