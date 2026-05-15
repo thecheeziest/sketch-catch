@@ -7,19 +7,19 @@
 
 ### Authentication (AUTH)
 
-- [ ] **AUTH-01**: 카카오 소셜 로그인으로 가입/로그인 가능 (iOS/Android)
-- [ ] **AUTH-02**: iOS에서 애플 로그인으로 가입/로그인 가능
+- [x] **AUTH-01**: 카카오 소셜 로그인으로 가입/로그인 가능 (iOS/Android)
+- [x] **AUTH-02**: iOS에서 애플 로그인으로 가입/로그인 가능
 - [x] **AUTH-03**: 신규 가입 시 닉네임(2~10자, 띄어쓰기 포함 가능) + 친구코드(5자리 영문/숫자, 직접 입력 또는 랜덤 생성) + 캐릭터(20종 중 1개) 선택 가능
 - [x] **AUTH-04**: `닉네임#코드` 조합이 이미 존재하면 가입/변경 불가 (같은 닉네임이라도 코드가 다르면 허용)
-- [ ] **AUTH-05**: 로그인 상태가 앱 재시작 후에도 유지됨 (JWT SecureStore)
+- [x] **AUTH-05**: 로그인 상태가 앱 재시작 후에도 유지됨 (JWT SecureStore)
 
 ### Profile (PROF)
 
-- [ ] **PROF-01**: 닉네임 변경 가능 (30일 1회 제한, 변경 시 닉네임+코드 조합 중복 검사)
+- [x] **PROF-01**: 닉네임 변경 가능 (30일 1회 제한, 변경 시 닉네임+코드 조합 중복 검사)
 - [x] **PROF-02**: 친구코드 변경 가능 (5자리 영문/숫자, 변경 시 닉네임+코드 조합 중복 검사)
 - [x] **PROF-03**: 캐릭터 변경 가능 (제한 없음)
-- [ ] **PROF-04**: 마이페이지에서 `닉네임#코드` 전체 확인 및 복사 가능
-- [ ] **PROF-05**: 로그아웃 및 회원 탈퇴 가능 (탈퇴 시 데이터 삭제)
+- [x] **PROF-04**: 마이페이지에서 `닉네임#코드` 전체 확인 및 복사 가능
+- [x] **PROF-05**: 로그아웃 및 회원 탈퇴 가능 (탈퇴 시 데이터 삭제)
 
 ### Friends (FRND)
 
@@ -133,16 +133,16 @@
 
 | Requirement | Phase | Status |
 |-------------|-------|--------|
-| AUTH-01 | Phase 2 | Pending |
-| AUTH-02 | Phase 2 | Pending |
+| AUTH-01 | Phase 2 | Complete |
+| AUTH-02 | Phase 2 | Complete |
 | AUTH-03 | Phase 2 | Complete |
 | AUTH-04 | Phase 2 | Complete |
-| AUTH-05 | Phase 2 | Pending |
-| PROF-01 | Phase 2 | Pending |
+| AUTH-05 | Phase 2 | Complete |
+| PROF-01 | Phase 2 | Complete |
 | PROF-02 | Phase 2 | Complete |
 | PROF-03 | Phase 2 | Complete |
-| PROF-04 | Phase 2 | Pending |
-| PROF-05 | Phase 2 | Pending |
+| PROF-04 | Phase 2 | Complete |
+| PROF-05 | Phase 2 | Complete |
 | FRND-01 | Phase 3 | Pending |
 | FRND-02 | Phase 3 | Pending |
 | FRND-03 | Phase 3 | Pending |
