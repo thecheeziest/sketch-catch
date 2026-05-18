@@ -41,4 +41,6 @@ export type RoomState = {
   scoreboard: Record<string, number>;
   current: unknown; // 모드별 라운드/시트 상태 — Phase 5+에서 확정
   startedAt?: number;
+  title?: string;
+  locked?: boolean;
 };

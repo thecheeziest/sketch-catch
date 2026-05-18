@@ -2,14 +2,14 @@
 gsd_state_version: 1.0
 milestone: v1.0
 milestone_name: milestone
-status: Phase complete — ready for verification
-stopped_at: "Completed 03-friends-03-06-PLAN.md (checkpoint:human-verify)"
-last_updated: "2026-05-15T11:22:02.358Z"
+status: Ready to execute
+stopped_at: Completed 04-room-lobby-04-01-PLAN.md
+last_updated: "2026-05-18T08:34:53.523Z"
 progress:
   total_phases: 7
   completed_phases: 3
-  total_plans: 20
-  completed_plans: 20
+  total_plans: 29
+  completed_plans: 21
 ---
 
 # Project State
@@ -19,12 +19,12 @@ progress:
 See: .planning/PROJECT.md (updated 2026-05-13)
 
 **Core value:** 친구들이 30초 안에 방을 만들고 바로 그림 게임을 시작할 수 있어야 한다 — 설치 직후 즉시 플레이.
-**Current focus:** Phase 03 — friends
+**Current focus:** Phase 04 — room-lobby
 
 ## Current Position
 
-Phase: 03 (friends) — EXECUTING
-Plan: 6 of 6
+Phase: 04 (room-lobby) — EXECUTING
+Plan: 2 of 9
 
 ## Performance Metrics
 
@@ -66,6 +66,7 @@ Plan: 6 of 6
 | Phase 03-friends P04 | 1min | 1 tasks | 1 files |
 | Phase 03-friends P05 | 70s | 2 tasks | 2 files |
 | Phase 03-friends P06 | 5min | 2 tasks | 2 files |
+| Phase 04-room-lobby P01 | 2 | 2 tasks | 6 files |
 
 ## Accumulated Context
 
@@ -118,6 +119,8 @@ Recent decisions affecting current work:
 - [Phase 03-friends]: DeleteFriendModal '삭제하기': PixelButton 미지원 destructive variant → Pressable 직접 사용 (DeleteAccountModal 패턴 계속)
 - [Phase 03-friends]: TabBadge 분리 컴포넌트: Tabs.Screen options 내부 훅 호출 금지 — React hooks 규칙 준수
 - [Phase 03-friends]: deleteTarget nullable state 패턴: visibility와 target 데이터를 하나의 상태로 통합
+- [Phase 04-room-lobby]: fastify-socket.io@5.1.0 + socket.io-client@4.8.3: Fastify 4.x peerDep 충족, 동일 메이저 버전 호환 보장
+- [Phase 04-room-lobby]: Wave 0 it.todo 스캐폴드 전략: 구현 전 테스트 파일 확정으로 다운스트림 플랜 interface-first 병렬 작업 가능
 
 ### Pending Todos
 
@@ -129,6 +132,6 @@ None yet.
 
 ## Session Continuity
 
-Last session: 2026-05-15T11:22:02.354Z
-Stopped at: Completed 03-friends-03-06-PLAN.md (checkpoint:human-verify)
+Last session: 2026-05-18T08:34:53.521Z
+Stopped at: Completed 04-room-lobby-04-01-PLAN.md
 Resume file: None
