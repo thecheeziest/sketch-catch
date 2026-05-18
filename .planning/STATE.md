@@ -3,13 +3,13 @@ gsd_state_version: 1.0
 milestone: v1.0
 milestone_name: milestone
 status: Ready to execute
-stopped_at: Completed 04-room-lobby-04-02-PLAN.md
-last_updated: "2026-05-18T08:38:18.348Z"
+stopped_at: Completed 04-room-lobby-04-03-PLAN.md
+last_updated: "2026-05-18T08:39:33.753Z"
 progress:
   total_phases: 7
   completed_phases: 3
   total_plans: 29
-  completed_plans: 22
+  completed_plans: 23
 ---
 
 # Project State
@@ -24,7 +24,7 @@ See: .planning/PROJECT.md (updated 2026-05-13)
 ## Current Position
 
 Phase: 04 (room-lobby) — EXECUTING
-Plan: 3 of 9
+Plan: 4 of 9
 
 ## Performance Metrics
 
@@ -68,6 +68,7 @@ Plan: 3 of 9
 | Phase 03-friends P06 | 5min | 2 tasks | 2 files |
 | Phase 04-room-lobby P01 | 2 | 2 tasks | 6 files |
 | Phase 04-room-lobby P02 | 2min | 2 tasks | 5 files |
+| Phase 04-room-lobby P03 | 160s | 2 tasks | 5 files |
 
 ## Accumulated Context
 
@@ -124,6 +125,8 @@ Recent decisions affecting current work:
 - [Phase 04-room-lobby]: Wave 0 it.todo 스캐폴드 전략: 구현 전 테스트 파일 확정으로 다운스트림 플랜 interface-first 병렬 작업 가능
 - [Phase 04-room-lobby]: rooms.service.ts는 04-01에서 이미 완전 구현 → 타입 확장(title?/locked?)만 추가
 - [Phase 04-room-lobby]: POST /rooms title 미입력 시 라우트 레이어에서 nickname의 방 기본값 처리
+- [Phase 04-room-lobby]: rooms.service.ts를 04-03에서 선행 구현: wave 2 병렬 실행 중 04-02 산출물 미존재로 Deviation Rule 3 자동 처리
+- [Phase 04-room-lobby]: matchQueueKey(count): matchqueue:1:{count} — D-08 모드 1 고정으로 mode 파라미터 생략, tryCreateMatch 반환 { code } | null
 
 ### Pending Todos
 
@@ -135,6 +138,6 @@ None yet.
 
 ## Session Continuity
 
-Last session: 2026-05-18T08:38:18.345Z
-Stopped at: Completed 04-room-lobby-04-02-PLAN.md
+Last session: 2026-05-18T08:39:33.751Z
+Stopped at: Completed 04-room-lobby-04-03-PLAN.md
 Resume file: None
