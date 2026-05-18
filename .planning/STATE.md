@@ -3,13 +3,13 @@ gsd_state_version: 1.0
 milestone: v1.0
 milestone_name: milestone
 status: Ready to execute
-stopped_at: Completed 04-room-lobby-04-01-PLAN.md
-last_updated: "2026-05-18T08:34:53.523Z"
+stopped_at: Completed 04-room-lobby-04-02-PLAN.md
+last_updated: "2026-05-18T08:38:18.348Z"
 progress:
   total_phases: 7
   completed_phases: 3
   total_plans: 29
-  completed_plans: 21
+  completed_plans: 22
 ---
 
 # Project State
@@ -24,7 +24,7 @@ See: .planning/PROJECT.md (updated 2026-05-13)
 ## Current Position
 
 Phase: 04 (room-lobby) — EXECUTING
-Plan: 2 of 9
+Plan: 3 of 9
 
 ## Performance Metrics
 
@@ -67,6 +67,7 @@ Plan: 2 of 9
 | Phase 03-friends P05 | 70s | 2 tasks | 2 files |
 | Phase 03-friends P06 | 5min | 2 tasks | 2 files |
 | Phase 04-room-lobby P01 | 2 | 2 tasks | 6 files |
+| Phase 04-room-lobby P02 | 2min | 2 tasks | 5 files |
 
 ## Accumulated Context
 
@@ -121,6 +122,8 @@ Recent decisions affecting current work:
 - [Phase 03-friends]: deleteTarget nullable state 패턴: visibility와 target 데이터를 하나의 상태로 통합
 - [Phase 04-room-lobby]: fastify-socket.io@5.1.0 + socket.io-client@4.8.3: Fastify 4.x peerDep 충족, 동일 메이저 버전 호환 보장
 - [Phase 04-room-lobby]: Wave 0 it.todo 스캐폴드 전략: 구현 전 테스트 파일 확정으로 다운스트림 플랜 interface-first 병렬 작업 가능
+- [Phase 04-room-lobby]: rooms.service.ts는 04-01에서 이미 완전 구현 → 타입 확장(title?/locked?)만 추가
+- [Phase 04-room-lobby]: POST /rooms title 미입력 시 라우트 레이어에서 nickname의 방 기본값 처리
 
 ### Pending Todos
 
@@ -132,6 +135,6 @@ None yet.
 
 ## Session Continuity
 
-Last session: 2026-05-18T08:34:53.521Z
-Stopped at: Completed 04-room-lobby-04-01-PLAN.md
+Last session: 2026-05-18T08:38:18.345Z
+Stopped at: Completed 04-room-lobby-04-02-PLAN.md
 Resume file: None
