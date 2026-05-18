@@ -30,16 +30,16 @@
 
 ### Room & Matching (ROOM)
 
-- [ ] **ROOM-01**: 방 생성 시 6자리 방 코드 자동 발급, 인원(3~12)/모드(1 or 2)/라운드/타이머 설정 가능
-- [ ] **ROOM-02**: 방 코드 직접 입력으로 방 입장 가능
-- [ ] **ROOM-03**: 랜덤 매칭 큐 진입 가능 (6/8/10명 선택, 30초 타임아웃 시 연장/취소 안내)
-- [ ] **ROOM-04**: 매칭 중 취소 가능 (큐 즉시 제거)
+- [x] **ROOM-01**: 방 생성 시 6자리 방 코드 자동 발급, 인원(3~12)/모드(1 or 2)/라운드/타이머 설정 가능
+- [x] **ROOM-02**: 방 코드 직접 입력으로 방 입장 가능
+- [x] **ROOM-03**: 랜덤 매칭 큐 진입 가능 (6/8/10명 선택, 30초 타임아웃 시 연장/취소 안내)
+- [x] **ROOM-04**: 매칭 중 취소 가능 (큐 즉시 제거)
 
 ### Lobby (LBBY)
 
-- [ ] **LBBY-01**: 인원 수만큼 빈 슬롯이 표시되고, 입장 시 해당 슬롯 채워짐
-- [ ] **LBBY-02**: 일반 참가자는 준비 완료 토글, 방장은 전원 준비 완료 시 게임 시작 가능
-- [ ] **LBBY-03**: 방장 나가면 다음 입장 순서 참가자가 자동으로 방장 승계
+- [x] **LBBY-01**: 인원 수만큼 빈 슬롯이 표시되고, 입장 시 해당 슬롯 채워짐
+- [x] **LBBY-02**: 일반 참가자는 준비 완료 토글, 방장은 전원 준비 완료 시 게임 시작 가능
+- [x] **LBBY-03**: 방장 나가면 다음 입장 순서 참가자가 자동으로 방장 승계
 
 ### Game Mode 1 — Classic (MD1)
 
@@ -147,13 +147,13 @@
 | FRND-02 | Phase 3 | Complete |
 | FRND-03 | Phase 3 | Complete |
 | FRND-04 | Phase 3 | Complete |
-| ROOM-01 | Phase 4 | Pending |
-| ROOM-02 | Phase 4 | Pending |
-| ROOM-03 | Phase 4 | Pending |
-| ROOM-04 | Phase 4 | Pending |
-| LBBY-01 | Phase 4 | Pending |
-| LBBY-02 | Phase 4 | Pending |
-| LBBY-03 | Phase 4 | Pending |
+| ROOM-01 | Phase 4 | Complete |
+| ROOM-02 | Phase 4 | Complete |
+| ROOM-03 | Phase 4 | Complete |
+| ROOM-04 | Phase 4 | Complete |
+| LBBY-01 | Phase 4 | Complete |
+| LBBY-02 | Phase 4 | Complete |
+| LBBY-03 | Phase 4 | Complete |
 | MD1-01 | Phase 5 | Pending |
 | MD1-02 | Phase 5 | Pending |
 | MD1-03 | Phase 5 | Pending |
