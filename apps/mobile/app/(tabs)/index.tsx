@@ -1,42 +1,76 @@
-import styled from 'styled-components/native';
-import { SafeAreaView } from 'react-native-safe-area-context';
-import { Link } from 'expo-router';
-import { PixelButton } from '@/components/PixelButton';
-import { useMe } from '@/features/auth/useMe';
+import { useState } from 'react'
+import { Dimensions, Image, StyleSheet, View } from 'react-native'
+import { SafeAreaView } from 'react-native-safe-area-context'
+import { useRouter } from 'expo-router'
+import { PixelButton } from '@/shared/ui/PixelButton'
+import { ProfileHeader } from '@/shared/ui/ProfileHeader'
+import { CodeJoinModal } from '@/features/room/ui/CodeJoinModal'
+import { useRoomStore } from '@/shared/model/room'
+import { colors, spacing } from '@/shared/config/theme'
+import { icons } from '@/shared/config/assets'
 
-const Container = styled(SafeAreaView)`
-  flex: 1;
-  background-color: ${({ theme }) => theme.colors.background};
-  padding-horizontal: ${({ theme }) => theme.spacing.xl}px;
-  justify-content: center;
-  gap: ${({ theme }) => theme.spacing.lg}px;
-`;
+const LOGO_WIDTH = Dimensions.get('window').width * 0.6
 
-const Title = styled.Text`
-  font-family: ${({ theme }) => theme.fontFamily.regular};
-  font-size: ${({ theme }) => theme.typography.display.fontSize}px;
-  color: ${({ theme }) => theme.colors.textPrimary};
-  text-align: center;
-`;
+export default function HomeScreen(): React.JSX.Element {
+  const router = useRouter()
+  const isMatchmaking = useRoomStore((s) => s.isMatchmaking)
+  const [codeModalVisible, setCodeModalVisible] = useState(false)
 
-const Greeting = styled.Text`
-  font-family: ${({ theme }) => theme.fontFamily.regular};
-  font-size: ${({ theme }) => theme.typography.heading.fontSize}px;
-  color: ${({ theme }) => theme.colors.textPrimary};
-  text-align: center;
-`;
-
-export default function HomeStub(): React.JSX.Element {
-  const { data: user } = useMe();
   return (
-    <Container>
-      <Title allowFontScaling={false}>스케치캐치</Title>
-      {user ? (
-        <Greeting allowFontScaling={false}>안녕하세요, {user.nickname}님</Greeting>
-      ) : null}
-      <Link href="/mypage" asChild>
-        <PixelButton label="마이페이지" variant="secondary" />
-      </Link>
-    </Container>
-  );
+    <SafeAreaView style={styles.container} edges={['bottom', 'left', 'right']}>
+      <ProfileHeader />
+      <View style={styles.content}>
+        <Image source={icons.LOGO} style={styles.logo} resizeMode="contain" />
+        <View style={styles.buttons}>
+          <View style={[isMatchmaking && styles.dimmed]}>
+            <PixelButton
+              label="방 만들기"
+              variant="primary"
+              disabled={isMatchmaking}
+              onPress={() => router.push('/room/create')}
+            />
+          </View>
+          <PixelButton
+            label="랜덤 매칭"
+            variant="secondary"
+            onPress={() => router.push('/room/match')}
+          />
+          <View style={[isMatchmaking && styles.dimmed]}>
+            <PixelButton
+              label="코드로 입장"
+              variant="outline"
+              disabled={isMatchmaking}
+              onPress={() => setCodeModalVisible(true)}
+            />
+          </View>
+        </View>
+      </View>
+      <CodeJoinModal visible={codeModalVisible} onClose={() => setCodeModalVisible(false)} />
+    </SafeAreaView>
+  )
 }
+
+const styles = StyleSheet.create({
+  container: {
+    flex: 1,
+    backgroundColor: colors.background,
+  },
+  content: {
+    flex: 1,
+    paddingHorizontal: spacing.xl,
+    justifyContent: 'center',
+    alignItems: 'center',
+    gap: spacing.lg,
+  },
+  logo: {
+    width: LOGO_WIDTH,
+    height: LOGO_WIDTH,
+  },
+  buttons: {
+    width: '100%',
+    gap: spacing.md,
+  },
+  dimmed: {
+    opacity: 0.3,
+  },
+})
