@@ -10,42 +10,42 @@ import type {
 } from '../types/game.js';
 import type { StrokeEvent } from '../types/stroke.js';
 
-// 클라이언트 → 서버
+// 클라이언트 → 서버 (Socket.io EventsMap: 각 이벤트를 함수 시그니처로 정의)
 export type ClientEvents = {
-  auth: { token: string };
-  'room:join': { code: string };
-  'room:leave': Record<string, never>;
-  'room:ready': { ready: boolean };
-  'room:start': Record<string, never>;
-  'stroke:start': { strokeId: string; color: string; width: number };
-  'stroke:append': { strokeId: string; points: Point[] };
-  'stroke:end': { strokeId: string };
-  'stroke:undo': Record<string, never>;
-  'stroke:clear': Record<string, never>;
-  'chat:send': { text: string };
-  'answer:accept': { messageId: string };
-  'mode2:prompt': { sheetId: string; text: string };
-  'mode2:draw:done': { sheetId: string };
-  'mode2:answer': { sheetId: string; text: string };
-  'mode2:vote': { sheetId: string; stepIndex: number; ok: boolean };
-  'mode2:vote:best': { sheetId: string };
+  auth: (payload: { token: string }) => void;
+  'room:join': (payload: { code: string }) => void;
+  'room:leave': () => void;
+  'room:ready': (payload: { ready: boolean }) => void;
+  'room:start': () => void;
+  'stroke:start': (payload: { strokeId: string; color: string; width: number }) => void;
+  'stroke:append': (payload: { strokeId: string; points: Point[] }) => void;
+  'stroke:end': (payload: { strokeId: string }) => void;
+  'stroke:undo': () => void;
+  'stroke:clear': () => void;
+  'chat:send': (payload: { text: string }) => void;
+  'answer:accept': (payload: { messageId: string }) => void;
+  'mode2:prompt': (payload: { sheetId: string; text: string }) => void;
+  'mode2:draw:done': (payload: { sheetId: string }) => void;
+  'mode2:answer': (payload: { sheetId: string; text: string }) => void;
+  'mode2:vote': (payload: { sheetId: string; stepIndex: number; ok: boolean }) => void;
+  'mode2:vote:best': (payload: { sheetId: string }) => void;
 };
 
-// 서버 → 클라이언트
+// 서버 → 클라이언트 (Socket.io EventsMap: 각 이벤트를 함수 시그니처로 정의)
 export type ServerEvents = {
-  'room:state': RoomState;
-  'room:player:join': { player: Player };
-  'room:player:leave': { userId: string };
-  'game:round:start': RoundStart;
-  'game:round:end': RoundEnd;
-  'game:end': GameResult;
-  'stroke:remote': StrokeEvent;
-  'chat:message': ChatMessage;
-  'chat:correct': { userId: string; messageId: string };
-  'mode2:step': Mode2Step;
-  'mode2:review': Mode2Review;
-  'cookie:ready': { sheetId: string };
-  error: { code: string; message: string };
+  'room:state': (state: RoomState) => void;
+  'room:player:join': (payload: { player: Player }) => void;
+  'room:player:leave': (payload: { userId: string }) => void;
+  'game:round:start': (payload: RoundStart) => void;
+  'game:round:end': (payload: RoundEnd) => void;
+  'game:end': (payload: GameResult) => void;
+  'stroke:remote': (payload: StrokeEvent) => void;
+  'chat:message': (payload: ChatMessage) => void;
+  'chat:correct': (payload: { userId: string; messageId: string }) => void;
+  'mode2:step': (payload: Mode2Step) => void;
+  'mode2:review': (payload: Mode2Review) => void;
+  'cookie:ready': (payload: { sheetId: string }) => void;
+  error: (payload: { code: string; message: string }) => void;
 };
 
 // 문자열 상수 — emit/on에서 매직 스트링 방지
@@ -67,7 +67,7 @@ export const CLIENT_EVENT = {
   MODE2_ANSWER: 'mode2:answer',
   MODE2_VOTE: 'mode2:vote',
   MODE2_VOTE_BEST: 'mode2:vote:best',
-} as const satisfies Record<string, keyof ClientEvents>;
+} as const satisfies Readonly<Record<string, keyof ClientEvents>>;
 
 export const SERVER_EVENT = {
   ROOM_STATE: 'room:state',
@@ -83,6 +83,6 @@ export const SERVER_EVENT = {
   MODE2_REVIEW: 'mode2:review',
   COOKIE_READY: 'cookie:ready',
   ERROR: 'error',
-} as const satisfies Record<string, keyof ServerEvents>;
+} as const satisfies Readonly<Record<string, keyof ServerEvents>>;
 
 export const SOCKET_NAMESPACE = '/game' as const;

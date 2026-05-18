@@ -1,5 +1,7 @@
 import Fastify from 'fastify';
 import cors from '@fastify/cors';
+import socketioPlugin from 'fastify-socket.io';
+import type { Server } from 'socket.io';
 import { env } from './lib/env.js';
 import { logger } from './lib/logger.js';
 import { connectPrisma, disconnectPrisma } from './db/prisma.js';
@@ -10,8 +12,9 @@ import { meRoutes } from './routes/me.js';
 import { friendsRoutes } from './routes/friends.js';
 import { roomsRoutes } from './routes/rooms.js';
 import { matchRoutes } from './routes/match.js';
+import { registerGameNamespace } from './socket/game.namespace.js';
 // shared 패키지 import 검증 — 빌드 시 워크스페이스 resolution 확인
-import { SHARED_PACKAGE_VERSION, SOCKET_NAMESPACE } from '@sketch-catch/shared';
+import { SHARED_PACKAGE_VERSION, SOCKET_NAMESPACE, type ClientEvents, type ServerEvents } from '@sketch-catch/shared';
 
 async function bootstrap(): Promise<void> {
   logger.info({ shared: SHARED_PACKAGE_VERSION, namespace: SOCKET_NAMESPACE }, 'shared package loaded');
@@ -19,6 +22,9 @@ async function bootstrap(): Promise<void> {
   const app = Fastify({ logger });
 
   await app.register(cors, { origin: true });
+  // Socket.io 플러그인 등록 — app.io 데코레이터 사용 가능해짐
+  await app.register(socketioPlugin, { cors: { origin: true } });
+
   await app.register(healthRoutes);
   await app.register(authRoutes);
   await app.register(meRoutes);
@@ -28,6 +34,10 @@ async function bootstrap(): Promise<void> {
 
   await connectPrisma();
   await connectRedis();
+
+  // app.ready() 후에만 app.io 접근 가능 (RESEARCH.md §Pattern 1)
+  await app.ready();
+  registerGameNamespace(app.io as Server<ClientEvents, ServerEvents>);
 
   const shutdown = async (signal: string): Promise<void> => {
     logger.info({ signal }, 'shutting down');
