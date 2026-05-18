@@ -22,6 +22,8 @@ export const createRoomSchema = z.object({
   drawTimer: z.number().int().min(10).max(60).multipleOf(5), // MD1-05
   answerTimer: z.number().int().min(5).max(30).optional(),
   categories: z.array(categorySchema).min(1),
+  title: z.string().max(20).optional(),
+  locked: z.boolean().default(false),
 });
 
 // 채팅: 최대 30자 (GAME-01)

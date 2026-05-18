@@ -23,6 +23,7 @@
     "@sketch-catch/shared": "workspace:*",
     "dotenv": "^16.4.5",
     "fastify": "^4.28.1",
+    "fastify-socket.io": "5.1.0",
     "ioredis": "^5.4.1",
     "jose": "^6.2.3",
     "jsonwebtoken": "^9.0.3",
