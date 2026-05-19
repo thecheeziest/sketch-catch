@@ -21,7 +21,7 @@ export function SlotCard({ player, isMe }: Props): React.JSX.Element {
   }
 
   const cardStyle = player.isReady ? styles.readyCard : styles.waitingCard
-  const borderStyle = isMe ? styles.meBorder : null
+  const borderStyle = isMe ? styles.meBorder : player.isHost ? styles.hostBorder : null
 
   const imageSource = getCharacterImageSource(player.characterId)
 
@@ -104,20 +104,23 @@ const styles = StyleSheet.create({
     borderWidth: 3,
     borderColor: colors.textPrimary,
   },
+  hostBorder: {
+    borderColor: colors.textPrimary,
+  },
   hostBadge: {
     position: 'absolute',
-    top: 0,
-    left: 0,
-    right: 0,
-    backgroundColor: colors.accentPrimary,
-    alignItems: 'center',
+    top: 4,
+    right: 4,
+    backgroundColor: colors.textPrimary,
+    borderRadius: 4,
     paddingVertical: 2,
+    paddingHorizontal: 5,
     zIndex: 1,
   },
   hostBadgeText: {
     fontFamily: fontFamily.regular,
-    fontSize: 10,
-    lineHeight: 14,
+    fontSize: 9,
+    lineHeight: 13,
     color: colors.background,
   },
   avatarWrapper: {
