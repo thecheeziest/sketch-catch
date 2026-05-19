@@ -3,13 +3,13 @@ gsd_state_version: 1.0
 milestone: v1.0
 milestone_name: milestone
 status: Ready to execute
-stopped_at: Completed 04-room-lobby-04-06-PLAN.md
-last_updated: "2026-05-18T23:56:27.060Z"
+stopped_at: Completed 04-room-lobby-04-07-PLAN.md
+last_updated: "2026-05-19T00:01:11.812Z"
 progress:
   total_phases: 7
   completed_phases: 3
   total_plans: 29
-  completed_plans: 26
+  completed_plans: 28
 ---
 
 # Project State
@@ -24,7 +24,7 @@ See: .planning/PROJECT.md (updated 2026-05-13)
 ## Current Position
 
 Phase: 04 (room-lobby) — EXECUTING
-Plan: 4 of 9
+Plan: 6 of 9
 
 ## Performance Metrics
 
@@ -72,6 +72,8 @@ Plan: 4 of 9
 | Phase 04-room-lobby P04 | 5min | 2 tasks | 6 files |
 | Phase 04 P05 | 109s | 2 tasks | 5 files |
 | Phase 04-room-lobby P06 | 7min | 2 tasks | 6 files |
+| Phase 04-room-lobby P07 | 3min | 2 tasks | 3 files |
+| Phase 04-room-lobby P08 | 6min | 2 tasks | 2 files |
 
 ## Accumulated Context
 
@@ -134,6 +136,10 @@ Recent decisions affecting current work:
 - [Phase 04-room-lobby]: socket.on 이벤트명에 CLIENT_EVENT 상수 대신 리터럴 직접 사용: 상수를 통한 타입 추론이 socket.on 오버로드와 불일치
 - [Phase 04]: 이벤트명 리터럴 직접 사용: SERVER_EVENT 상수를 통한 타입 추론이 socket.on 오버로드와 불일치 (04-04 결정 계속)
 - [Phase 04-room-lobby]: noUncheckedIndexedAccess: ALL_CATEGORIES[0] → 리터럴 'ANIMAL'로 대체 — tsconfig 타입 안전 정책 준수
+- [Phase 04-room-lobby]: D-10 준수: MatchingButton 타이머는 순수 카운트업만, 30초 타임아웃/연장 로직 미포함
+- [Phase 04-room-lobby]: 탭 비활성화 tabPress preventDefault 방식: tabBarStyle 변경 없이 매칭 중 친구 탭 차단 (복원 깜빡임 방지)
+- [Phase 04-room-lobby]: SafeAreaView를 react-native-safe-area-context에서 import — edges prop은 standard RN SafeAreaView에 없음
+- [Phase 04-room-lobby]: wasHostRef로 방장 승계 Toast 중복 방지 — 첫 감지 시에만 show(), 이후 리렌더에서는 ref 갱신만
 
 ### Pending Todos
 
@@ -145,6 +151,6 @@ None yet.
 
 ## Session Continuity
 
-Last session: 2026-05-18T23:56:27.057Z
-Stopped at: Completed 04-room-lobby-04-06-PLAN.md
+Last session: 2026-05-19T00:01:11.810Z
+Stopped at: Completed 04-room-lobby-04-07-PLAN.md
 Resume file: None
