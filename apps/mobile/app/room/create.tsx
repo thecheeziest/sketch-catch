@@ -9,6 +9,7 @@ import { StepperField } from '@/features/room/ui/StepperField'
 import { CategoryChip } from '@/features/room/ui/CategoryChip'
 import { useCreateRoom } from '@/features/room/api/useCreateRoom'
 import { useToastStore } from '@/shared/model/toast'
+import { useAuthStore } from '@/shared/model/auth'
 import { colors, spacing, typography, fontFamily } from '@/shared/config/theme'
 import type { Category } from '@sketch-catch/shared'
 
@@ -28,6 +29,7 @@ export default function RoomCreateScreen(): React.JSX.Element {
   const router = useRouter()
   const showToast = useToastStore((s) => s.show)
   const { mutate, isPending } = useCreateRoom()
+  const nickname = useAuthStore.getState().user?.nickname
 
   // D-04 기본값
   const [title, setTitle] = useState('')
@@ -95,7 +97,7 @@ export default function RoomCreateScreen(): React.JSX.Element {
         {/* 방 제목 */}
         <PixelInput
           label="방 제목"
-          placeholder="닉네임의 방"
+          placeholder={nickname ? `${nickname}님의 방` : '방 제목을 입력하세요'}
           value={title}
           onChangeText={setTitle}
           maxLength={20}

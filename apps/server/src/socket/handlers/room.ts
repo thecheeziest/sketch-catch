@@ -3,6 +3,7 @@ import type { ClientEvents, ServerEvents } from '@sketch-catch/shared';
 import { SERVER_EVENT } from '@sketch-catch/shared';
 import { getRoomState, saveRoomState } from '../../services/rooms.service.js';
 import { redis, setPresence } from '../../db/redis.js';
+import { prisma } from '../../db/prisma.js';
 
 type GameNamespace = Namespace<ClientEvents, ServerEvents>;
 type GameSocket = Socket<ClientEvents, ServerEvents, Record<string, never>, { userId: string }>;
@@ -35,11 +36,16 @@ export async function handleRoomJoin(
     let slot = 0;
     while (usedSlots.has(slot)) slot++;
 
+    const userRecord = await prisma.user.findUnique({
+      where: { id: userId },
+      select: { nickname: true, characterId: true, friendCode: true },
+    });
+
     state.players.push({
       id: userId,
-      nickname: '',
-      friendCode: '',
-      characterId: '',
+      nickname: userRecord?.nickname ?? '',
+      friendCode: userRecord?.friendCode ?? '',
+      characterId: userRecord?.characterId ?? '',
       slot,
       isHost: userId === state.hostId,
       isReady: false,

@@ -1,4 +1,4 @@
-import React, { useEffect, useRef } from 'react'
+import React, { useEffect, useRef, useState } from 'react'
 import {
   View,
   Text,
@@ -18,11 +18,11 @@ import { useAuthStore } from '@/shared/model/auth'
 import { useToastStore } from '@/shared/model/toast'
 import { PixelButton } from '@/shared/ui/PixelButton'
 import { SlotCard } from '@/features/room/ui/SlotCard'
+import { RoomEditModal } from '@/features/room/ui/RoomEditModal'
 import { colors, spacing, typography, fontFamily } from '@/shared/config/theme'
 
 function getNumColumns(maxPlayers: number): number {
   if (maxPlayers <= 4) return 2
-  if (maxPlayers <= 6) return 3
   if (maxPlayers <= 9) return 3
   return 4
 }
@@ -33,43 +33,47 @@ export default function LobbyScreen(): React.JSX.Element {
   const { code } = useLocalSearchParams<{ code: string }>()
   const { connect, disconnect, socket, roomState } = useRoomStore()
   const myId = useAuthStore.getState().user?.id
-
-  // 방장 승계 감지를 위한 이전 hostId ref
   const wasHostRef = useRef(false)
+  const [editVisible, setEditVisible] = useState(false)
 
-  // 소켓 연결 라이프사이클
   useEffect(() => {
     connect()
     return () => disconnect()
   }, [connect, disconnect])
 
-  // 소켓 연결 후 room:join emit
+  // 소켓 connect 이벤트 이후 room:join emit (타이밍 버그 수정)
   useEffect(() => {
-    if (socket?.connected && code) {
+    if (!socket || !code) return
+    const handleConnect = (): void => {
       socket.emit(CLIENT_EVENT.ROOM_JOIN, { code })
     }
+    if (socket.connected) {
+      socket.emit(CLIENT_EVENT.ROOM_JOIN, { code })
+      return
+    }
+    socket.on('connect', handleConnect)
+    return () => { socket.off('connect', handleConnect) }
   }, [socket, code])
 
   // 방장 승계 Toast
   useEffect(() => {
     const isHost = roomState?.hostId === myId
-    if (isHost && roomState?.players.find((p) => p.id === myId) && !wasHostRef.current) {
+    const hasJoined = Boolean(roomState?.players.find((p) => p.id === myId))
+    if (isHost && hasJoined && !wasHostRef.current) {
       useToastStore.getState().show('방장이 되었습니다')
     }
     wasHostRef.current = isHost ?? false
-  }, [roomState?.hostId, myId])
+  }, [roomState?.hostId, myId, roomState?.players])
 
   const maxPlayers = roomState?.config.playerCountMax ?? 6
   const numColumns = getNumColumns(maxPlayers)
 
-  // 슬롯 배열: maxPlayers 길이, index = slot 번호
   const slots: SlotItem[] = Array.from({ length: maxPlayers }, (_, i) => {
     return roomState?.players.find((p) => p.slot === i) ?? null
   })
 
   const me = roomState?.players.find((p) => p.id === myId)
   const isHost = me?.isHost ?? false
-  // 서버 권위 — 클라이언트 단독 계산 금지
   const allReady = roomState?.allReady ?? false
 
   const handleCopyCode = async (): Promise<void> => {
@@ -85,28 +89,31 @@ export default function LobbyScreen(): React.JSX.Element {
 
   return (
     <SafeAreaView style={styles.safeArea} edges={['top', 'bottom', 'left', 'right']}>
-      {/* 헤더 */}
+      {/* 헤더: 방제목+자물쇠(왼쪽) | 방코드+복사+설정(오른쪽) */}
       <View style={styles.header}>
-        <Text style={styles.title} allowFontScaling={false} numberOfLines={1}>
-          {roomState?.title ?? ''}
-        </Text>
-
-        <View style={styles.codeRow}>
-          <Text style={styles.codeText} allowFontScaling={false}>
-            {code}
-          </Text>
-          <Pressable onPress={handleCopyCode} hitSlop={8}>
-            <Text style={styles.copyButton} allowFontScaling={false}>
-              복사
+        <View style={styles.headerRow}>
+          <View style={styles.titleGroup}>
+            <Text style={styles.title} allowFontScaling={false} numberOfLines={1}>
+              {roomState?.title ?? ''}
             </Text>
-          </Pressable>
-          <Ionicons
-            name={roomState?.locked ? 'lock-closed' : 'lock-open'}
-            size={16}
-            color={colors.textSecondary}
-          />
+            <Ionicons
+              name={roomState?.locked ? 'lock-closed' : 'lock-open'}
+              size={14}
+              color={colors.textSecondary}
+            />
+          </View>
+          <View style={styles.codeGroup}>
+            <Text style={styles.codeText} allowFontScaling={false}>{code}</Text>
+            <Pressable onPress={handleCopyCode} hitSlop={8}>
+              <Ionicons name="copy-outline" size={16} color={colors.accentPrimary} />
+            </Pressable>
+            {isHost && (
+              <Pressable onPress={() => setEditVisible(true)} hitSlop={8}>
+                <Ionicons name="settings-outline" size={16} color={colors.textSecondary} />
+              </Pressable>
+            )}
+          </View>
         </View>
-
         <View style={styles.divider} />
       </View>
 
@@ -152,6 +159,12 @@ export default function LobbyScreen(): React.JSX.Element {
           />
         )}
       </View>
+
+      <RoomEditModal
+        visible={editVisible}
+        onClose={() => setEditVisible(false)}
+        roomCode={code ?? ''}
+      />
     </SafeAreaView>
   )
 }
@@ -165,31 +178,35 @@ const styles = StyleSheet.create({
     paddingHorizontal: spacing.md,
     paddingTop: spacing.md,
   },
+  headerRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+  },
+  titleGroup: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.xs,
+    flex: 1,
+    marginRight: spacing.sm,
+  },
   title: {
     fontFamily: fontFamily.regular,
     fontSize: typography.heading.fontSize,
     lineHeight: typography.heading.lineHeight,
     color: colors.textPrimary,
-    textAlign: 'center',
+    flexShrink: 1,
   },
-  codeRow: {
+  codeGroup: {
     flexDirection: 'row',
     alignItems: 'center',
-    justifyContent: 'center',
     gap: spacing.sm,
-    marginTop: spacing.xs,
   },
   codeText: {
     fontFamily: fontFamily.regular,
     fontSize: typography.label.fontSize,
     lineHeight: typography.label.lineHeight,
     color: colors.textSecondary,
-  },
-  copyButton: {
-    fontFamily: fontFamily.regular,
-    fontSize: typography.label.fontSize,
-    lineHeight: typography.label.lineHeight,
-    color: colors.accentPrimary,
   },
   divider: {
     borderBottomWidth: 1,

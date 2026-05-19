@@ -28,6 +28,13 @@ export function SlotCard({ player, isMe }: Props): React.JSX.Element {
   return (
     <View style={styles.cardWrapper}>
       <View style={[styles.card, cardStyle, borderStyle]}>
+        {/* 방장 뱃지 */}
+        {player.isHost && (
+          <View style={styles.hostBadge}>
+            <Text style={styles.hostBadgeText} allowFontScaling={false}>방장</Text>
+          </View>
+        )}
+
         {/* 캐릭터 이미지 or placeholder */}
         <View style={styles.avatarWrapper}>
           {imageSource !== null ? (
@@ -96,6 +103,22 @@ const styles = StyleSheet.create({
   meBorder: {
     borderWidth: 3,
     borderColor: colors.textPrimary,
+  },
+  hostBadge: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    backgroundColor: colors.accentPrimary,
+    alignItems: 'center',
+    paddingVertical: 2,
+    zIndex: 1,
+  },
+  hostBadgeText: {
+    fontFamily: fontFamily.regular,
+    fontSize: 10,
+    lineHeight: 14,
+    color: colors.background,
   },
   avatarWrapper: {
     flex: 1,
