@@ -3,13 +3,13 @@ gsd_state_version: 1.0
 milestone: v1.0
 milestone_name: milestone
 status: Ready to execute
-stopped_at: Completed 05-game-mode-1/05-07-PLAN.md
-last_updated: "2026-05-26T23:53:07.161Z"
+stopped_at: Completed 05-game-mode-1/05-08-PLAN.md
+last_updated: "2026-05-26T23:57:19.045Z"
 progress:
   total_phases: 7
   completed_phases: 3
   total_plans: 38
-  completed_plans: 35
+  completed_plans: 36
 ---
 
 # Project State
@@ -24,7 +24,7 @@ See: .planning/PROJECT.md (updated 2026-05-13)
 ## Current Position
 
 Phase: 05 (game-mode-1) — EXECUTING
-Plan: 8 of 9
+Plan: 9 of 9
 
 ## Performance Metrics
 
@@ -81,6 +81,7 @@ Plan: 8 of 9
 | Phase 05-game-mode-1 P05 | 184s | 2 tasks | 7 files |
 | Phase 05 P06 | 15min | 3 tasks | 11 files |
 | Phase 05-game-mode-1 P07 | 18 | 4 tasks | 11 files |
+| Phase 05-game-mode-1 P08 | 112s | 2 tasks | 3 files |
 
 ## Accumulated Context
 
@@ -159,6 +160,8 @@ Recent decisions affecting current work:
 - [Phase 05-game-mode-1]: strokeId별 SkPath Map 누적으로 remoteStroke 재생 — 매 프레임 Path 재생성 방지 (RESEARCH Pitfall 4)
 - [Phase 05-game-mode-1]: RoundResultOverlay opacity는 rgba backgroundColor 처리 — opacity 속성은 자식 컴포넌트도 투명하게 만들어 텍스트가 보이지 않는 문제 방지
 - [Phase 05-game-mode-1]: answer:accept { messageId } 전송 시 chatMessages 역탐색으로 선택 플레이어의 마지막 messageId 추출 — 서버 스펙 준수
+- [Phase 05-game-mode-1]: PodiumPlayer → Player 변환 시 friendCode='' + isHost=(rank===1) 패턴: SlotCard rainbow 재사용을 위한 최소 형변환
+- [Phase 05-game-mode-1]: game:end 라우팅은 game.tsx roomState?.status==='AWARD' 조건으로 Plan 07에서 이미 구현 — award.tsx는 useGameStore result 직접 읽음
 
 ### Pending Todos
 
@@ -170,6 +173,6 @@ None yet.
 
 ## Session Continuity
 
-Last session: 2026-05-26T23:53:07.159Z
-Stopped at: Completed 05-game-mode-1/05-07-PLAN.md
+Last session: 2026-05-26T23:57:19.042Z
+Stopped at: Completed 05-game-mode-1/05-08-PLAN.md
 Resume file: None

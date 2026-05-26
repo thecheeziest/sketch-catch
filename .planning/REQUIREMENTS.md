@@ -66,7 +66,7 @@
 ### Game Common (GAME)
 
 - [x] **GAME-01**: 인게임 채팅 가능 (최대 30자, 비속어 필터링 `***` 처리, 출제 중 출제자 채팅 불가)
-- [ ] **GAME-02**: 채팅 메시지가 발신자 캐릭터 액자 위 말풍선으로 2.5초 표시됨
+- [x] **GAME-02**: 채팅 메시지가 발신자 캐릭터 액자 위 말풍선으로 2.5초 표시됨
 - [x] **GAME-03**: 카테고리별(7개) 제시어 풀에서 단어 추출 가능, 방장이 카테고리 다중 선택 가능 (총 350개 이상)
 
 ### GIF & Replay (GIF)
@@ -77,9 +77,9 @@
 
 ### Award (AWRD)
 
-- [ ] **AWRD-01**: 게임 종료 후 1위 캐릭터 액자 확대 + 빵빠레 사운드로 시상식 표시
-- [ ] **AWRD-02**: 2~3위 좌우 배치 표시 (인원 부족 시 생략)
-- [ ] **AWRD-03**: 시상식 중 소감 채팅 가능, 30초 후 자동 종료 또는 나가기 버튼
+- [x] **AWRD-01**: 게임 종료 후 1위 캐릭터 액자 확대 + 빵빠레 사운드로 시상식 표시
+- [x] **AWRD-02**: 2~3위 좌우 배치 표시 (인원 부족 시 생략)
+- [x] **AWRD-03**: 시상식 중 소감 채팅 가능, 30초 후 자동 종료 또는 나가기 버튼
 
 ### Push Notifications (PUSH)
 
@@ -163,11 +163,11 @@
 | DRAW-02 | Phase 5 | Complete |
 | DRAW-03 | Phase 5 | Complete |
 | GAME-01 | Phase 5 | Complete |
-| GAME-02 | Phase 5 | Pending |
+| GAME-02 | Phase 5 | Complete |
 | GAME-03 | Phase 5 | Complete |
-| AWRD-01 | Phase 5 | Pending |
-| AWRD-02 | Phase 5 | Pending |
-| AWRD-03 | Phase 5 | Pending |
+| AWRD-01 | Phase 5 | Complete |
+| AWRD-02 | Phase 5 | Complete |
+| AWRD-03 | Phase 5 | Complete |
 | MD2-01 | Phase 6 | Pending |
 | MD2-02 | Phase 6 | Pending |
 | MD2-03 | Phase 6 | Pending |
