@@ -1,17 +1,21 @@
 import { Image, Text, View } from 'dripsy';
 import { StyleSheet } from 'react-native';
-import type { Player } from '@sketch-catch/shared';
+import type { Player, ChatMessage } from '@sketch-catch/shared';
 import { getCharacterImageSource, colors, spacing, textSizes } from '@/shared/config';
 import { PixelFrame } from '@/shared/ui/PixelFrame';
+import { ChatBubble } from '../ChatBubble';
 
 type Props = {
   player: Player | null;
   isMe: boolean;
   isDrawer: boolean;
   cellWidth: number;
+  activeBubble?: ChatMessage | null;
+  isCorrectBubble?: boolean;
+  onBubbleExpire?: () => void;
 };
 
-export function PlayerCell({ player, isMe, isDrawer, cellWidth }: Props) {
+export function PlayerCell({ player, isMe, isDrawer, cellWidth, activeBubble, isCorrectBubble = false, onBubbleExpire }: Props) {
   // null spacer — 레이아웃 유지
   if (player === null) {
     return <View style={{ width: cellWidth, aspectRatio: 0.85, margin: spacing.XS }} />;
@@ -41,6 +45,15 @@ export function PlayerCell({ player, isMe, isDrawer, cellWidth }: Props) {
           <View style={styles.drawerChip}>
             <Text sx={{ ...textSizes.B4, color: colors.LIGHT_100 }}>출제자</Text>
           </View>
+        )}
+
+        {/* 말풍선 — 캐릭터 이미지 위 absolute */}
+        {activeBubble != null && onBubbleExpire != null && (
+          <ChatBubble
+            text={activeBubble.text}
+            isCorrect={isCorrectBubble}
+            onExpire={onBubbleExpire}
+          />
         )}
 
         {/* 캐릭터 이미지 */}

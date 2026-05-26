@@ -1,6 +1,6 @@
 import { View } from 'dripsy';
-import { useWindowDimensions } from 'react-native';
-import type { Player } from '@sketch-catch/shared';
+import { Pressable, useWindowDimensions } from 'react-native';
+import type { Player, ChatMessage } from '@sketch-catch/shared';
 import { spacing } from '@/shared/config';
 import { PlayerCell } from '../PlayerCell';
 
@@ -12,9 +12,26 @@ type Props = {
   players: Player[];
   myId: string;
   drawerId: string;
+  /** 출제자 화면에서 플레이어 탭 시 선택 처리 */
+  isDrawerView?: boolean;
+  selectedUserId?: string | null;
+  onSelectPlayer?: (userId: string | null) => void;
+  activeBubbles?: Record<string, ChatMessage | null>;
+  correctUserId?: string | null;
+  onBubbleExpire?: (userId: string) => void;
 };
 
-export function PlayerGrid({ players, myId, drawerId }: Props) {
+export function PlayerGrid({
+  players,
+  myId,
+  drawerId,
+  isDrawerView = false,
+  selectedUserId,
+  onSelectPlayer,
+  activeBubbles = {},
+  correctUserId,
+  onBubbleExpire,
+}: Props) {
   const { width: screenWidth } = useWindowDimensions();
   const cellWidth = Math.floor(
     (screenWidth - spacing.MD * 2 - spacing.XS * 2 * COLUMNS) / COLUMNS
@@ -31,16 +48,38 @@ export function PlayerGrid({ players, myId, drawerId }: Props) {
   }
   const slotItems = slots.slice(0, MAX_SLOTS);
 
+  const handleCellPress = (player: Player | null): void => {
+    if (!isDrawerView || player === null || onSelectPlayer === undefined) return;
+    // 재탭 시 선택 해제
+    if (selectedUserId === player.id) {
+      onSelectPlayer(null);
+    } else {
+      onSelectPlayer(player.id);
+    }
+  };
+
   return (
     <View sx={{ flexDirection: 'row', flexWrap: 'wrap', paddingHorizontal: spacing.MD }}>
       {slotItems.map((player, index) => (
-        <PlayerCell
+        <Pressable
           key={player?.id ?? `spacer-${index}`}
-          player={player}
-          isMe={player?.id === myId}
-          isDrawer={player?.id === drawerId}
-          cellWidth={cellWidth}
-        />
+          onPress={() => handleCellPress(player)}
+          disabled={!isDrawerView || player === null}
+        >
+          <PlayerCell
+            player={player}
+            isMe={player?.id === myId}
+            isDrawer={player?.id === drawerId}
+            cellWidth={cellWidth}
+            activeBubble={player != null ? (activeBubbles[player.id] ?? null) : null}
+            isCorrectBubble={player != null && player.id === correctUserId}
+            onBubbleExpire={
+              player != null && onBubbleExpire != null
+                ? () => onBubbleExpire(player.id)
+                : undefined
+            }
+          />
+        </Pressable>
       ))}
     </View>
   );
