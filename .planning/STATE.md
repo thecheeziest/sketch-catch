@@ -3,13 +3,13 @@ gsd_state_version: 1.0
 milestone: v1.0
 milestone_name: milestone
 status: Ready to execute
-stopped_at: Completed 04-room-lobby-04-07-PLAN.md
-last_updated: "2026-05-19T00:01:11.812Z"
+stopped_at: Completed 05-01-PLAN.md
+last_updated: "2026-05-26T23:29:32.275Z"
 progress:
   total_phases: 7
   completed_phases: 3
-  total_plans: 29
-  completed_plans: 28
+  total_plans: 38
+  completed_plans: 30
 ---
 
 # Project State
@@ -19,12 +19,12 @@ progress:
 See: .planning/PROJECT.md (updated 2026-05-13)
 
 **Core value:** 친구들이 30초 안에 방을 만들고 바로 그림 게임을 시작할 수 있어야 한다 — 설치 직후 즉시 플레이.
-**Current focus:** Phase 04 — room-lobby
+**Current focus:** Phase 05 — game-mode-1
 
 ## Current Position
 
-Phase: 04 (room-lobby) — EXECUTING
-Plan: 6 of 9
+Phase: 05 (game-mode-1) — EXECUTING
+Plan: 3 of 9
 
 ## Performance Metrics
 
@@ -74,6 +74,8 @@ Plan: 6 of 9
 | Phase 04-room-lobby P06 | 7min | 2 tasks | 6 files |
 | Phase 04-room-lobby P07 | 3min | 2 tasks | 3 files |
 | Phase 04-room-lobby P08 | 6min | 2 tasks | 2 files |
+| Phase 05-game-mode-1 P02 | 159s | 2 tasks | 4 files |
+| Phase 05-game-mode-1 P01 | 3min | 2 tasks | 7 files |
 
 ## Accumulated Context
 
@@ -140,6 +142,9 @@ Recent decisions affecting current work:
 - [Phase 04-room-lobby]: 탭 비활성화 tabPress preventDefault 방식: tabBarStyle 변경 없이 매칭 중 친구 탭 차단 (복원 깜빡임 방지)
 - [Phase 04-room-lobby]: SafeAreaView를 react-native-safe-area-context에서 import — edges prop은 standard RN SafeAreaView에 없음
 - [Phase 04-room-lobby]: wasHostRef로 방장 승계 Toast 중복 방지 — 첫 감지 시에만 show(), 이후 리렌더에서는 ref 갱신만
+- [Phase 05-game-mode-1]: seed.ts에서 PrismaClient 직접 생성 — seed 스크립트는 서버 env 모듈 없이 독립 실행
+- [Phase 05-game-mode-1]: @shopify/react-native-skia@1.5.3 핀: 최신 2.6.4는 react@>=19, RN>=0.78 요구 — Expo 51 / RN 0.74 환경에서 1.5.3 사용
+- [Phase 05-game-mode-1]: @types/hangul-js 미존재: npm 레지스트리에 없음 → apps/server/src/types/hangul-js.d.ts ambient 선언 대체
 
 ### Pending Todos
 
@@ -151,6 +156,6 @@ None yet.
 
 ## Session Continuity
 
-Last session: 2026-05-19T00:01:11.810Z
-Stopped at: Completed 04-room-lobby-04-07-PLAN.md
+Last session: 2026-05-26T23:29:32.273Z
+Stopped at: Completed 05-01-PLAN.md
 Resume file: None
