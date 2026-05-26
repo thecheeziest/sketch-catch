@@ -10,3 +10,4 @@ export { WordBanner } from './WordBanner';
 export { RoundResultOverlay } from './RoundResultOverlay';
 export { ScoreFeedback } from './ScoreFeedback';
 export { AnswerApprovalButton } from './AnswerApprovalButton';
+export { PodiumSlot } from './PodiumSlot';
