@@ -43,11 +43,11 @@
 
 ### Game Mode 1 — Classic (MD1)
 
-- [ ] **MD1-01**: 출제자가 라운드마다 순환되며 제시어를 받음 (다른 참가자에게는 안 보임)
-- [ ] **MD1-02**: 채팅 정확 일치(공백/대소문자 무시)로 자동 정답 처리 가능
-- [ ] **MD1-03**: 출제자가 채팅 메시지를 길게 눌러 수동 정답 인정 가능
-- [ ] **MD1-04**: 점수 계산 — 맞힌 사람: `max(100, 1000 - 경과초×30)`, 출제자: 맞힌 점수의 50% (최대 500)
-- [ ] **MD1-05**: 타이머 10~60초, 5초 단위 설정 가능 (기본 30초)
+- [x] **MD1-01**: 출제자가 라운드마다 순환되며 제시어를 받음 (다른 참가자에게는 안 보임)
+- [x] **MD1-02**: 채팅 정확 일치(공백/대소문자 무시)로 자동 정답 처리 가능
+- [x] **MD1-03**: 출제자가 채팅 메시지를 길게 눌러 수동 정답 인정 가능
+- [x] **MD1-04**: 점수 계산 — 맞힌 사람: `max(100, 1000 - 경과초×30)`, 출제자: 맞힌 점수의 50% (최대 500)
+- [x] **MD1-05**: 타이머 10~60초, 5초 단위 설정 가능 (기본 30초)
 
 ### Game Mode 2 — Phone Game (MD2)
 
@@ -59,15 +59,15 @@
 
 ### Drawing & Canvas (DRAW)
 
-- [ ] **DRAW-01**: Skia 캔버스에서 출제자/담당자의 stroke가 다른 참가자 화면에 실시간 동기화됨 (50ms throttle batch)
-- [ ] **DRAW-02**: 출제자/담당자만 색상(6개)/굵기(3단계) 선택, 지우개, 전체 지우기, 되돌리기(1단계) 사용 가능
-- [ ] **DRAW-03**: 출제자가 아닌 사람이 보낸 stroke 이벤트는 서버에서 거부됨
+- [x] **DRAW-01**: Skia 캔버스에서 출제자/담당자의 stroke가 다른 참가자 화면에 실시간 동기화됨 (50ms throttle batch)
+- [x] **DRAW-02**: 출제자/담당자만 색상(6개)/굵기(3단계) 선택, 지우개, 전체 지우기, 되돌리기(1단계) 사용 가능
+- [x] **DRAW-03**: 출제자가 아닌 사람이 보낸 stroke 이벤트는 서버에서 거부됨
 
 ### Game Common (GAME)
 
-- [ ] **GAME-01**: 인게임 채팅 가능 (최대 30자, 비속어 필터링 `***` 처리, 출제 중 출제자 채팅 불가)
+- [x] **GAME-01**: 인게임 채팅 가능 (최대 30자, 비속어 필터링 `***` 처리, 출제 중 출제자 채팅 불가)
 - [ ] **GAME-02**: 채팅 메시지가 발신자 캐릭터 액자 위 말풍선으로 2.5초 표시됨
-- [ ] **GAME-03**: 카테고리별(7개) 제시어 풀에서 단어 추출 가능, 방장이 카테고리 다중 선택 가능 (총 350개 이상)
+- [x] **GAME-03**: 카테고리별(7개) 제시어 풀에서 단어 추출 가능, 방장이 카테고리 다중 선택 가능 (총 350개 이상)
 
 ### GIF & Replay (GIF)
 
@@ -154,17 +154,17 @@
 | LBBY-01 | Phase 4 | Complete |
 | LBBY-02 | Phase 4 | Complete |
 | LBBY-03 | Phase 4 | Complete |
-| MD1-01 | Phase 5 | Pending |
-| MD1-02 | Phase 5 | Pending |
-| MD1-03 | Phase 5 | Pending |
-| MD1-04 | Phase 5 | Pending |
-| MD1-05 | Phase 5 | Pending |
-| DRAW-01 | Phase 5 | Pending |
-| DRAW-02 | Phase 5 | Pending |
-| DRAW-03 | Phase 5 | Pending |
-| GAME-01 | Phase 5 | Pending |
+| MD1-01 | Phase 5 | Complete |
+| MD1-02 | Phase 5 | Complete |
+| MD1-03 | Phase 5 | Complete |
+| MD1-04 | Phase 5 | Complete |
+| MD1-05 | Phase 5 | Complete |
+| DRAW-01 | Phase 5 | Complete |
+| DRAW-02 | Phase 5 | Complete |
+| DRAW-03 | Phase 5 | Complete |
+| GAME-01 | Phase 5 | Complete |
 | GAME-02 | Phase 5 | Pending |
-| GAME-03 | Phase 5 | Pending |
+| GAME-03 | Phase 5 | Complete |
 | AWRD-01 | Phase 5 | Pending |
 | AWRD-02 | Phase 5 | Pending |
 | AWRD-03 | Phase 5 | Pending |
