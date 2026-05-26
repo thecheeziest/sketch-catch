@@ -3,6 +3,7 @@ import type { ClientEvents, ServerEvents } from '@sketch-catch/shared';
 import { SOCKET_NAMESPACE } from '@sketch-catch/shared';
 import { verifyAccessToken } from '../auth/jwt.js';
 import { handleRoomJoin, handleRoomLeave, handleRoomReady, handleRoomStart } from './handlers/room.js';
+import { handleStrokeStart, handleStrokeAppend, handleStrokeEnd, handleStrokeUndo, handleStrokeClear } from './handlers/stroke.js';
 
 declare module 'socket.io' {
   interface SocketData {
@@ -32,5 +33,12 @@ export function registerGameNamespace(io: Server<ClientEvents, ServerEvents>): v
     socket.on('room:start', () => void handleRoomStart(game, socket));
     // Pitfall 4 회피: disconnect 시에도 handleRoomLeave 호출
     socket.on('disconnect', () => void handleRoomLeave(game, socket));
+
+    // DRAW-03: stroke 이벤트 — 출제자만 broadcast (리터럴 이벤트명 직접 사용 — Phase 4 결정)
+    socket.on('stroke:start', (payload) => void handleStrokeStart(game, socket, payload));
+    socket.on('stroke:append', (payload) => void handleStrokeAppend(game, socket, payload));
+    socket.on('stroke:end', (payload) => void handleStrokeEnd(game, socket, payload));
+    socket.on('stroke:undo', () => void handleStrokeUndo(game, socket));
+    socket.on('stroke:clear', () => void handleStrokeClear(game, socket));
   });
 }
