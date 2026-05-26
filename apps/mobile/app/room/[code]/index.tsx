@@ -1,6 +1,6 @@
 import { RoomEditModal, SlotCard } from '@/features/room/ui';
 import { colors, spacing } from '@/shared/config';
-import { useAuthStore, useRoomStore } from '@/shared/model';
+import { useAuthStore, useRoomStore, useToastStore } from '@/shared/model';
 import { copyToClipboard } from '@/shared/lib';
 import { Button, Icon } from '@/shared/ui';
 import type { Player } from '@sketch-catch/shared';
