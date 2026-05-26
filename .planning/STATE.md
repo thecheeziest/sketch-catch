@@ -3,13 +3,13 @@ gsd_state_version: 1.0
 milestone: v1.0
 milestone_name: milestone
 status: Ready to execute
-stopped_at: Completed 05-04-PLAN.md
-last_updated: "2026-05-26T23:34:21.112Z"
+stopped_at: Completed 05-05-PLAN.md
+last_updated: "2026-05-26T23:36:21.697Z"
 progress:
   total_phases: 7
   completed_phases: 3
   total_plans: 38
-  completed_plans: 32
+  completed_plans: 33
 ---
 
 # Project State
@@ -24,7 +24,7 @@ See: .planning/PROJECT.md (updated 2026-05-13)
 ## Current Position
 
 Phase: 05 (game-mode-1) — EXECUTING
-Plan: 5 of 9
+Plan: 6 of 9
 
 ## Performance Metrics
 
@@ -78,6 +78,7 @@ Plan: 5 of 9
 | Phase 05-game-mode-1 P01 | 3min | 2 tasks | 7 files |
 | Phase 05 P03 | 150s | 2 tasks | 5 files |
 | Phase 05 P04 | 123s | 2 tasks | 3 files |
+| Phase 05-game-mode-1 P05 | 184s | 2 tasks | 7 files |
 
 ## Accumulated Context
 
@@ -150,6 +151,8 @@ Recent decisions affecting current work:
 - [Phase 05]: 단일 broadcast + promptForDrawer 패턴: socketId Map 없이 캐주얼 게임 수준 보안으로 구현
 - [Phase 05-game-mode-1]: assertDrawer 헬퍼로 MODE1_ROUND_START + drawerId 검증 캡슐화 — 5개 stroke 핸들러 중복 제거
 - [Phase 05-game-mode-1]: authorId 서버 강제 설정: socket.data.userId 덮어씀 (DRAW-03 보안 원칙)
+- [Phase 05-game-mode-1]: badwords-ko Filter options.list 직접 접근으로 단어 목록 추출 — API에 배열 export 없음
+- [Phase 05-game-mode-1]: 자모 분리 검사에서 2음절 미만 + disassemble 결과=원본 단어 제외 — ㅄ→ㅂㅅ 거짓 양성 방지
 
 ### Pending Todos
 
@@ -161,6 +164,6 @@ None yet.
 
 ## Session Continuity
 
-Last session: 2026-05-26T23:34:21.110Z
-Stopped at: Completed 05-04-PLAN.md
+Last session: 2026-05-26T23:36:21.695Z
+Stopped at: Completed 05-05-PLAN.md
 Resume file: None
