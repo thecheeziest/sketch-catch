@@ -1,5 +1,13 @@
 // 게임 진행 이벤트 페이로드
 
+// Phase 5 — 모드 1 라운드 진행 상태 (RoomState.current에 담김)
+export type Mode1RoundCurrent = {
+  roundIndex: number;
+  drawerId: string;
+  prompt: string;    // 제시어 (서버 전용 — 출제자 외 노출 금지)
+  startedAt: number; // 라운드 시작 epoch ms
+};
+
 export type RoundStart = {
   roundIndex: number;
   drawerId: string;
@@ -15,7 +23,7 @@ export type RoundEnd = {
 
 export type GameResult = {
   finalScoreboard: Record<string, number>;
-  ranking: Array<{ userId: string; rank: number; score: number }>;
+  ranking: Array<{ userId: string; rank: number; score: number; answeredAt: number | null }>;
 };
 
 export type ChatMessage = {
