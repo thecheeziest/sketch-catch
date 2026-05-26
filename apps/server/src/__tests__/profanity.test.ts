@@ -23,6 +23,3 @@ describe('profanity (GAME-01)', () => {
   });
 });
 
-describe('drawer chat (GAME-01)', () => {
-  it.todo('drawer chat: 출제자의 chat:send는 서버에서 차단된다');
-});

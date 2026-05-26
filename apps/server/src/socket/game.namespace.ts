@@ -4,6 +4,7 @@ import { SOCKET_NAMESPACE } from '@sketch-catch/shared';
 import { verifyAccessToken } from '../auth/jwt.js';
 import { handleRoomJoin, handleRoomLeave, handleRoomReady, handleRoomStart } from './handlers/room.js';
 import { handleStrokeStart, handleStrokeAppend, handleStrokeEnd, handleStrokeUndo, handleStrokeClear } from './handlers/stroke.js';
+import { handleChatSend, handleAnswerAccept } from './handlers/chat.js';
 
 declare module 'socket.io' {
   interface SocketData {
@@ -40,5 +41,9 @@ export function registerGameNamespace(io: Server<ClientEvents, ServerEvents>): v
     socket.on('stroke:end', (payload) => void handleStrokeEnd(game, socket, payload));
     socket.on('stroke:undo', () => void handleStrokeUndo(game, socket));
     socket.on('stroke:clear', () => void handleStrokeClear(game, socket));
+
+    // GAME-01/MD1-02/MD1-03: 채팅 + 정답 판정
+    socket.on('chat:send', (payload) => void handleChatSend(game, socket, payload));
+    socket.on('answer:accept', (payload) => void handleAnswerAccept(game, socket, payload));
   });
 }
