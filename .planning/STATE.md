@@ -3,13 +3,13 @@ gsd_state_version: 1.0
 milestone: v1.0
 milestone_name: milestone
 status: Ready to execute
-stopped_at: Completed 05-03-PLAN.md
-last_updated: "2026-05-26T23:30:31.095Z"
+stopped_at: Completed 05-04-PLAN.md
+last_updated: "2026-05-26T23:34:21.112Z"
 progress:
   total_phases: 7
   completed_phases: 3
   total_plans: 38
-  completed_plans: 31
+  completed_plans: 32
 ---
 
 # Project State
@@ -24,7 +24,7 @@ See: .planning/PROJECT.md (updated 2026-05-13)
 ## Current Position
 
 Phase: 05 (game-mode-1) — EXECUTING
-Plan: 4 of 9
+Plan: 5 of 9
 
 ## Performance Metrics
 
@@ -77,6 +77,7 @@ Plan: 4 of 9
 | Phase 05-game-mode-1 P02 | 159s | 2 tasks | 4 files |
 | Phase 05-game-mode-1 P01 | 3min | 2 tasks | 7 files |
 | Phase 05 P03 | 150s | 2 tasks | 5 files |
+| Phase 05 P04 | 123s | 2 tasks | 3 files |
 
 ## Accumulated Context
 
@@ -147,6 +148,8 @@ Recent decisions affecting current work:
 - [Phase 05-game-mode-1]: @shopify/react-native-skia@1.5.3 핀: 최신 2.6.4는 react@>=19, RN>=0.78 요구 — Expo 51 / RN 0.74 환경에서 1.5.3 사용
 - [Phase 05-game-mode-1]: @types/hangul-js 미존재: npm 레지스트리에 없음 → apps/server/src/types/hangul-js.d.ts ambient 선언 대체
 - [Phase 05]: 단일 broadcast + promptForDrawer 패턴: socketId Map 없이 캐주얼 게임 수준 보안으로 구현
+- [Phase 05-game-mode-1]: assertDrawer 헬퍼로 MODE1_ROUND_START + drawerId 검증 캡슐화 — 5개 stroke 핸들러 중복 제거
+- [Phase 05-game-mode-1]: authorId 서버 강제 설정: socket.data.userId 덮어씀 (DRAW-03 보안 원칙)
 
 ### Pending Todos
 
@@ -158,6 +161,6 @@ None yet.
 
 ## Session Continuity
 
-Last session: 2026-05-26T23:30:31.093Z
-Stopped at: Completed 05-03-PLAN.md
+Last session: 2026-05-26T23:34:21.110Z
+Stopped at: Completed 05-04-PLAN.md
 Resume file: None
