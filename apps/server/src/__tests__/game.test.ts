@@ -14,6 +14,7 @@ vi.mock('../services/rooms.service.js', () => ({
 
 import { getRoomState, saveRoomState } from '../services/rooms.service.js';
 import { startRound, endRound, calcScore } from '../socket/handlers/game.js';
+import { handleStrokeStart, handleStrokeClear } from '../socket/handlers/stroke.js';
 
 const mockGetRoomState = vi.mocked(getRoomState);
 const mockSaveRoomState = vi.mocked(saveRoomState);
@@ -163,6 +164,81 @@ describe('game state machine (MD1-01, MD1-05)', () => {
     expect(mockSaveRoomState).toHaveBeenCalledTimes(2);
     const savedAfterEnd = mockSaveRoomState.mock.calls[1]![0]! as RoomState;
     expect(savedAfterEnd.status).toBe('MODE1_ROUND_END');
+  });
+});
+
+describe('stroke auth (DRAW-03)', () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+    mockSaveRoomState.mockResolvedValue(undefined);
+  });
+
+  function makeStrokeRoomState(): RoomState {
+    return makeRoomState({
+      status: 'MODE1_ROUND_START',
+      current: {
+        roundIndex: 0,
+        drawerId: 'userA',
+        prompt: '강아지',
+        startedAt: Date.now(),
+      } satisfies Mode1RoundCurrent,
+    });
+  }
+
+  function makeStrokeSocket(userId: string) {
+    const emitSpy = vi.fn();
+    const toReturn = { emit: emitSpy };
+    const socket = {
+      data: { userId },
+      rooms: new Set(['room:ABC123']),
+      to: vi.fn(() => toReturn),
+      emit: vi.fn(),
+    };
+    return { socket, emitSpy };
+  }
+
+  it('비출제자 stroke:start는 서버에서 거부 — broadcast 0회', async () => {
+    mockGetRoomState.mockResolvedValueOnce(makeStrokeRoomState());
+
+    const { socket, emitSpy } = makeStrokeSocket('userB'); // 비출제자
+    await handleStrokeStart({} as any, socket as any, { strokeId: 's1', color: '#000', width: 8 });
+
+    expect(emitSpy).not.toHaveBeenCalled();
+  });
+
+  it('출제자 stroke:start는 except(sender)로 broadcast — authorId는 서버가 설정', async () => {
+    mockGetRoomState.mockResolvedValueOnce(makeStrokeRoomState());
+
+    const { socket, emitSpy } = makeStrokeSocket('userA'); // 출제자
+    await handleStrokeStart({} as any, socket as any, { strokeId: 's1', color: '#000', width: 8 });
+
+    expect(socket.to).toHaveBeenCalledWith('room:ABC123');
+    expect(emitSpy).toHaveBeenCalledTimes(1);
+    expect(emitSpy).toHaveBeenCalledWith('stroke:remote', {
+      strokeId: 's1',
+      authorId: 'userA',
+      color: '#000',
+      width: 8,
+    });
+  });
+
+  it('stroke:clear는 출제자만 broadcast, 비출제자는 거부', async () => {
+    // 비출제자 거부
+    mockGetRoomState.mockResolvedValueOnce(makeStrokeRoomState());
+    const { socket: socketB, emitSpy: emitB } = makeStrokeSocket('userB');
+    await handleStrokeClear({} as any, socketB as any);
+    expect(emitB).not.toHaveBeenCalled();
+
+    // 출제자 broadcast
+    mockGetRoomState.mockResolvedValueOnce(makeStrokeRoomState());
+    const { socket: socketA, emitSpy: emitA } = makeStrokeSocket('userA');
+    await handleStrokeClear({} as any, socketA as any);
+    expect(emitA).toHaveBeenCalledTimes(1);
+    expect(emitA).toHaveBeenCalledWith('stroke:remote', {
+      strokeId: '__clear__',
+      authorId: 'userA',
+      ended: true,
+    });
   });
 });
 
