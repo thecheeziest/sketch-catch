@@ -3,6 +3,8 @@ import { handleRoomJoin, handleRoomReady, handleRoomStart, handleRoomLeave } fro
 import { SERVER_EVENT } from '@sketch-catch/shared';
 import type { RoomState } from '@sketch-catch/shared';
 
+vi.mock('../socket/handlers/game.js', () => ({ startRound: vi.fn() }));
+
 // Redis mock
 vi.mock('../db/redis.js', () => ({
   redis: { set: vi.fn(), get: vi.fn(), del: vi.fn() },

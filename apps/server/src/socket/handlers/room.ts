@@ -4,6 +4,7 @@ import { SERVER_EVENT } from '@sketch-catch/shared';
 import { getRoomState, saveRoomState } from '../../services/rooms.service.js';
 import { redis, setPresence } from '../../db/redis.js';
 import { prisma } from '../../db/prisma.js';
+import { startRound } from './game.js';
 
 type GameNamespace = Namespace<ClientEvents, ServerEvents>;
 type GameSocket = Socket<ClientEvents, ServerEvents, Record<string, never>, { userId: string }>;
@@ -116,10 +117,12 @@ export async function handleRoomStart(
     return;
   }
 
-  // Phase 4: startedAt 세팅 + broadcast (상태 전이는 Phase 5)
   state.startedAt = Date.now();
   await saveRoomState(state);
   game.to(roomName).emit(SERVER_EVENT.ROOM_STATE, state);
+
+  // Phase 5: 첫 라운드로 상태 전이
+  await startRound(game, code, 0);
 }
 
 export async function handleRoomLeave(
