@@ -1,160 +1,171 @@
-import React, { useEffect, useRef, useState } from 'react'
-import {
-  View,
-  Text,
-  FlatList,
-  Pressable,
-  StyleSheet,
-  type ListRenderItem,
-} from 'react-native'
-import { SafeAreaView } from 'react-native-safe-area-context'
-import { useLocalSearchParams } from 'expo-router'
-import { Ionicons } from '@expo/vector-icons'
-import * as Clipboard from 'expo-clipboard'
-import type { Player } from '@sketch-catch/shared'
-import { CLIENT_EVENT } from '@sketch-catch/shared'
-import { useRoomStore } from '@/shared/model/room'
-import { useAuthStore } from '@/shared/model/auth'
-import { useToastStore } from '@/shared/model/toast'
-import { PixelButton } from '@/shared/ui/PixelButton'
-import { SlotCard } from '@/features/room/ui/SlotCard'
-import { RoomEditModal } from '@/features/room/ui/RoomEditModal'
-import { colors, spacing, typography, fontFamily } from '@/shared/config/theme'
+import { RoomEditModal, SlotCard } from '@/features/room/ui';
+import { colors, spacing } from '@/shared/config';
+import { useAuthStore, useRoomStore } from '@/shared/model';
+import { copyToClipboard } from '@/shared/lib';
+import { Button, Icon } from '@/shared/ui';
+import type { Player } from '@sketch-catch/shared';
+import { CLIENT_EVENT } from '@sketch-catch/shared';
+import { FlatList, Text, View } from 'dripsy';
+import { useLocalSearchParams, useRouter } from 'expo-router';
+import { useEffect, useRef, useState } from 'react';
+import { type ListRenderItem, ImageBackground, Pressable, StyleSheet, useWindowDimensions } from 'react-native';
+import roomBackground from '@assets/room-background.png';
+import { SafeAreaView } from 'react-native-safe-area-context';
 
 function getNumColumns(maxPlayers: number): number {
-  if (maxPlayers <= 4) return 2
-  if (maxPlayers <= 9) return 3
-  return 4
+  if (maxPlayers <= 4) return 2;
+  if (maxPlayers <= 9) return 3;
+  return 4;
 }
 
-type SlotItem = Player | null
+type SlotItem = Player | null;
 
-export default function LobbyScreen(): React.JSX.Element {
-  const { code } = useLocalSearchParams<{ code: string }>()
-  const { connect, disconnect, socket, roomState } = useRoomStore()
-  const myId = useAuthStore.getState().user?.id
-  const wasHostRef = useRef(false)
-  const [editVisible, setEditVisible] = useState(false)
+export default function LobbyScreen() {
+  const router = useRouter();
+  const { code } = useLocalSearchParams<{ code: string }>();
+  const { connect, disconnect, socket, roomState } = useRoomStore();
+  const myId = useAuthStore.getState().user?.id;
+  const wasHostRef = useRef(false);
+  const [editVisible, setEditVisible] = useState(false);
 
   useEffect(() => {
-    connect()
-    return () => disconnect()
-  }, [connect, disconnect])
+    connect();
+    return () => disconnect();
+  }, [connect, disconnect]);
 
-  // 소켓 connect 이벤트 이후 room:join emit (타이밍 버그 수정)
+  // MODE1_ROUND_START 시 게임 화면으로 전환
   useEffect(() => {
-    if (!socket || !code) return
+    if (roomState?.status === 'MODE1_ROUND_START') {
+      router.replace(`/room/${code}/game` as never);
+    }
+  }, [roomState?.status, code, router]);
+
+  useEffect(() => {
+    if (!socket || !code) return;
     const handleConnect = (): void => {
-      socket.emit(CLIENT_EVENT.ROOM_JOIN, { code })
-    }
+      socket.emit(CLIENT_EVENT.ROOM_JOIN, { code });
+    };
     if (socket.connected) {
-      socket.emit(CLIENT_EVENT.ROOM_JOIN, { code })
-      return
+      socket.emit(CLIENT_EVENT.ROOM_JOIN, { code });
+      return;
     }
-    socket.on('connect', handleConnect)
-    return () => { socket.off('connect', handleConnect) }
-  }, [socket, code])
+    socket.on('connect', handleConnect);
+    return () => {
+      socket.off('connect', handleConnect);
+    };
+  }, [socket, code]);
 
-  // 방장 승계 Toast
   useEffect(() => {
-    const isHost = roomState?.hostId === myId
-    const hasJoined = Boolean(roomState?.players.find((p) => p.id === myId))
+    const isHost = roomState?.hostId === myId;
+    const hasJoined = Boolean(roomState?.players.find((p) => p.id === myId));
     if (isHost && hasJoined && !wasHostRef.current) {
-      useToastStore.getState().show('방장이 되었습니다')
+      useToastStore.getState().show('방장이 되었습니다');
     }
-    wasHostRef.current = isHost ?? false
-  }, [roomState?.hostId, myId, roomState?.players])
+    wasHostRef.current = isHost ?? false;
+  }, [roomState?.hostId, myId, roomState?.players]);
 
-  const maxPlayers = roomState?.config.playerCountMax ?? 6
-  const numColumns = getNumColumns(maxPlayers)
+  const { width: screenWidth } = useWindowDimensions();
+  const maxPlayers = roomState?.config.playerCountMax ?? 6;
+  const numColumns = getNumColumns(maxPlayers);
+  const cardWidth = Math.floor(
+    (screenWidth - spacing.MD * 2 - spacing.XS * 2 * numColumns - spacing.SM * (numColumns - 1)) /
+      numColumns,
+  );
 
   const slots: SlotItem[] = Array.from({ length: maxPlayers }, (_, i) => {
-    return roomState?.players.find((p) => p.slot === i) ?? null
-  })
+    return roomState?.players.find((p) => p.slot === i) ?? null;
+  });
 
-  const me = roomState?.players.find((p) => p.id === myId)
-  const isHost = me?.isHost ?? false
-  const allReady = roomState?.allReady ?? false
+  const me = roomState?.players.find((p) => p.id === myId);
+  const isHost = me?.isHost ?? false;
+  const allReady = roomState?.allReady ?? false;
 
-  const handleCopyCode = async (): Promise<void> => {
-    await Clipboard.setStringAsync(code ?? '')
-    useToastStore.getState().show('코드가 복사되었습니다')
-  }
+  const handleCopyCode = (): Promise<void> => copyToClipboard(code ?? '', '코드가 복사되었습니다');
 
   const renderItem: ListRenderItem<SlotItem> = ({ item }) => (
-    <SlotCard player={item} isMe={item?.id === myId} />
-  )
+    <SlotCard player={item} isMe={item?.id === myId} cardWidth={cardWidth} />
+  );
 
-  const keyExtractor = (_: SlotItem, index: number): string => String(index)
+  const keyExtractor = (_: unknown, index: number): string => String(index);
 
   return (
-    <SafeAreaView style={styles.safeArea} edges={['top', 'bottom', 'left', 'right']}>
-      {/* 헤더: 방제목+자물쇠(왼쪽) | 방코드+복사+설정(오른쪽) */}
-      <View style={styles.header}>
-        <View style={styles.headerRow}>
-          <View style={styles.titleGroup}>
-            <Text style={styles.title} allowFontScaling={false} numberOfLines={1}>
+    <ImageBackground source={roomBackground} style={{ flex: 1 }} resizeMode="cover">
+    <SafeAreaView
+      style={{ flex: 1 }}
+      edges={['top', 'bottom', 'left', 'right']}
+    >
+      <View sx={{ paddingHorizontal: spacing.MD, paddingTop: spacing.MD }}>
+        <View sx={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}>
+          <View
+            sx={{
+              flexDirection: 'row',
+              alignItems: 'center',
+              gap: spacing.XS,
+              flex: 1,
+              marginRight: spacing.SM,
+            }}
+          >
+            <Pressable onPress={() => router.back()} hitSlop={8} style={styles.backBtn}>
+              <Icon name="BACK" size={24} />
+            </Pressable>
+            <Text
+              variant="T2"
+              sx={{ color: colors.LIGHT_100, flexShrink: 1 }}
+              numberOfLines={1}
+            >
               {roomState?.title ?? ''}
             </Text>
-            <Ionicons
-              name={roomState?.locked ? 'lock-closed' : 'lock-open'}
-              size={14}
-              color={colors.textSecondary}
-            />
+            <Icon name={roomState?.locked ? 'LOCK' : 'LOCK_OPEN'} size={14} />
           </View>
-          <View style={styles.codeGroup}>
-            <Text style={styles.codeText} allowFontScaling={false}>{code}</Text>
-            <Pressable onPress={handleCopyCode} hitSlop={8}>
-              <Ionicons name="copy-outline" size={16} color={colors.accentPrimary} />
-            </Pressable>
-            {isHost && (
-              <Pressable onPress={() => setEditVisible(true)} hitSlop={8}>
-                <Ionicons name="settings-outline" size={16} color={colors.textSecondary} />
-              </Pressable>
-            )}
+          <View sx={{ flexDirection: 'row', alignItems: 'center', gap: spacing.SM }}>
+            <Text sx={{ color: colors.GRAY }}>
+              {code}
+            </Text>
+            <Icon name="COPY" size={16} onPress={handleCopyCode} />
+            {isHost && <Icon name="SETTINGS" size={16} onPress={() => setEditVisible(true)} />}
           </View>
         </View>
-        <View style={styles.divider} />
+        <View
+          sx={{
+            borderBottomWidth: 1,
+            borderBottomColor: colors.LIGHT_300,
+            marginTop: spacing.SM,
+            marginBottom: spacing.MD,
+          }}
+        />
       </View>
 
-      {/* 슬롯 그리드 */}
       <FlatList
         data={slots}
         keyExtractor={keyExtractor}
-        renderItem={renderItem}
+        renderItem={renderItem as ListRenderItem<unknown>}
         numColumns={numColumns}
         key={numColumns}
-        contentContainerStyle={styles.grid}
+        contentContainerStyle={{ paddingHorizontal: spacing.MD }}
         columnWrapperStyle={numColumns > 1 ? styles.row : undefined}
-        style={styles.list}
+        style={{ flex: 1 }}
       />
 
-      {/* 하단 액션 버튼 */}
-      <View style={styles.actionArea}>
+      <View
+        sx={{ paddingHorizontal: spacing.MD, paddingTop: spacing.MD, paddingBottom: spacing.LG }}
+      >
         {isHost ? (
-          allReady ? (
-            <PixelButton
-              label="게임 시작"
-              variant="primary"
-              onPress={() => socket?.emit(CLIENT_EVENT.ROOM_START)}
-            />
-          ) : (
-            <PixelButton
-              label="모두 준비 완료 후 시작 가능"
-              variant="secondary"
-              disabled
-            />
-          )
+          <Button
+            label="게임 시작"
+            color={allReady ? 'primary' : 'light'}
+            disabled={!allReady}
+            onPress={() => socket?.emit(CLIENT_EVENT.ROOM_START)}
+          />
         ) : me?.isReady ? (
-          <PixelButton
+          <Button
             label="준비 취소"
-            variant="secondary"
+            color="light"
             onPress={() => socket?.emit(CLIENT_EVENT.ROOM_READY, { ready: false })}
           />
         ) : (
-          <PixelButton
+          <Button
             label="준비 완료"
-            variant="primary"
+            color="primary"
             onPress={() => socket?.emit(CLIENT_EVENT.ROOM_READY, { ready: true })}
           />
         )}
@@ -166,66 +177,11 @@ export default function LobbyScreen(): React.JSX.Element {
         roomCode={code ?? ''}
       />
     </SafeAreaView>
-  )
+    </ImageBackground>
+  );
 }
 
 const styles = StyleSheet.create({
-  safeArea: {
-    flex: 1,
-    backgroundColor: colors.background,
-  },
-  header: {
-    paddingHorizontal: spacing.md,
-    paddingTop: spacing.md,
-  },
-  headerRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-  },
-  titleGroup: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: spacing.xs,
-    flex: 1,
-    marginRight: spacing.sm,
-  },
-  title: {
-    fontFamily: fontFamily.regular,
-    fontSize: typography.heading.fontSize,
-    lineHeight: typography.heading.lineHeight,
-    color: colors.textPrimary,
-    flexShrink: 1,
-  },
-  codeGroup: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: spacing.sm,
-  },
-  codeText: {
-    fontFamily: fontFamily.regular,
-    fontSize: typography.label.fontSize,
-    lineHeight: typography.label.lineHeight,
-    color: colors.textSecondary,
-  },
-  divider: {
-    borderBottomWidth: 1,
-    borderBottomColor: colors.border,
-    marginTop: spacing.sm,
-    marginBottom: spacing.md,
-  },
-  list: {
-    flex: 1,
-  },
-  grid: {
-    paddingHorizontal: spacing.md,
-  },
-  row: {
-    gap: spacing.sm,
-  },
-  actionArea: {
-    paddingHorizontal: spacing.md,
-    paddingTop: spacing.md,
-    paddingBottom: spacing.lg,
-  },
-})
+  row: { gap: spacing.SM },
+  backBtn: { marginRight: 4 },
+});
