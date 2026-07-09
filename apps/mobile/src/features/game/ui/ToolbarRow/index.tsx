@@ -1,7 +1,7 @@
 import { Pressable, StyleSheet } from 'react-native';
 import { View } from 'dripsy';
 import { colors } from '@/shared/config';
-import { Button } from '@/shared/ui/Button';
+import { Icon } from '@/shared/ui/Icon';
 import { useGameStore } from '@/features/game/model/useGameStore';
 import { useStrokeSender } from '@/features/game/api/useStrokeSender';
 import { ColorPicker } from '../ColorPicker';
@@ -62,28 +62,34 @@ export function ToolbarRow() {
       </View>
 
       {/* 지우개 */}
-      <Button
-        label="지우개"
-        color={eraser ? 'primary' : 'light'}
-        height={44}
+      <Pressable
         onPress={() => setEraser(!eraser)}
-      />
+        hitSlop={8}
+        accessibilityLabel="지우개"
+        style={[styles.iconBtn, eraser && { backgroundColor: colors.PRIMARY_400 }]}
+      >
+        <Icon name="ERASER" size={18} color={eraser ? colors.DARK_500 : colors.LIGHT_100} />
+      </Pressable>
 
       {/* 전체 지우기 */}
-      <Button
-        label="전체"
-        color="dark"
-        height={44}
+      <Pressable
         onPress={handleClear}
-      />
+        hitSlop={8}
+        accessibilityLabel="전체 지우기"
+        style={styles.iconBtn}
+      >
+        <Icon name="TRASH" size={18} color={colors.LIGHT_100} />
+      </Pressable>
 
       {/* 되돌리기 */}
-      <Button
-        label="되돌리기"
-        color="dark"
-        height={44}
+      <Pressable
         onPress={handleUndo}
-      />
+        hitSlop={8}
+        accessibilityLabel="되돌리기"
+        style={styles.iconBtn}
+      >
+        <Icon name="UNDO" size={18} color={colors.LIGHT_100} />
+      </Pressable>
     </View>
   );
 }
@@ -107,4 +113,11 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   widthDot: {},
+  iconBtn: {
+    width: 36,
+    height: 36,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: colors.DARK_300,
+  },
 });

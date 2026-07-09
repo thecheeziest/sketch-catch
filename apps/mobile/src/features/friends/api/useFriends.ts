@@ -1,21 +1,13 @@
 import { useQuery } from '@tanstack/react-query';
-import { apiGet } from '@/shared/api/client';
+import { apiGet } from '@/shared/api';
+import type { Friend } from '@/shared/model';
 
-export type PresenceStatus = 'ONLINE' | 'OFFLINE' | 'IN_GAME';
-
-export type Friend = {
-  friendshipId: string;
-  userId: string;
-  nickname: string;
-  friendCode: string;
-  characterId: string;
-  presenceStatus: PresenceStatus;
-};
+export type { Friend };
 
 export function useFriends() {
-  return useQuery({
+  return useQuery<Friend[]>({
     queryKey: ['friends'],
     queryFn: () => apiGet<Friend[]>('/friends'),
-    refetchInterval: 30_000, // D-06: 30초 polling으로 presence 반영
+    refetchInterval: 5_000,
   });
 }

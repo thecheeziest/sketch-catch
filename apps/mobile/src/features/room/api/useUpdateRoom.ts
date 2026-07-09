@@ -1,5 +1,5 @@
 import { useMutation } from '@tanstack/react-query';
-import { apiPatch } from '@/shared/api/client';
+import { apiPatch } from '@/shared/api';
 import type { RoomState, Category } from '@sketch-catch/shared';
 
 type UpdateRoomInput = {

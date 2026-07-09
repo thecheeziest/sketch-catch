@@ -35,7 +35,7 @@ export function DrawingCanvas({ isDrawer }: Props) {
   const [localStrokes, setLocalStrokes] = useState<LocalStroke[]>([]);
   const currentStrokeRef = useRef<LocalStroke | null>(null);
 
-  const getStrokeColor = (): string => (eraser ? colors.DARK_300 : color);
+  const getStrokeColor = (): string => (eraser ? '#FFFFFF' : color);
   const getStrokeWidth = (): number => (eraser ? width * 2 : width);
 
   const pan = Gesture.Pan()
@@ -140,7 +140,7 @@ export function DrawingCanvas({ isDrawer }: Props) {
   return (
     <GestureDetector gesture={pan}>
       <Canvas
-        style={[styles.canvas, { backgroundColor: colors.DARK_300 }]}
+        style={[styles.canvas, { backgroundColor: '#FFFFFF' }]}
         onLayout={handleLayout}
       >
         {/* 출제자 로컬 stroke */}

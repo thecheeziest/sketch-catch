@@ -19,7 +19,7 @@ vi.mock('expo-secure-store', () => ({
   }),
 }));
 
-import { useAuthStore, hydrateAuthStore, SECURE_STORE_KEYS } from '@/stores/auth';
+import { useAuthStore, hydrateAuthStore, SECURE_STORE_KEYS } from '@/shared/model';
 import * as SecureStore from 'expo-secure-store';
 
 const initialState = {

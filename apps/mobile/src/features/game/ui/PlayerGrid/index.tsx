@@ -49,8 +49,7 @@ export function PlayerGrid({
   const slotItems = slots.slice(0, MAX_SLOTS);
 
   const handleCellPress = (player: Player | null): void => {
-    if (!isDrawerView || player === null || onSelectPlayer === undefined) return;
-    // 재탭 시 선택 해제
+    if (!isDrawerView || player === null || player.left || onSelectPlayer === undefined) return;
     if (selectedUserId === player.id) {
       onSelectPlayer(null);
     } else {
@@ -70,6 +69,8 @@ export function PlayerGrid({
             player={player}
             isMe={player?.id === myId}
             isDrawer={player?.id === drawerId}
+            isSelected={player?.id === selectedUserId}
+            isLeft={player?.left === true}
             cellWidth={cellWidth}
             activeBubble={player != null ? (activeBubbles[player.id] ?? null) : null}
             isCorrectBubble={player != null && player.id === correctUserId}

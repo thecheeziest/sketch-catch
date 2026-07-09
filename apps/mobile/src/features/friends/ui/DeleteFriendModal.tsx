@@ -1,10 +1,8 @@
-import React from 'react';
-import { Pressable, StyleSheet, Text, View } from 'react-native';
-import { PixelModal } from '@/shared/ui/PixelModal';
-import { PixelButton } from '@/shared/ui/PixelButton';
-import { useDeleteFriend } from '@/features/friends/api/useDeleteFriend';
-import { useToastStore } from '@/shared/model/toast';
-import { colors, typography, fontFamily } from '@/shared/config/theme';
+import { Text } from 'dripsy'
+import { Dialog } from '@/shared/ui';
+import { useDeleteFriend } from '@/features/friends/api';
+import { useToastStore } from '@/shared/model';
+import { colors } from '@/shared/config';
 
 type Props = {
   visible: boolean;
@@ -13,7 +11,7 @@ type Props = {
   friendUserId: string;
 };
 
-export function DeleteFriendModal({ visible, onClose, friendNickname, friendUserId }: Props): React.JSX.Element {
+export function DeleteFriendModal({ visible, onClose, friendNickname, friendUserId }: Props) {
   const { mutate, isPending } = useDeleteFriend();
 
   const handleDelete = (): void => {
@@ -29,52 +27,18 @@ export function DeleteFriendModal({ visible, onClose, friendNickname, friendUser
   };
 
   return (
-    <PixelModal visible={visible} onClose={onClose} title="친구 삭제">
-      <Text style={styles.body} allowFontScaling={false}>
+    <Dialog
+      visible={visible}
+      onClose={onClose}
+      title="친구 삭제"
+      buttons={[
+        { label: '취소', color: 'light', onPress: onClose, disabled: isPending },
+        { label: '삭제하기', color: 'dark', onPress: handleDelete, disabled: isPending },
+      ]}
+    >
+      <Text variant="B4" sx={{ color: colors.GRAY }}>
         {friendNickname}님을 친구 목록에서 삭제할까요? 상대방 목록에서도 삭제돼요.
       </Text>
-      <View style={{ flexDirection: 'row', gap: 8 }}>
-        <View style={{ flex: 1 }}>
-          <PixelButton label="취소" variant="secondary" onPress={onClose} disabled={isPending} />
-        </View>
-        <Pressable
-          onPress={handleDelete}
-          disabled={isPending}
-          style={({ pressed }) => [
-            styles.destructiveBtn,
-            pressed && { opacity: 0.7 },
-            isPending && { opacity: 0.6 },
-          ]}
-        >
-          <Text style={styles.destructiveLabel} allowFontScaling={false}>
-            삭제하기
-          </Text>
-        </Pressable>
-      </View>
-    </PixelModal>
+    </Dialog>
   );
 }
-
-const styles = StyleSheet.create({
-  body: {
-    fontFamily: fontFamily.regular,
-    fontSize: typography.body.fontSize,
-    lineHeight: typography.body.lineHeight,
-    color: colors.textSecondary,
-  },
-  destructiveBtn: {
-    height: 48,
-    backgroundColor: colors.destructive,
-    borderWidth: 2,
-    borderColor: colors.textPrimary,
-    alignItems: 'center',
-    justifyContent: 'center',
-    flex: 1,
-  },
-  destructiveLabel: {
-    fontFamily: fontFamily.regular,
-    fontSize: typography.label.fontSize,
-    lineHeight: typography.label.lineHeight,
-    color: colors.background,
-  },
-});

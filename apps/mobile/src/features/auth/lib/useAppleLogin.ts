@@ -1,7 +1,8 @@
 import { useMutation } from '@tanstack/react-query';
 import appleAuth from '@invertase/react-native-apple-authentication';
-import { apiPost } from '@/services/api';
-import { useAuthStore, type UserPrivate } from '@/stores/auth';
+import { apiPost } from '@/shared/api';
+import { initializeAuthState } from '@/shared/lib';
+import type { UserPrivate } from '@/shared/model';
 
 type AppleAuthResponse = {
   accessToken: string;
@@ -35,13 +36,7 @@ export function useAppleLogin() {
         fullName,
       });
 
-      await useAuthStore.getState().setTokens({
-        accessToken: data.accessToken,
-        refreshToken: data.refreshToken,
-      });
-      useAuthStore.getState().setUser(data.user);
-
-      return { needsOnboarding: data.needsOnboarding };
+      return initializeAuthState(data);
     },
   });
 }

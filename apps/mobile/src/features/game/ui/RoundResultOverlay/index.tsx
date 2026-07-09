@@ -59,7 +59,7 @@ export function RoundResultOverlay({ result, players, scoreboard, prompt, onDism
     <View style={styles.overlay}>
       <View sx={{ flex: 1, justifyContent: 'center', paddingHorizontal: spacing.LG, gap: spacing.MD }}>
         <Text sx={{ ...textSizes.T3, color: colors.LIGHT_100, textAlign: 'center' }}>
-          {'라운드 ' + (result.roundIndex + 1) + ' 결과'}
+          {'턴 ' + (result.roundIndex + 1) + ' 결과'}
         </Text>
 
         {result.correctUserId != null && prompt != null && (
@@ -83,7 +83,7 @@ export function RoundResultOverlay({ result, players, scoreboard, prompt, onDism
         />
 
         <Text sx={{ ...textSizes.B3, color: colors.LIGHT_100, textAlign: 'center' }}>
-          {remaining + '초 후 다음 라운드 시작'}
+          {remaining + '초 후 다음 턴 시작'}
         </Text>
       </View>
     </View>

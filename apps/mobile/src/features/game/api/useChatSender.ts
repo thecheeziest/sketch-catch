@@ -12,5 +12,10 @@ export function useChatSender() {
     socket?.emit('answer:accept', { messageId });
   };
 
-  return { sendChat, acceptAnswer };
+  const submitCustomPrompt = (text: string): void => {
+    if (!text.trim()) return;
+    socket?.emit('game:custom:prompt', { text: text.trim() });
+  };
+
+  return { sendChat, acceptAnswer, submitCustomPrompt };
 }

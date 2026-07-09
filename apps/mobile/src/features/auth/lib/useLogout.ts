@@ -1,7 +1,7 @@
 import { useCallback } from 'react';
 import { logout as kakaoLogout } from '@react-native-seoul/kakao-login';
-import { apiPost } from '@/services/api';
-import { useAuthStore } from '@/stores/auth';
+import { apiPost, queryClient } from '@/shared/api';
+import { useAuthStore } from '@/shared/model';
 
 export function useLogout() {
   return useCallback(async () => {
@@ -21,5 +21,8 @@ export function useLogout() {
 
     // SecureStore 토큰 삭제 + Zustand 상태 초기화
     await useAuthStore.getState().clearAuth();
+
+    // 이전 사용자의 캐시가 다음 로그인에 노출되지 않도록 전체 초기화
+    queryClient.clear();
   }, []);
 }

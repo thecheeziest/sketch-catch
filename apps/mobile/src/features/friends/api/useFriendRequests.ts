@@ -1,20 +1,13 @@
 import { useQuery } from '@tanstack/react-query';
-import { apiGet } from '@/shared/api/client';
+import { apiGet } from '@/shared/api';
+import type { FriendRequest } from '@/shared/model';
 
-export type FriendRequest = {
-  id: string;
-  sender: {
-    id: string;
-    nickname: string;
-    friendCode: string;
-    characterId: string;
-  };
-  createdAt: string;
-};
+export type { FriendRequest };
 
 export function useFriendRequests() {
-  return useQuery({
+  return useQuery<FriendRequest[]>({
     queryKey: ['friends', 'requests'],
     queryFn: () => apiGet<FriendRequest[]>('/friends/requests'),
+    refetchInterval: 30_000,
   });
 }

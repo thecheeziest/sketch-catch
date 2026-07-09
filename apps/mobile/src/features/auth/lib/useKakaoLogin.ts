@@ -1,7 +1,8 @@
 import { useMutation } from '@tanstack/react-query';
 import { login as kakaoLogin } from '@react-native-seoul/kakao-login';
-import { apiPost } from '@/services/api';
-import { useAuthStore, type UserPrivate } from '@/stores/auth';
+import { apiPost } from '@/shared/api';
+import { initializeAuthState } from '@/shared/lib';
+import type { UserPrivate } from '@/shared/model';
 
 type KakaoAuthResponse = {
   accessToken: string;
@@ -24,13 +25,7 @@ export function useKakaoLogin() {
         idToken: result.idToken,
       });
 
-      await useAuthStore.getState().setTokens({
-        accessToken: data.accessToken,
-        refreshToken: data.refreshToken,
-      });
-      useAuthStore.getState().setUser(data.user);
-
-      return { needsOnboarding: data.needsOnboarding };
+      return initializeAuthState(data);
     },
   });
 }

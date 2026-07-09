@@ -1,6 +1,6 @@
 import { useMutation } from '@tanstack/react-query';
 import { useRouter } from 'expo-router';
-import { apiPost } from '@/shared/api/client';
+import { apiPost } from '@/shared/api';
 import type { Category } from '@sketch-catch/shared';
 
 // D-04: 기본값 — 모드 1 고정 (MVP는 모드 1만), 인원 6, 라운드 5, 타이머 30
@@ -12,6 +12,7 @@ type CreateRoomInput = {
   categories: Category[];
   title?: string;
   locked?: boolean;
+  password?: string;
 };
 
 export function useCreateRoom() {

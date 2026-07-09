@@ -1,7 +1,7 @@
 import { useMutation } from '@tanstack/react-query';
 import { useRouter } from 'expo-router';
-import { apiPost } from '@/shared/api/client';
-import { useRoomStore } from '@/shared/model/room';
+import { apiPost } from '@/shared/api';
+import { useRoomStore } from '@/shared/model';
 
 type MatchResponse = { matched: boolean; code?: string };
 

@@ -19,6 +19,9 @@ type RemoteStroke = {
 type GameStore = {
   round: { roundIndex: number; drawerId: string; durationSec: number } | null;
   promptForDrawer: string | null;
+  promptHint: string | null;
+  currentPrompt: string | null;
+  needsCustomPrompt: boolean;
   remoteStrokes: RemoteStroke[];
   chatMessages: ChatMessage[];
   correct: { userId: string; messageId: string } | null;
@@ -42,6 +45,9 @@ export const useGameStore = create<GameStore>()(
   immer((set, get) => ({
     round: null,
     promptForDrawer: null,
+    promptHint: null,
+    currentPrompt: null,
+    needsCustomPrompt: false,
     remoteStrokes: [],
     chatMessages: [],
     correct: null,
@@ -95,12 +101,22 @@ export const useGameStore = create<GameStore>()(
             drawerId: payload.drawerId,
             durationSec: payload.durationSec,
           };
+          st.currentPrompt = payload.promptForDrawer ?? null;
           if (payload.drawerId === myId) {
             st.promptForDrawer = payload.promptForDrawer ?? null;
+            // 커스텀 모드: 제시어 입력 전 첫 game:round:start 이벤트
+            st.needsCustomPrompt = payload.needsCustomPrompt === true && !payload.promptForDrawer;
           } else {
             st.promptForDrawer = null;
+            st.needsCustomPrompt = false;
           }
-          st.remoteStrokes = [];
+          st.promptHint = payload.promptForDrawer
+            ? payload.promptForDrawer.split('').map((ch) => (ch === ' ' ? ' ' : 'ㅇ')).join('')
+            : null;
+          // 커스텀 모드: 서버가 제시어를 받은 뒤 다시 game:round:start를 보낼 때 캔버스 유지
+          if (!payload.needsCustomPrompt) {
+            st.remoteStrokes = [];
+          }
         });
       });
 
@@ -161,6 +177,9 @@ export const useGameStore = create<GameStore>()(
       set((st) => {
         st.round = null;
         st.promptForDrawer = null;
+        st.promptHint = null;
+        st.currentPrompt = null;
+        st.needsCustomPrompt = false;
         st.remoteStrokes = [];
         st.chatMessages = [];
         st.correct = null;

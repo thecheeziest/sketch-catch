@@ -11,10 +11,12 @@ type Props = {
 export function ChatInputBar({ isDrawer, onSend }: Props) {
   const [text, setText] = useState('');
 
+  if (isDrawer) return null;
+
   const canSend = text.trim().length > 0;
 
   const handleSend = (): void => {
-    if (!canSend || isDrawer) return;
+    if (!canSend) return;
     onSend(text.trim());
     setText('');
   };
@@ -26,21 +28,20 @@ export function ChatInputBar({ isDrawer, onSend }: Props) {
         value={text}
         onChangeText={setText}
         maxLength={30}
-        editable={!isDrawer}
-        placeholder={isDrawer ? '출제 중에는 채팅 불가' : '정답을 입력하세요'}
+        placeholder="정답을 입력하세요"
         placeholderTextColor={colors.GRAY}
         onSubmitEditing={handleSend}
         returnKeyType="send"
       />
       <Pressable
         onPress={handleSend}
-        disabled={!canSend || isDrawer}
-        style={[styles.sendButton, (!canSend || isDrawer) && styles.sendButtonDisabled]}
+        disabled={!canSend}
+        style={[styles.sendButton, !canSend && styles.sendButtonDisabled]}
         accessibilityLabel="전송"
       >
         <TextInput
           editable={false}
-          style={[styles.sendIcon, (!canSend || isDrawer) && styles.sendIconDisabled]}
+          style={[styles.sendIcon, !canSend && styles.sendIconDisabled]}
           value="→"
         />
       </Pressable>

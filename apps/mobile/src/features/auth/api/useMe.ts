@@ -1,6 +1,6 @@
 import { useQuery } from '@tanstack/react-query';
-import { apiGet } from '@/services/api';
-import { useAuthStore, type UserPrivate } from '@/stores/auth';
+import { apiGet } from '@/shared/api';
+import { useAuthStore, type UserPrivate } from '@/shared/model';
 
 export const ME_QUERY_KEY = ['me'] as const;
 

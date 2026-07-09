@@ -1,6 +1,6 @@
 import { useMutation } from '@tanstack/react-query';
-import { apiDelete } from '@/shared/api/client';
-import { useRoomStore } from '@/shared/model/room';
+import { apiDelete } from '@/shared/api';
+import { useRoomStore } from '@/shared/model';
 
 export function useCancelMatch() {
   return useMutation({

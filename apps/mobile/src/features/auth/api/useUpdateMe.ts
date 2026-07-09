@@ -1,7 +1,6 @@
 import { useMutation, useQueryClient } from '@tanstack/react-query';
-import { apiPatch } from '@/services/api';
-import { ApiError } from '@/services/api';
-import { useAuthStore, type UserPrivate } from '@/stores/auth';
+import { apiPatch, ApiError } from '@/shared/api';
+import { useAuthStore, type UserPrivate } from '@/shared/model';
 import { ME_QUERY_KEY } from './useMe';
 
 export type UpdateMeInput = {

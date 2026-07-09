@@ -31,10 +31,11 @@ export function ColorPicker({ value, onChange }: Props) {
     <View sx={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
       {COLOR_OPTIONS.map((opt) => {
         const isSelected = opt.value === value;
+        const bgColor = opt.value;
         return (
           <Pressable
-            key={opt.value}
-            onPress={() => onChange(opt.value)}
+            key={bgColor}
+            onPress={() => onChange(bgColor)}
             hitSlop={8}
             accessibilityLabel={`색상 선택: ${opt.label}`}
             style={styles.dotWrapper}
@@ -48,10 +49,10 @@ export function ColorPicker({ value, onChange }: Props) {
                 >
                   <View style={{ flex: 1 }} />
                 </PixelFrame>
-                <View style={[styles.dot, { backgroundColor: opt.value }]} />
+                <View style={[styles.dot, { backgroundColor: bgColor }]} />
               </View>
             ) : (
-              <View style={[styles.dot, { backgroundColor: opt.value }]} />
+              <View style={[styles.dot, { backgroundColor: bgColor }]} />
             )}
           </Pressable>
         );
