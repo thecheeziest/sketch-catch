@@ -4,8 +4,11 @@ import { io, type Socket } from 'socket.io-client';
 import type { ClientEvents, ServerEvents, RoomState, Player } from '@sketch-catch/shared';
 import { SOCKET_NAMESPACE } from '@sketch-catch/shared';
 import { useAuthStore } from './auth';
+import { Platform } from 'react-native';
 
-const BASE_URL = process.env.EXPO_PUBLIC_API_URL ?? 'http://localhost:3000';
+// Android 에뮬레이터는 10.0.2.2로 호스트 머신에 접근 (api/client.ts와 동일 패턴)
+const DEV_HOST = Platform.OS === 'android' ? '10.0.2.2' : 'localhost';
+const BASE_URL = (process.env.EXPO_PUBLIC_API_URL ?? 'http://localhost:3000').replace('localhost', DEV_HOST);
 
 type RoomStore = {
   socket: Socket<ServerEvents, ClientEvents> | null;
@@ -34,6 +37,7 @@ export const useRoomStore = create<RoomStore>()(
         auth: { token },
       });
 
+      socket.on('connect_error', (err) => console.error('[socket] connect_error', err.message));
       // 이벤트명 리터럴 직접 사용 — SERVER_EVENT 상수를 통한 타입 추론이 socket.on 오버로드와 불일치 (D-04-04)
       socket.on('room:state', (s) => get().setRoomState(s));
       socket.on('room:player:join', ({ player }: { player: Player }) =>
@@ -45,8 +49,17 @@ export const useRoomStore = create<RoomStore>()(
       );
       socket.on('room:player:leave', ({ userId }: { userId: string }) =>
         set((st) => {
-          if (st.roomState) {
-            st.roomState.players = st.roomState.players.filter((p) => p.id !== userId);
+          if (!st.roomState) return;
+          st.roomState.players = st.roomState.players.filter((p) => p.id !== userId);
+          // hostId는 room:state 이벤트로 함께 갱신되지만, 방어적으로 직접 승계
+          if (st.roomState.hostId === userId) {
+            const next = [...st.roomState.players].sort((a, b) => a.slot - b.slot)[0];
+            if (next) {
+              st.roomState.hostId = next.id;
+              st.roomState.players.forEach((p) => {
+                p.isHost = p.id === next.id;
+              });
+            }
           }
         })
       );

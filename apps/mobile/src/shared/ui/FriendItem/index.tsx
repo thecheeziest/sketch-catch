@@ -1,86 +1,79 @@
-import React from 'react'
-import { Pressable, View, Text, StyleSheet } from 'react-native'
-import { colors, typography, fontFamily } from '@/shared/config/theme'
-import { PresenceDot } from '@/shared/ui/PresenceDot'
+import { Image, Text, View } from 'dripsy'
+import { colors, getCharacterImageSource } from '@/shared/config';
+import type { Friend } from '@/shared/model';
+import { Button } from '../Button';
+import { Pressable, StyleSheet } from 'react-native';
 
-type Friend = {
-  friendshipId: string
-  userId: string
-  nickname: string
-  friendCode: string
-  characterId: string
-  presenceStatus: 'ONLINE' | 'OFFLINE' | 'IN_GAME'
-}
+type Props = { friend: Friend; onLongPress: () => void; onJoin?: () => void; index?: number };
 
-type Props = { friend: Friend; onLongPress: () => void }
+const PRESENCE_COLOR: Record<Friend['presenceStatus'], string> = {
+  ONLINE: colors.SUCCESS_400,
+  OFFLINE: colors.LIGHT_500,
+  IN_LOBBY: colors.INFO_300,
+  IN_GAME: colors.PRIMARY_400,
+};
 
-export function FriendItem({ friend, onLongPress }: Props): React.JSX.Element {
+const PRESENCE_LABEL: Record<Friend['presenceStatus'], string> = {
+  ONLINE: '온라인',
+  OFFLINE: '오프라인',
+  IN_LOBBY: '대기실',
+  IN_GAME: '게임 중',
+};
+
+const ROW_BG = [`${colors.WHITE}70`, `${colors.PRIMARY_300}70`] as const;
+
+export function FriendItem({ friend, onLongPress, onJoin, index }: Props) {
+  const imageSource = getCharacterImageSource(friend.characterId);
+  const bgColor = index !== undefined ? ROW_BG[index % 2] : 'transparent';
+
+  const statusLabel =
+    friend.presenceStatus === 'IN_LOBBY' && friend.room
+      ? `대기실 · ${friend.room.playerCount}/${friend.room.playerCountMax}명`
+      : PRESENCE_LABEL[friend.presenceStatus];
+
   return (
     <Pressable
-      style={styles.row}
+      style={[styles.row, { backgroundColor: bgColor }]}
       onLongPress={onLongPress}
       delayLongPress={500}
     >
-      {/* 캐릭터 아이콘 영역 */}
-      <View style={styles.iconWrapper}>
-        <View style={styles.iconPlaceholder} />
-        <View style={styles.dotWrapper}>
-          <PresenceDot status={friend.presenceStatus} />
-        </View>
-      </View>
-
-      {/* 텍스트 영역 */}
-      <View style={styles.textArea}>
-        <Text style={styles.nickname} allowFontScaling={false}>
+      <View
+        sx={{
+          width: 12,
+          height: 12,
+          borderRadius: 6,
+          backgroundColor: PRESENCE_COLOR[friend.presenceStatus],
+        }}
+      />
+      {imageSource !== null ? (
+        <Image source={imageSource} sx={{ width: 40, height: 40 }} resizeMode="contain" />
+      ) : (
+        <View sx={{ width: 40, height: 40, backgroundColor: colors.SECONDARY_400 }} />
+      )}
+      <View sx={{ flex: 1 }}>
+        <Text sx={{ color: colors.LIGHT_100 }}>
           {friend.nickname}
         </Text>
-        <Text style={styles.code} allowFontScaling={false}>
-          {friend.nickname}#{friend.friendCode}
+        <Text variant="B4" sx={{ color: PRESENCE_COLOR[friend.presenceStatus] }}>
+          {statusLabel}
         </Text>
       </View>
+      {friend.room?.joinable && onJoin ? (
+        <Button label="같이하기" color="secondary" height={32} onPress={onJoin} />
+      ) : null}
     </Pressable>
-  )
+  );
 }
 
 const styles = StyleSheet.create({
   row: {
-    height: 64,
+    minHeight: 64,
     paddingHorizontal: 16,
+    paddingVertical: 12,
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 16,
-    backgroundColor: colors.background,
+    gap: 12,
     borderBottomWidth: 1,
-    borderBottomColor: colors.border,
+    borderBottomColor: colors.BLACK,
   },
-  iconWrapper: {
-    position: 'relative',
-    width: 40,
-    height: 40,
-  },
-  iconPlaceholder: {
-    width: 40,
-    height: 40,
-    backgroundColor: colors.accentSecondary,
-  },
-  dotWrapper: {
-    position: 'absolute',
-    bottom: 0,
-    right: 0,
-  },
-  textArea: {
-    flex: 1,
-  },
-  nickname: {
-    fontFamily: fontFamily.regular,
-    fontSize: typography.label.fontSize,
-    lineHeight: typography.label.lineHeight,
-    color: colors.textPrimary,
-  },
-  code: {
-    fontFamily: fontFamily.regular,
-    fontSize: typography.body.fontSize,
-    lineHeight: typography.body.lineHeight,
-    color: colors.textSecondary,
-  },
-})
+});
