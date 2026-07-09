@@ -1,6 +1,6 @@
 {
   "expo": {
-    "name": "스케치캐치",
+    "name": "SketchCatch",
     "slug": "sketch-catch",
     "scheme": "sketchcatch",
     "version": "0.0.1",
@@ -14,6 +14,7 @@
       "backgroundColor": "#FAFAF0"
     },
     "ios": {
+      "icon": "./assets/icon-ios.png",
       "supportsTablet": false,
       "bundleIdentifier": "com.sketchcatch.app",
       "usesAppleSignIn": true
@@ -21,9 +22,12 @@
     "android": {
       "adaptiveIcon": {
         "foregroundImage": "./assets/adaptive-icon.png",
-        "backgroundColor": "#FAFAF0"
+        "backgroundColor": "#FFFFFF"
       },
       "package": "com.sketchcatch.app"
+    },
+    "web": {
+      "favicon": "./assets/favicon.png"
     },
     "plugins": [
       "expo-router",

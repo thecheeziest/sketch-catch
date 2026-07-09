@@ -20,4 +20,17 @@ config.resolver.nodeModulesPaths = [
 config.resolver.unstable_enableSymlinks = true;
 config.resolver.unstable_enablePackageExports = true;
 
+// 4. TypeScript ESM 패키지 대응: './foo.js' import가 실패하면 './foo.ts'로 재시도
+// (packages/shared처럼 .js 확장자를 명시하는 TypeScript ESM 소스를 Metro가 직접 읽을 때 필요)
+config.resolver.resolveRequest = (context, moduleName, platform) => {
+  if (moduleName.endsWith('.js')) {
+    try {
+      return context.resolveRequest(context, moduleName, platform);
+    } catch {
+      return context.resolveRequest(context, moduleName.replace(/\.js$/, '.ts'), platform);
+    }
+  }
+  return context.resolveRequest(context, moduleName, platform);
+};
+
 module.exports = config;
