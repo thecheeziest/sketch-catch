@@ -1,9 +1,11 @@
-import { useFriendRequests } from '@/features/friends/api/useFriendRequests';
-import { colors } from '@/shared/config/theme';
-import { useRoomStore } from '@/shared/model/room';
-import { Ionicons } from '@expo/vector-icons';
+import { useFriendRequests } from '@/features/friends/api';
+import { colors, fontFamily, textSizes } from '@/shared/config';
+import { useRoomStore } from '@/shared/model';
+import { Icon } from '@/shared/ui';
+import { View } from 'dripsy';
+import { BlurView } from 'expo-blur';
 import { Tabs } from 'expo-router';
-import React from 'react';
+import { StyleSheet } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 function useRequestBadge(): number | string | undefined {
@@ -13,7 +15,7 @@ function useRequestBadge(): number | string | undefined {
   return count <= 99 ? count : '+99';
 }
 
-export default function TabsLayout(): React.JSX.Element {
+export default function TabsLayout() {
   const requestBadge = useRequestBadge();
   const { bottom } = useSafeAreaInsets();
   const isMatchmaking = useRoomStore((s) => s.isMatchmaking);
@@ -23,24 +25,31 @@ export default function TabsLayout(): React.JSX.Element {
       screenOptions={{
         headerShown: false,
         tabBarStyle: {
-          backgroundColor: colors.background,
-          borderTopColor: colors.border,
-          height: 56 + bottom,
+          position: 'absolute',
+          backgroundColor: 'transparent',
+          borderTopWidth: 3,
+          borderTopColor: colors.BLACK,
+          height: 64 + bottom,
           paddingTop: 8,
           paddingBottom: bottom,
         },
-        tabBarActiveTintColor: colors.accentPrimary,
-        tabBarInactiveTintColor: colors.textSecondary,
-        tabBarLabelStyle: { fontFamily: 'Galmuri11', fontSize: 12 },
+        tabBarBackground: () => (
+          <BlurView intensity={20} tint="light" style={StyleSheet.absoluteFillObject}>
+            <View
+              style={[StyleSheet.absoluteFillObject, { backgroundColor: 'rgba(10, 10, 16, 0.82)' }]}
+            />
+          </BlurView>
+        ),
+        tabBarActiveTintColor: colors.PRIMARY_400,
+        tabBarInactiveTintColor: colors.LIGHT_100,
+        tabBarLabelStyle: { fontFamily: fontFamily.REGULAR, fontSize: textSizes.B3.fontSize },
       }}
     >
       <Tabs.Screen
         name="index"
         options={{
           title: '홈',
-          tabBarIcon: ({ color, size }) => (
-            <Ionicons name="home-outline" size={size} color={color} />
-          ),
+          tabBarIcon: ({ size, color }) => <Icon name="HOME" size={size} color={color} />,
         }}
       />
       <Tabs.Screen
@@ -48,10 +57,8 @@ export default function TabsLayout(): React.JSX.Element {
         options={{
           title: '친구',
           tabBarBadge: requestBadge,
-          tabBarBadgeStyle: { fontFamily: 'Galmuri11', fontSize: 10 },
-          tabBarIcon: ({ color, size }) => (
-            <Ionicons name="people-outline" size={size} color={color} />
-          ),
+          tabBarBadgeStyle: { fontFamily: fontFamily.REGULAR, fontSize: textSizes.B4.fontSize },
+          tabBarIcon: ({ size, color }) => <Icon name="FRIENDS" size={size} color={color} />,
         }}
         listeners={{
           tabPress: (e) => {

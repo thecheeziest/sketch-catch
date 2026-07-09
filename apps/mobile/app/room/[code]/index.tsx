@@ -2,10 +2,10 @@ import { RoomEditModal, SlotCard } from '@/features/room/ui';
 import { colors, spacing } from '@/shared/config';
 import { useAuthStore, useRoomStore, useToastStore } from '@/shared/model';
 import { copyToClipboard } from '@/shared/lib';
-import { Button, Icon } from '@/shared/ui';
+import { Button, FlatList, Icon } from '@/shared/ui';
 import type { Player } from '@sketch-catch/shared';
 import { CLIENT_EVENT } from '@sketch-catch/shared';
-import { FlatList, Text, View } from 'dripsy';
+import { Text, View } from 'dripsy';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { useEffect, useRef, useState } from 'react';
 import { type ListRenderItem, ImageBackground, Pressable, StyleSheet, useWindowDimensions } from 'react-native';
@@ -23,15 +23,11 @@ type SlotItem = Player | null;
 export default function LobbyScreen() {
   const router = useRouter();
   const { code } = useLocalSearchParams<{ code: string }>();
-  const { connect, disconnect, socket, roomState } = useRoomStore();
+  const socket = useRoomStore((s) => s.socket);
+  const roomState = useRoomStore((s) => s.roomState);
   const myId = useAuthStore.getState().user?.id;
   const wasHostRef = useRef(false);
   const [editVisible, setEditVisible] = useState(false);
-
-  useEffect(() => {
-    connect();
-    return () => disconnect();
-  }, [connect, disconnect]);
 
   // MODE1_ROUND_START 시 게임 화면으로 전환
   useEffect(() => {
@@ -45,11 +41,8 @@ export default function LobbyScreen() {
     const handleConnect = (): void => {
       socket.emit(CLIENT_EVENT.ROOM_JOIN, { code });
     };
-    if (socket.connected) {
-      socket.emit(CLIENT_EVENT.ROOM_JOIN, { code });
-      return;
-    }
     socket.on('connect', handleConnect);
+    if (socket.connected) handleConnect();
     return () => {
       socket.off('connect', handleConnect);
     };
@@ -57,12 +50,11 @@ export default function LobbyScreen() {
 
   useEffect(() => {
     const isHost = roomState?.hostId === myId;
-    const hasJoined = Boolean(roomState?.players.find((p) => p.id === myId));
-    if (isHost && hasJoined && !wasHostRef.current) {
+    if (isHost && !wasHostRef.current) {
       useToastStore.getState().show('방장이 되었습니다');
+      wasHostRef.current = true;
     }
-    wasHostRef.current = isHost ?? false;
-  }, [roomState?.hostId, myId, roomState?.players]);
+  }, [roomState?.hostId, myId]);
 
   const { width: screenWidth } = useWindowDimensions();
   const maxPlayers = roomState?.config.playerCountMax ?? 6;
@@ -72,9 +64,11 @@ export default function LobbyScreen() {
       numColumns,
   );
 
-  const slots: SlotItem[] = Array.from({ length: maxPlayers }, (_, i) => {
-    return roomState?.players.find((p) => p.slot === i) ?? null;
-  });
+  const connectedPlayers = roomState?.players ?? [];
+  const slots: SlotItem[] = [
+    ...connectedPlayers,
+    ...Array<null>(Math.max(0, maxPlayers - connectedPlayers.length)).fill(null),
+  ];
 
   const me = roomState?.players.find((p) => p.id === myId);
   const isHost = me?.isHost ?? false;
@@ -86,7 +80,7 @@ export default function LobbyScreen() {
     <SlotCard player={item} isMe={item?.id === myId} cardWidth={cardWidth} />
   );
 
-  const keyExtractor = (_: unknown, index: number): string => String(index);
+  const keyExtractor = (item: SlotItem, index: number): string => item?.id ?? `empty-${index}`;
 
   return (
     <ImageBackground source={roomBackground} style={{ flex: 1 }} resizeMode="cover">
@@ -105,7 +99,14 @@ export default function LobbyScreen() {
               marginRight: spacing.SM,
             }}
           >
-            <Pressable onPress={() => router.back()} hitSlop={8} style={styles.backBtn}>
+            <Pressable
+              onPress={() => {
+                socket?.emit(CLIENT_EVENT.ROOM_LEAVE);
+                router.back();
+              }}
+              hitSlop={8}
+              style={styles.backBtn}
+            >
               <Icon name="BACK" size={24} />
             </Pressable>
             <Text

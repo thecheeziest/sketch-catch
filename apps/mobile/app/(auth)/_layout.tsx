@@ -1,5 +1,5 @@
 import { Stack } from 'expo-router';
 
-export default function AuthLayout(): React.JSX.Element {
+export default function AuthLayout() {
   return <Stack screenOptions={{ headerShown: false }} />;
 }

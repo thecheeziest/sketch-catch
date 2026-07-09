@@ -1,8 +1,9 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { KeyboardAvoidingView, Platform, StyleSheet } from 'react-native';
+import { Alert, BackHandler, KeyboardAvoidingView, StyleSheet } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { useLocalSearchParams, useRouter } from 'expo-router';
-import type { ChatMessage } from '@sketch-catch/shared';
+import { Stack, useLocalSearchParams, useRouter } from 'expo-router';
+import type { ChatMessage, RoundEnd } from '@sketch-catch/shared';
+import { CLIENT_EVENT } from '@sketch-catch/shared';
 import { useAuthStore, useRoomStore } from '@/shared/model';
 import { useGameStore } from '@/features/game/model/useGameStore';
 import { useChatSender } from '@/features/game/api/useChatSender';
@@ -12,48 +13,61 @@ import {
   PlayerGrid,
   ToolbarRow,
   ChatInputBar,
-  WordBanner,
   AnswerApprovalButton,
   ScoreFeedback,
-  RoundResultOverlay,
+  TurnEndOverlay,
+  CustomPromptModal,
 } from '@/features/game/ui';
 
 export default function GameScreen() {
   const router = useRouter();
   const { code } = useLocalSearchParams<{ code: string }>();
   const myId = useAuthStore.getState().user?.id ?? '';
+  const socket = useRoomStore((s) => s.socket);
   const roomState = useRoomStore((s) => s.roomState);
   const round = useGameStore((s) => s.round);
   const promptForDrawer = useGameStore((s) => s.promptForDrawer);
+  const promptHint = useGameStore((s) => s.promptHint);
   const chatMessages = useGameStore((s) => s.chatMessages);
   const correct = useGameStore((s) => s.correct);
   const roundResult = useGameStore((s) => s.roundResult);
+  const currentPrompt = useGameStore((s) => s.currentPrompt);
+  const needsCustomPrompt = useGameStore((s) => s.needsCustomPrompt);
 
-  const { sendChat, acceptAnswer } = useChatSender();
+  const { sendChat, acceptAnswer, submitCustomPrompt } = useChatSender();
 
-  // 말풍선: userId별 최신 채팅 메시지
   const [activeBubbles, setActiveBubbles] = useState<Record<string, ChatMessage | null>>({});
-  // 출제자 플레이어 선택 상태
   const [selectedUserId, setSelectedUserId] = useState<string | null>(null);
-  // 점수 피드백 표시
   const [scoreFeedback, setScoreFeedback] = useState<{ score: number; visible: boolean }>({
     score: 0,
     visible: false,
   });
+  const [turnEndInfo, setTurnEndInfo] = useState<{ result: RoundEnd; prompt: string | null } | null>(null);
 
-  // 게임 이벤트 리스너 1회 등록
   useEffect(() => {
-    useGameStore.getState().registerGameListeners();
-  }, []);
+    if (!socket || !code) return;
 
-  // AWARD 상태로 전환 시 시상식 화면으로 이동 (Plan 08)
+    useGameStore.getState().reset();
+
+    const handleConnect = (): void => {
+      socket.emit(CLIENT_EVENT.ROOM_JOIN, { code });
+    };
+    socket.on('connect', handleConnect);
+    if (socket.connected) handleConnect();
+
+    useGameStore.getState().registerGameListeners();
+
+    return () => {
+      socket.off('connect', handleConnect);
+    };
+  }, [socket, code]);
+
   useEffect(() => {
     if (roomState?.status === 'AWARD') {
       router.replace(`/room/${code}/award` as never);
     }
   }, [roomState?.status, code, router]);
 
-  // chat:message → 발신자 PlayerCell 위 말풍선 업데이트
   const prevChatLengthRef = useRef(0);
   useEffect(() => {
     if (chatMessages.length > prevChatLengthRef.current) {
@@ -70,7 +84,6 @@ export default function GameScreen() {
     }
   }, [chatMessages]);
 
-  // chat:correct → 점수 피드백
   const prevCorrectRef = useRef<typeof correct>(null);
   useEffect(() => {
     if (correct !== null && correct !== prevCorrectRef.current) {
@@ -87,46 +100,79 @@ export default function GameScreen() {
     setActiveBubbles((prev) => ({ ...prev, [userId]: null }));
   }, []);
 
-  const handleApprove = (userId: string): void => {
-    // 해당 유저의 마지막 채팅 messageId로 answer:accept 전송
-    const lastMsg = [...chatMessages].reverse().find((m) => m.userId === userId);
-    if (lastMsg) {
-      acceptAnswer(lastMsg.id);
-    }
+  const handleApprove = (messageId: string): void => {
+    acceptAnswer(messageId);
     setSelectedUserId(null);
   };
 
-  const handleDismissRoundResult = (): void => {
-    useGameStore.setState({ roundResult: null });
+  const handleCustomPromptSubmit = (text: string): void => {
+    submitCustomPrompt(text);
+    useGameStore.setState({ needsCustomPrompt: false });
   };
 
-  const onBack = (): void => {
-    router.back();
+  // roundResult가 새로 도착하면 그 시점의 prompt를 캡처 (다음 라운드 시작 시 currentPrompt가 덮어씌워지기 전에)
+  useEffect(() => {
+    if (roundResult != null) {
+      setTurnEndInfo({ result: roundResult, prompt: currentPrompt });
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [roundResult]);
+
+  const handleDismissRoundResult = (): void => {
+    useGameStore.setState({ roundResult: null });
+    setTurnEndInfo(null);
   };
+
+  const handleExitAttempt = useCallback((): void => {
+    Alert.alert(
+      '게임 나가기',
+      '게임을 나가시겠어요?\n재참여가 불가하며 패배 처리됩니다.',
+      [
+        { text: '취소', style: 'cancel' },
+        {
+          text: '나가기',
+          style: 'destructive',
+          onPress: () => {
+            socket?.emit(CLIENT_EVENT.ROOM_LEAVE);
+            router.replace('/(tabs)' as never);
+          },
+        },
+      ],
+    );
+  }, [socket, router]);
+
+  // Android 하드웨어 뒤로가기 차단
+  useEffect(() => {
+    const subscription = BackHandler.addEventListener('hardwareBackPress', () => {
+      handleExitAttempt();
+      return true;
+    });
+    return () => subscription.remove();
+  }, [handleExitAttempt]);
 
   const players = roomState?.players ?? [];
   const drawerId = round?.drawerId ?? '';
   const isDrawer = drawerId === myId;
-  const roundCount = roomState?.config.roundCount ?? 1;
+  const totalTurns = roomState?.turnSchedule?.length ?? roomState?.config.roundCount ?? 1;
   const roundIndex = round?.roundIndex ?? 0;
-  const scoreboard = roomState?.scoreboard ?? {};
 
-  // 선택된 플레이어의 마지막 채팅 텍스트
-  const selectedPlayerLastChat = selectedUserId != null
-    ? ([...chatMessages].reverse().find((m) => m.userId === selectedUserId)?.text ?? '')
-    : '';
   const selectedNickname = players.find((p) => p.id === selectedUserId)?.nickname ?? '';
 
   return (
     <SafeAreaView style={styles.container} edges={['top', 'bottom', 'left', 'right']}>
-      {/* 헤더 — 48px */}
+      {/* iOS 스와이프 뒤로가기 비활성화 */}
+      <Stack.Screen options={{ gestureEnabled: false }} />
+
       <GameHeader
         roundIndex={roundIndex}
-        roundCount={roundCount}
-        onBack={onBack}
+        totalTurns={totalTurns}
+        isDrawer={isDrawer}
+        word={promptForDrawer}
+        promptHint={promptHint}
+        durationSec={round?.durationSec ?? 0}
+        onBack={handleExitAttempt}
       />
 
-      {/* 참가자 그리드 — 2행×6열 */}
       <PlayerGrid
         players={players}
         myId={myId}
@@ -139,43 +185,42 @@ export default function GameScreen() {
         onBubbleExpire={handleBubbleExpire}
       />
 
-      {/* 출제자 전용: 제시어 배너 + 정답 인정 버튼 */}
-      {isDrawer && promptForDrawer != null && (
-        <WordBanner word={promptForDrawer} />
-      )}
       {isDrawer && (
         <AnswerApprovalButton
           selectedUserId={selectedUserId}
           selectedNickname={selectedNickname}
-          lastChatText={selectedPlayerLastChat}
+          chatMessages={chatMessages}
           onApprove={handleApprove}
+          onDeselect={() => setSelectedUserId(null)}
         />
       )}
 
-      {/* Skia 캔버스 — 남은 공간 전부 */}
-      <DrawingCanvas isDrawer={isDrawer} />
+      {/* key를 roundIndex로 고정해 턴 전환 시 캔버스 초기화 */}
+      <DrawingCanvas isDrawer={isDrawer} key={`canvas-${roundIndex}`} />
 
-      {/* 점수 피드백 — 캔버스 위 absolute */}
       <ScoreFeedback score={scoreFeedback.score} visible={scoreFeedback.visible} />
 
-      {/* 출제자 전용 도구 */}
       {isDrawer && <ToolbarRow />}
 
-      {/* 채팅 입력창 — KeyboardAvoidingView로 소프트 키보드 위 배치 */}
-      <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : 'height'}>
-        <ChatInputBar isDrawer={isDrawer} onSend={sendChat} />
-      </KeyboardAvoidingView>
+      {!isDrawer && (
+        <KeyboardAvoidingView behavior="padding">
+          <ChatInputBar isDrawer={false} onSend={sendChat} />
+        </KeyboardAvoidingView>
+      )}
 
-      {/* 라운드 결과 오버레이 */}
-      {roundResult != null && (
-        <RoundResultOverlay
-          result={roundResult}
+      {turnEndInfo != null && (
+        <TurnEndOverlay
+          result={turnEndInfo.result}
           players={players}
-          scoreboard={scoreboard}
-          prompt={promptForDrawer ?? undefined}
+          prompt={turnEndInfo.prompt}
           onDismiss={handleDismissRoundResult}
         />
       )}
+
+      <CustomPromptModal
+        visible={isDrawer && needsCustomPrompt}
+        onSubmit={handleCustomPromptSubmit}
+      />
     </SafeAreaView>
   );
 }
@@ -183,6 +228,6 @@ export default function GameScreen() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#1E1C2C', // colors.DARK_200
+    backgroundColor: '#1E1C2C',
   },
 });

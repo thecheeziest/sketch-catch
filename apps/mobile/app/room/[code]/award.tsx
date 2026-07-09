@@ -2,8 +2,8 @@ import { useEffect, useState } from 'react';
 import { StyleSheet, useWindowDimensions } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Text, View } from 'dripsy';
-import { useRouter } from 'expo-router';
-import { Audio } from 'expo-av';
+import { useLocalSearchParams, useRouter } from 'expo-router';
+import { CLIENT_EVENT } from '@sketch-catch/shared';
 import { useGameStore } from '@/features/game/model/useGameStore';
 import { useRoomStore } from '@/shared/model/room';
 import { useChatSender } from '@/features/game/api/useChatSender';
@@ -15,26 +15,27 @@ import { colors, spacing, textSizes, fontFamily } from '@/shared/config';
 
 export default function AwardScreen() {
   const router = useRouter();
+  const { code } = useLocalSearchParams<{ code: string }>();
   const { width } = useWindowDimensions();
+  const socket = useRoomStore((s) => s.socket);
   const result = useGameStore((s) => s.result);
   const roomState = useRoomStore((s) => s.roomState);
   const { sendChat } = useChatSender();
 
   const [countdown, setCountdown] = useState(30);
 
-  // 빵빠레 사운드 (D-11: 파일 미존재 시 graceful skip)
+  // 소켓 연결 후 방 재입장
   useEffect(() => {
-    let sound: Audio.Sound | null = null;
-    Audio.Sound.createAsync(require('@assets/sounds/fanfare.wav'))
-      .then(({ sound: s }) => {
-        sound = s;
-        void s.playAsync();
-      })
-      .catch(() => {});
-    return () => {
-      void sound?.unloadAsync();
+    if (!socket || !code) return;
+    const handleConnect = (): void => {
+      socket.emit(CLIENT_EVENT.ROOM_JOIN, { code });
     };
-  }, []);
+    socket.on('connect', handleConnect);
+    if (socket.connected) handleConnect();
+    return () => {
+      socket.off('connect', handleConnect);
+    };
+  }, [socket, code]);
 
   // 30초 자동 종료 (AWRD-03)
   useEffect(() => {

@@ -1,76 +1,101 @@
-import { useState } from 'react'
-import { Dimensions, Image, StyleSheet, View } from 'react-native'
-import { SafeAreaView } from 'react-native-safe-area-context'
-import { useRouter } from 'expo-router'
-import { PixelButton } from '@/shared/ui/PixelButton'
-import { ProfileHeader } from '@/shared/ui/ProfileHeader'
-import { CodeJoinModal } from '@/features/room/ui/CodeJoinModal'
-import { useRoomStore } from '@/shared/model/room'
-import { colors, spacing } from '@/shared/config/theme'
-import { icons } from '@/shared/config/assets'
+import { useCancelMatch, useStartMatch } from '@/features/room/api';
+import { CodeJoinModal, MatchingStatus } from '@/features/room/ui';
+import { icons, spacing } from '@/shared/config';
+import { useRoomStore } from '@/shared/model';
+import { useMatchingTimer, useMatchingNavigation } from '@/shared/lib';
+import { Button, Dialog, ProfileHeader } from '@/shared/ui';
+import mainBackground from '@assets/main-background.png';
+import { Image, View } from 'dripsy';
+import { useRouter } from 'expo-router';
+import { useState } from 'react';
+import { ImageBackground } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 
-const LOGO_WIDTH = Dimensions.get('window').width * 0.6
+type PlayerCount = 6 | 8 | 10;
 
-export default function HomeScreen(): React.JSX.Element {
-  const router = useRouter()
-  const isMatchmaking = useRoomStore((s) => s.isMatchmaking)
-  const [codeModalVisible, setCodeModalVisible] = useState(false)
+export default function HomeScreen() {
+  const router = useRouter();
+  const [codeModalVisible, setCodeModalVisible] = useState(false);
+  const [sheetVisible, setSheetVisible] = useState(false);
+  const [matchingCount, setMatchingCount] = useState<PlayerCount | null>(null);
+
+  const isMatchmaking = useRoomStore((s) => s.isMatchmaking);
+  const seconds = useRoomStore((s) => s.matchingSeconds);
+
+  const startMatch = useStartMatch();
+  const cancelMatch = useCancelMatch();
+
+  useMatchingTimer();
+  useMatchingNavigation();
+
+  const handleSelectAndStart = (n: PlayerCount) => {
+    setMatchingCount(n);
+    setSheetVisible(false);
+    startMatch.mutate(n);
+  };
+
+  const handleCancel = () => {
+    cancelMatch.mutate(undefined, {
+      onSettled: () => {
+        useRoomStore.getState().setMatchmaking(false);
+      },
+    });
+  };
 
   return (
-    <SafeAreaView style={styles.container} edges={['bottom', 'left', 'right']}>
-      <ProfileHeader />
-      <View style={styles.content}>
-        <Image source={icons.LOGO} style={styles.logo} resizeMode="contain" />
-        <View style={styles.buttons}>
-          <View style={[isMatchmaking && styles.dimmed]}>
-            <PixelButton
-              label="방 만들기"
-              variant="primary"
-              disabled={isMatchmaking}
-              onPress={() => router.push('/room/create')}
-            />
-          </View>
-          <PixelButton
-            label="랜덤 매칭"
-            variant="secondary"
-            onPress={() => router.push('/room/match')}
-          />
-          <View style={[isMatchmaking && styles.dimmed]}>
-            <PixelButton
-              label="코드로 입장"
-              variant="outline"
-              disabled={isMatchmaking}
-              onPress={() => setCodeModalVisible(true)}
-            />
+    <ImageBackground source={mainBackground} style={{ flex: 1 }} resizeMode="cover">
+      <SafeAreaView style={{ flex: 1 }} edges={['bottom', 'left', 'right']}>
+        <ProfileHeader />
+        <View sx={sxStyles.content}>
+          <Image source={icons.LOGO} sx={{ width: 350 }} resizeMode="contain" />
+          <View sx={{ width: '100%', gap: spacing.MD }}>
+            {isMatchmaking ? (
+              <MatchingStatus count={matchingCount!} seconds={seconds} onCancel={handleCancel} />
+            ) : (
+              <>
+                <Button
+                  label="방 만들기"
+                  color="primary"
+                  onPress={() => router.push('/room/create')}
+                />
+                <Button label="랜덤 매칭" color="secondary" onPress={() => setSheetVisible(true)} />
+                <Button
+                  label="코드로 입장"
+                  color="light"
+                  onPress={() => setCodeModalVisible(true)}
+                />
+              </>
+            )}
           </View>
         </View>
-      </View>
-      <CodeJoinModal visible={codeModalVisible} onClose={() => setCodeModalVisible(false)} />
-    </SafeAreaView>
-  )
+
+        <CodeJoinModal visible={codeModalVisible} onClose={() => setCodeModalVisible(false)} />
+
+        <Dialog visible={sheetVisible} onClose={() => setSheetVisible(false)} title="인원 선택">
+          <View sx={{ flexDirection: 'row', gap: spacing.MD }}>
+            {([6, 8, 10] as const).map((n) => (
+              <Button
+                key={n}
+                label={`${n}명`}
+                color="primary"
+                style={{ flex: 1 }}
+                onPress={() => handleSelectAndStart(n)}
+              />
+            ))}
+          </View>
+        </Dialog>
+      </SafeAreaView>
+    </ImageBackground>
+  );
 }
 
-const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: colors.background,
-  },
+const sxStyles = {
   content: {
     flex: 1,
-    paddingHorizontal: spacing.xl,
-    justifyContent: 'center',
-    alignItems: 'center',
-    gap: spacing.lg,
+    paddingHorizontal: spacing.XL,
+    paddingBottom: 56,
+    justifyContent: 'center' as const,
+    alignItems: 'center' as const,
+    gap: spacing.LG,
   },
-  logo: {
-    width: LOGO_WIDTH,
-    height: LOGO_WIDTH,
-  },
-  buttons: {
-    width: '100%',
-    gap: spacing.md,
-  },
-  dimmed: {
-    opacity: 0.3,
-  },
-})
+};
