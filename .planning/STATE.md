@@ -2,9 +2,9 @@
 gsd_state_version: 1.0
 milestone: v1.0
 milestone_name: milestone
-status: Ready to execute
+status: Executing Phase 04
 stopped_at: Completed 05-game-mode-1/05-08-PLAN.md
-last_updated: "2026-05-26T23:57:19.045Z"
+last_updated: "2026-07-09T01:49:10.769Z"
 progress:
   total_phases: 7
   completed_phases: 3
@@ -19,12 +19,12 @@ progress:
 See: .planning/PROJECT.md (updated 2026-05-13)
 
 **Core value:** 친구들이 30초 안에 방을 만들고 바로 그림 게임을 시작할 수 있어야 한다 — 설치 직후 즉시 플레이.
-**Current focus:** Phase 05 — game-mode-1
+**Current focus:** Phase 04 — room-lobby
 
 ## Current Position
 
-Phase: 05 (game-mode-1) — EXECUTING
-Plan: 9 of 9
+Phase: 04 (room-lobby) — EXECUTING
+Plan: 1 of 9
 
 ## Performance Metrics
 
@@ -170,6 +170,8 @@ None yet.
 ### Blockers/Concerns
 
 None yet.
+
+**Resolved:** 04-09 Task1 자동검증 실패 — 작업 트리의 208개 미커밋 변경(Dripsy/FSD 마이그레이션)을 9개 논리 단위 커밋으로 정리(`1e421c8`~`24c6a94`). 원인 수정: (1) `room/[code]/index.tsx`가 `dripsy`에서 직접 FlatList import — `@/shared/ui` 타입 래퍼 규칙 위반, `@/shared/ui`로 교정. (2) `me.test.ts` redis mock에 `getPresence` 스텁 누락 — authenticate 미들웨어 500 오류 원인, 스텁 추가. (3) `game.test.ts` `makeRoomState()` 픽스처에 `turnSchedule` 누락 — `startRound` 조기 반환 원인, 추가. 전체 게이트(shared build/server test 81건/server·mobile typecheck) GREEN 확인. Task2 수동 검증 재개 가능.
 
 ## Session Continuity
 
