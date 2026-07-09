@@ -97,4 +97,5 @@ enum Category {
   PLACE
   ACTION
   JOB
+  CUSTOM
 }

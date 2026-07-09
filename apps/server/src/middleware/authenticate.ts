@@ -1,6 +1,7 @@
 import type { FastifyRequest, FastifyReply } from 'fastify';
 import { verifyAccessToken } from '../auth/jwt.js';
-import { redis, setPresence } from '../db/redis.js';
+import { redis, setPresence, getPresence } from '../db/redis.js';
+import { broadcastPresenceUpdate } from '../socket/presence.namespace.js';
 
 export async function authenticate(request: FastifyRequest, reply: FastifyReply): Promise<void> {
   const auth = request.headers.authorization;
@@ -21,6 +22,11 @@ export async function authenticate(request: FastifyRequest, reply: FastifyReply)
     return;
   }
   request.userId = payload.sub;
-  // fire-and-forget: presence 갱신 실패해도 인증 흐름 중단하지 않음
-  void setPresence(payload.sub);
+  // IN_LOBBY / IN_GAME 상태는 소켓 lifecycle이 관리하므로 덮어쓰지 않음
+  // OFFLINE → ONLINE 전환 또는 ONLINE TTL 갱신 목적으로만 호출
+  const currentPresence = await getPresence(payload.sub);
+  if (currentPresence !== 'IN_LOBBY' && currentPresence !== 'IN_GAME') {
+    await setPresence(payload.sub);
+    broadcastPresenceUpdate(payload.sub, 'ONLINE');
+  }
 }

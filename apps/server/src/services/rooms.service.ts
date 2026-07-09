@@ -5,9 +5,22 @@ import crypto from 'node:crypto';
 export class RoomNotFoundError extends Error { code = 'ROOM_NOT_FOUND' as const; }
 export class RoomFullError extends Error { code = 'ROOM_FULL' as const; }
 export class RoomLockedError extends Error { code = 'ROOM_LOCKED' as const; }
+export class WrongPasswordError extends Error { code = 'WRONG_PASSWORD' as const; }
 
 function generateRoomCode(): string {
   return crypto.randomBytes(3).toString('hex').toUpperCase().slice(0, 6);
+}
+
+export async function setRoomPassword(code: string, password: string): Promise<void> {
+  await redis.set(`room:${code}:password`, password, 'EX', 7200);
+}
+
+export async function getRoomPassword(code: string): Promise<string | null> {
+  return redis.get(`room:${code}:password`);
+}
+
+export async function clearRoomPassword(code: string): Promise<void> {
+  await redis.del(`room:${code}:password`);
 }
 
 export async function createRoom(opts: {
@@ -16,6 +29,7 @@ export async function createRoom(opts: {
   config: RoomConfig;
   title?: string;
   locked: boolean;
+  password?: string;
   mode: 1 | 2;
   userMeta: Record<string, { nickname: string; characterId: string }>;
 }): Promise<RoomState> {
@@ -52,6 +66,9 @@ export async function createRoom(opts: {
   };
 
   await redis.set(`room:${code}:state`, JSON.stringify(state), 'EX', 7200);
+  if (opts.locked && opts.password) {
+    await setRoomPassword(code, opts.password);
+  }
   return state;
 }
 
@@ -65,7 +82,11 @@ export async function saveRoomState(state: RoomState): Promise<void> {
   await redis.set(`room:${state.code}:state`, JSON.stringify(state), 'KEEPTTL');
 }
 
-export function assertJoinable(state: RoomState): void {
+export async function assertJoinable(state: RoomState, password?: string): Promise<void> {
   if (state.players.length >= state.config.playerCountMax) throw new RoomFullError();
-  if (state.locked) throw new RoomLockedError();
+  if (state.locked) {
+    const storedPw = await getRoomPassword(state.code);
+    if (storedPw === null) throw new RoomLockedError();
+    if (storedPw !== password) throw new WrongPasswordError();
+  }
 }

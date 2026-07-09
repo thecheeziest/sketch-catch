@@ -1,8 +1,9 @@
-import { redis } from '../db/redis.js';
+import { redis, setPresence, setUserRoom } from '../db/redis.js';
 import { createRoom } from './rooms.service.js';
 import { prisma } from '../db/prisma.js';
 
 export type MatchPlayerCount = 6 | 8 | 10;
+export type MatchResult = { code: string; userIds: string[] };
 
 // D-08: 모드 1 고정 (MVP)
 const matchQueueKey = (count: number) => `matchqueue:1:${count}`;
@@ -10,7 +11,7 @@ const matchQueueKey = (count: number) => `matchqueue:1:${count}`;
 export async function enqueueMatch(
   userId: string,
   playerCount: MatchPlayerCount
-): Promise<{ code: string } | null> {
+): Promise<MatchResult | null> {
   const key = matchQueueKey(playerCount);
   await redis.zadd(key, Date.now(), userId);
   return tryCreateMatch(key, playerCount);
@@ -24,7 +25,7 @@ export async function dequeueMatch(userId: string): Promise<void> {
 async function tryCreateMatch(
   key: string,
   playerCount: number
-): Promise<{ code: string } | null> {
+): Promise<MatchResult | null> {
   const count = await redis.zcount(key, '-inf', '+inf');
   if (count < playerCount) return null;
 
@@ -62,5 +63,12 @@ async function tryCreateMatch(
     userMeta,
   });
 
-  return { code: state.code };
+  await Promise.all(
+    userIds.flatMap((id) => [
+      setPresence(id, 'IN_LOBBY'),
+      setUserRoom(id, state.code),
+    ]),
+  );
+
+  return { code: state.code, userIds };
 }

@@ -2,12 +2,33 @@ import type { Namespace, Socket } from 'socket.io';
 import type { ClientEvents, ServerEvents } from '@sketch-catch/shared';
 import { SERVER_EVENT } from '@sketch-catch/shared';
 import { getRoomState, saveRoomState } from '../../services/rooms.service.js';
-import { redis, setPresence } from '../../db/redis.js';
+import { redis, setPresence, setUserRoom, clearUserRoom } from '../../db/redis.js';
+import { broadcastPresenceUpdate } from '../presence.namespace.js';
 import { prisma } from '../../db/prisma.js';
-import { startRound } from './game.js';
+import { startRound, initTurnSchedule, handlePlayerLeft } from './game.js';
 
 type GameNamespace = Namespace<ClientEvents, ServerEvents>;
 type GameSocket = Socket<ClientEvents, ServerEvents, Record<string, never>, { userId: string }>;
+type FetchableSocket = { id: string; data: { userId?: string } };
+type SocketFetcher = {
+  in: (roomName: string) => { fetchSockets: () => Promise<FetchableSocket[]> };
+};
+
+function canFetchSockets(game: GameNamespace): game is GameNamespace & SocketFetcher {
+  return typeof (game as Partial<SocketFetcher>).in === 'function';
+}
+
+async function hasActiveUserSocketInRoom(
+  game: GameNamespace,
+  roomName: string,
+  userId: string,
+  leavingSocketId: string,
+): Promise<boolean> {
+  if (!canFetchSockets(game)) return false;
+
+  const sockets = await game.in(roomName).fetchSockets();
+  return sockets.some((s) => s.id !== leavingSocketId && s.data.userId === userId);
+}
 
 export async function handleRoomJoin(
   game: GameNamespace,
@@ -63,8 +84,11 @@ export async function handleRoomJoin(
   const player = state.players.find((p) => p.id === userId)!;
   game.to(roomName).emit(SERVER_EVENT.ROOM_PLAYER_JOIN, { player });
 
-  // D-15: 대기실 입장 시 presence IN_GAME으로 갱신
-  await setPresence(userId, 'IN_GAME');
+  const presenceStatus = state.status === 'LOBBY' ? 'IN_LOBBY' : 'IN_GAME';
+  await setPresence(userId, presenceStatus);
+  broadcastPresenceUpdate(userId, presenceStatus);
+  await setUserRoom(userId, code);
+  console.log(`[room:join] presence set to ${presenceStatus} for`, userId);
 }
 
 export async function handleRoomReady(
@@ -87,7 +111,12 @@ export async function handleRoomReady(
 
   player.isReady = ready;
   // allReady는 서버에서만 계산 — 클라이언트 단독 계산 금지 (보안 원칙)
-  state.allReady = state.players.length > 0 && state.players.every((p) => p.isReady);
+  // 방장은 준비 버튼이 없으므로 allReady 계산에서 제외 (LBBY-02)
+  const nonHostPlayers = state.players.filter((p) => !p.isHost);
+  state.allReady = nonHostPlayers.length > 0 && nonHostPlayers.every((p) => p.isReady);
+  console.log('[ready] players:', state.players.map(p => ({ id: p.id, isHost: p.isHost, isReady: p.isReady })));
+  console.log('[ready] nonHostPlayers:', nonHostPlayers.map(p => ({ id: p.id, isReady: p.isReady })));
+  console.log('[ready] allReady:', state.allReady);
 
   await saveRoomState(state);
   game.to(roomName).emit(SERVER_EVENT.ROOM_STATE, state);
@@ -118,10 +147,15 @@ export async function handleRoomStart(
   }
 
   state.startedAt = Date.now();
+  state.status = 'MODE1_ROUND_START';
+  initTurnSchedule(state);
   await saveRoomState(state);
   game.to(roomName).emit(SERVER_EVENT.ROOM_STATE, state);
 
-  // Phase 5: 첫 라운드로 상태 전이
+  const activePlayers = state.players.filter((p) => p.connected);
+  await Promise.all(activePlayers.map((p) => setPresence(p.id, 'IN_GAME')));
+  activePlayers.forEach((p) => broadcastPresenceUpdate(p.id, 'IN_GAME'));
+
   await startRound(game, code, 0);
 }
 
@@ -131,33 +165,50 @@ export async function handleRoomLeave(
 ): Promise<void> {
   const userId = socket.data.userId;
   const rooms = Array.from(socket.rooms).filter((r) => r.startsWith('room:'));
+  let hasActiveRoomSocket = false;
 
   for (const roomName of rooms) {
     const code = roomName.replace('room:', '');
     const state = await getRoomState(code);
     if (!state) continue;
 
-    state.players = state.players.filter((p) => p.id !== userId);
     socket.leave(roomName);
-
-    if (state.players.length === 0) {
-      await redis.del(`room:${code}:state`);
+    if (await hasActiveUserSocketInRoom(game, roomName, userId, socket.id)) {
+      hasActiveRoomSocket = true;
       continue;
     }
 
-    // LBBY-03: 방장이 나간 경우 slot 최소 참가자 승계
-    // players.length > 0 이 위에서 보장됨 (players.length === 0이면 continue로 탈출)
-    if (state.hostId === userId) {
-      const next = state.players.sort((a, b) => a.slot - b.slot)[0]!;
-      state.hostId = next.id;
-      next.isHost = true;
-    }
+    const isGameInProgress =
+      state.status === 'MODE1_ROUND_START' || state.status === 'MODE1_ROUND_END';
 
-    await saveRoomState(state);
-    game.to(roomName).emit(SERVER_EVENT.ROOM_STATE, state);
-    game.to(roomName).emit(SERVER_EVENT.ROOM_PLAYER_LEAVE, { userId });
+    if (isGameInProgress) {
+      // 게임 중 퇴장: 플레이어 제거 대신 left 마킹 후 턴 조정
+      await handlePlayerLeft(game, code, userId);
+    } else {
+      // 로비/시상식: 기존 퇴장 처리
+      state.players = state.players.filter((p) => p.id !== userId);
+
+      if (state.players.length === 0) {
+        await redis.del(`room:${code}:state`);
+        continue;
+      }
+
+      // LBBY-03: 방장이 나간 경우 slot 최소 참가자 승계
+      if (state.hostId === userId) {
+        const next = state.players.sort((a, b) => a.slot - b.slot)[0]!;
+        state.hostId = next.id;
+        next.isHost = true;
+      }
+
+      await saveRoomState(state);
+      game.to(roomName).emit(SERVER_EVENT.ROOM_STATE, state);
+      game.to(roomName).emit(SERVER_EVENT.ROOM_PLAYER_LEAVE, { userId });
+    }
   }
 
-  // D-15: 퇴장 시 presence ONLINE으로 복원
+  if (hasActiveRoomSocket) return;
+
+  await clearUserRoom(userId);
   await setPresence(userId, 'ONLINE');
+  broadcastPresenceUpdate(userId, 'ONLINE');
 }

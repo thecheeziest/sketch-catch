@@ -3,6 +3,7 @@ import { z } from 'zod';
 import { authenticate } from '../middleware/authenticate.js';
 import { enqueueMatch, dequeueMatch } from '../services/match.service.js';
 import { logger } from '../lib/logger.js';
+import { broadcastPresenceUpdate } from '../socket/presence.namespace.js';
 
 // D-08: 6/8/10명만
 const matchBodySchema = z.object({
@@ -18,6 +19,7 @@ export const matchRoutes: FastifyPluginAsync = async (app) => {
     try {
       const result = await enqueueMatch(req.userId!, parsed.data.playerCount);
       if (result) {
+        result.userIds.forEach((userId) => broadcastPresenceUpdate(userId, 'IN_LOBBY'));
         // 즉시 매칭됨 — 방 코드 반환
         return reply.send({ matched: true, code: result.code });
       }

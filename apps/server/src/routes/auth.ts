@@ -88,7 +88,7 @@ export const authRoutes: FastifyPluginAsync = async (app) => {
     const token = authHeader.slice(7);
     const payload = await verifyAccessToken(token);
     if (!payload) return reply.status(401).send({ error: 'INVALID_TOKEN' });
-    await redis.del(`session:${payload.sub}`);
+    await redis.del(`session:${payload.sub}`, `user:presence:${payload.sub}`);
     return reply.send({ ok: true });
   });
 };

@@ -13,6 +13,7 @@ import { friendsRoutes } from './routes/friends.js';
 import { roomsRoutes } from './routes/rooms.js';
 import { matchRoutes } from './routes/match.js';
 import { registerGameNamespace } from './socket/game.namespace.js';
+import { registerPresenceNamespace } from './socket/presence.namespace.js';
 // shared 패키지 import 검증 — 빌드 시 워크스페이스 resolution 확인
 import { SHARED_PACKAGE_VERSION, SOCKET_NAMESPACE, type ClientEvents, type ServerEvents } from '@sketch-catch/shared';
 
@@ -38,6 +39,7 @@ async function bootstrap(): Promise<void> {
   // app.ready() 후에만 app.io 접근 가능 (RESEARCH.md §Pattern 1)
   await app.ready();
   registerGameNamespace(app.io as Server<ClientEvents, ServerEvents>);
+  registerPresenceNamespace(app.io as Server);
 
   const shutdown = async (signal: string): Promise<void> => {
     logger.info({ signal }, 'shutting down');

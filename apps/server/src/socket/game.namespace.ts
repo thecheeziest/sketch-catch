@@ -5,6 +5,7 @@ import { verifyAccessToken } from '../auth/jwt.js';
 import { handleRoomJoin, handleRoomLeave, handleRoomReady, handleRoomStart } from './handlers/room.js';
 import { handleStrokeStart, handleStrokeAppend, handleStrokeEnd, handleStrokeUndo, handleStrokeClear } from './handlers/stroke.js';
 import { handleChatSend, handleAnswerAccept } from './handlers/chat.js';
+import { handleCustomPromptSubmit } from './handlers/game.js';
 
 declare module 'socket.io' {
   interface SocketData {
@@ -32,8 +33,9 @@ export function registerGameNamespace(io: Server<ClientEvents, ServerEvents>): v
     socket.on('room:leave', () => void handleRoomLeave(game, socket));
     socket.on('room:ready', ({ ready }) => void handleRoomReady(game, socket, ready));
     socket.on('room:start', () => void handleRoomStart(game, socket));
-    // Pitfall 4 회피: disconnect 시에도 handleRoomLeave 호출
-    socket.on('disconnect', () => void handleRoomLeave(game, socket));
+    // disconnecting 사용 — disconnect 시점에는 socket.rooms가 이미 비워지므로
+    // disconnecting 시점(rooms 아직 유지)에 처리해야 방 코드를 찾을 수 있음
+    socket.on('disconnecting', () => void handleRoomLeave(game, socket));
 
     // DRAW-03: stroke 이벤트 — 출제자만 broadcast (리터럴 이벤트명 직접 사용 — Phase 4 결정)
     socket.on('stroke:start', (payload) => void handleStrokeStart(game, socket, payload));
@@ -45,5 +47,6 @@ export function registerGameNamespace(io: Server<ClientEvents, ServerEvents>): v
     // GAME-01/MD1-02/MD1-03: 채팅 + 정답 판정
     socket.on('chat:send', (payload) => void handleChatSend(game, socket, payload));
     socket.on('answer:accept', (payload) => void handleAnswerAccept(game, socket, payload));
+    socket.on('game:custom:prompt', (payload) => void handleCustomPromptSubmit(game, socket, payload));
   });
 }

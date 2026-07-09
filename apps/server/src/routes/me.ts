@@ -1,9 +1,9 @@
 import type { FastifyPluginAsync } from 'fastify';
-import { updateMeSchema } from '@sketch-catch/shared';
+import { updateMeSchema, onboardingSchema } from '@sketch-catch/shared';
 import { prisma } from '../db/prisma.js';
 import { redis } from '../db/redis.js';
 import { authenticate } from '../middleware/authenticate.js';
-import { updateMe, deleteMe, NicknameCooldownError, UserNotFoundError } from '../services/me.service.js';
+import { updateMe, onboard, deleteMe, NicknameCooldownError, UserNotFoundError } from '../services/me.service.js';
 import { NicknameCodeConflictError } from '../services/user.service.js';
 import { logger } from '../lib/logger.js';
 
@@ -33,6 +33,27 @@ export const meRoutes: FastifyPluginAsync = async (app) => {
     const user = await prisma.user.findUnique({ where: { id: userId } });
     if (!user) return reply.status(404).send({ error: 'NOT_FOUND' });
     return reply.send(userToPrivate(user));
+  });
+
+  app.post('/me/onboard', { preHandler: authenticate }, async (request, reply) => {
+    const parsed = onboardingSchema.safeParse(request.body);
+    if (!parsed.success) {
+      return reply.status(400).send({ error: 'INVALID_INPUT', issues: parsed.error.flatten() });
+    }
+    const userId = request.userId!;
+    try {
+      const updated = await onboard(userId, parsed.data);
+      return reply.send(userToPrivate(updated));
+    } catch (err) {
+      if (err instanceof NicknameCodeConflictError) {
+        return reply.status(409).send({ error: err.code });
+      }
+      if (err instanceof UserNotFoundError) {
+        return reply.status(404).send({ error: 'NOT_FOUND' });
+      }
+      logger.error({ err }, 'POST /me/onboard failed');
+      return reply.status(500).send({ error: 'INTERNAL' });
+    }
   });
 
   app.patch('/me', { preHandler: authenticate }, async (request, reply) => {

@@ -1,7 +1,7 @@
 import type { User } from '@prisma/client';
 import { prisma } from '../db/prisma.js';
 import { ensureUniqueNicknameCode } from './user.service.js';
-import type { UpdateMeInput } from '@sketch-catch/shared';
+import type { UpdateMeInput, OnboardingInput } from '@sketch-catch/shared';
 
 const NICKNAME_COOLDOWN_MS = 30 * 24 * 60 * 60 * 1000; // 30일
 
@@ -51,6 +51,23 @@ export async function updateMe(userId: string, input: UpdateMeInput): Promise<Us
     },
   });
   return updated;
+}
+
+// 온보딩 최초 설정 — nicknameChangedAt을 세팅하지 않아 프로필 변경 쿨다운 기산점이 되지 않음
+export async function onboard(userId: string, input: OnboardingInput): Promise<User> {
+  const current = await prisma.user.findUnique({ where: { id: userId } });
+  if (!current) throw new UserNotFoundError();
+
+  await ensureUniqueNicknameCode(input.nickname, input.friendCode, userId);
+
+  return prisma.user.update({
+    where: { id: userId },
+    data: {
+      nickname: input.nickname,
+      friendCode: input.friendCode,
+      characterId: input.characterId,
+    },
+  });
 }
 
 export async function deleteMe(userId: string): Promise<void> {

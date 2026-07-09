@@ -2,8 +2,8 @@ import type { FastifyPluginAsync } from 'fastify';
 import { z } from 'zod';
 import { authenticate } from '../middleware/authenticate.js';
 import {
-  sendFriendRequest, getFriends, getFriendRequests, respondToRequest, deleteFriend,
-  SelfRequestError, UserNotFoundError, AlreadyFriendsError, DuplicateRequestError,
+  sendFriendRequest, getFriends, getFriendRequests, getSentFriendRequests, respondToRequest, deleteFriend,
+  InvalidFormatError, SelfRequestError, UserNotFoundError, AlreadyFriendsError, DuplicateRequestError,
   RequestNotFoundError, ForbiddenError,
 } from '../services/friends.service.js';
 import { logger } from '../lib/logger.js';
@@ -24,6 +24,7 @@ export const friendsRoutes: FastifyPluginAsync = async (app) => {
       await sendFriendRequest(req.userId!, parsed.data.target);
       return reply.status(201).send({ ok: true });
     } catch (err) {
+      if (err instanceof InvalidFormatError) return reply.status(400).send({ error: err.code });
       if (err instanceof SelfRequestError) return reply.status(400).send({ error: err.code });
       if (err instanceof UserNotFoundError) return reply.status(404).send({ error: err.code });
       if (err instanceof AlreadyFriendsError) return reply.status(409).send({ error: err.code });
@@ -35,6 +36,11 @@ export const friendsRoutes: FastifyPluginAsync = async (app) => {
 
   app.get('/friends/requests', { preHandler: authenticate }, async (req, reply) => {
     const requests = await getFriendRequests(req.userId!);
+    return reply.send(requests);
+  });
+
+  app.get('/friends/requests/sent', { preHandler: authenticate }, async (req, reply) => {
+    const requests = await getSentFriendRequests(req.userId!);
     return reply.send(requests);
   });
 
