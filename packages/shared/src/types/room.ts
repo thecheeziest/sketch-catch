@@ -3,7 +3,7 @@ import type { UserPublic } from './user.js';
 
 export type GameMode = 1 | 2;
 
-export type Category = 'ANIMAL' | 'FOOD' | 'OBJECT' | 'NATURE' | 'PLACE' | 'ACTION' | 'JOB';
+export type Category = 'ANIMAL' | 'FOOD' | 'OBJECT' | 'NATURE' | 'PLACE' | 'ACTION' | 'JOB' | 'CUSTOM';
 
 export type RoomStatus =
   | 'LOBBY'
@@ -21,6 +21,7 @@ export type Player = UserPublic & {
   isHost: boolean;
   isReady: boolean;
   connected: boolean;
+  left?: boolean; // 게임 중 자발적 퇴장
 };
 
 export type RoomConfig = {
@@ -43,4 +44,8 @@ export type RoomState = {
   startedAt?: number;
   title?: string;
   locked?: boolean;
+  // 서버에서만 계산 — 클라이언트 단독 계산 금지 (보안 원칙)
+  allReady?: boolean;
+  // 모드1: 게임 시작 시 계산된 출제자 순서 (userId[])
+  turnSchedule?: string[];
 };

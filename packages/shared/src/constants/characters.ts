@@ -1,12 +1,12 @@
-// 캐릭터 ID 풀 — 동물 10종 + 과일 10종 (DEVELOPER.md §3, AUTH-03)
+// 캐릭터 ID 풀 — 동물 10종 + 과일 10종
 // 실제 이미지 에셋은 apps/mobile/assets/characters/{id}.png에 대응
 export const CHARACTER_IDS = [
-  // 동물 10
-  'dog', 'cat', 'rabbit', 'bear', 'fox',
-  'panda', 'lion', 'tiger', 'penguin', 'koala',
   // 과일 10
-  'apple', 'banana', 'grape', 'lemon', 'orange',
-  'strawberry', 'watermelon', 'peach', 'pineapple', 'cherry',
+  'apple', 'banana', 'strawberry', 'grape', 'orange',
+  'pineapple', 'watermelon', 'cherry', 'lemon', 'blueberry',
+  // 동물 10
+  'bear', 'cat', 'dog', 'pig', 'frog',
+  'duck', 'turtle', 'rabbit', 'fox', 'chicken',
 ] as const;
 
 export type CharacterId = (typeof CHARACTER_IDS)[number];

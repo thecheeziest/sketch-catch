@@ -13,17 +13,19 @@ export const categorySchema = z.enum([
   'PLACE',
   'ACTION',
   'JOB',
+  'CUSTOM',
 ]);
 
 export const createRoomSchema = z.object({
   mode: z.union([z.literal(1), z.literal(2)]),
-  playerCountMax: z.number().int().min(3).max(12),
+  playerCountMax: z.number().int().min(2).max(12),
   roundCount: z.number().int().min(1).max(20),
   drawTimer: z.number().int().min(10).max(60).multipleOf(5), // MD1-05
   answerTimer: z.number().int().min(5).max(30).optional(),
-  categories: z.array(categorySchema).min(1),
+  categories: z.array(categorySchema),
   title: z.string().max(20).optional(),
   locked: z.boolean().default(false),
+  password: z.string().max(20).optional(),
 });
 
 // 채팅: 최대 30자 (GAME-01)

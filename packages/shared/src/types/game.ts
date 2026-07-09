@@ -13,6 +13,7 @@ export type RoundStart = {
   drawerId: string;
   promptForDrawer?: string; // 출제자만 받음
   durationSec: number;
+  needsCustomPrompt?: boolean; // 커스텀 정답 모드: 출제자가 직접 제시어를 입력해야 함
 };
 
 export type RoundEnd = {

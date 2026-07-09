@@ -24,6 +24,7 @@ export type ClientEvents = {
   'stroke:clear': () => void;
   'chat:send': (payload: { text: string }) => void;
   'answer:accept': (payload: { messageId: string }) => void;
+  'game:custom:prompt': (payload: { text: string }) => void;
   'mode2:prompt': (payload: { sheetId: string; text: string }) => void;
   'mode2:draw:done': (payload: { sheetId: string }) => void;
   'mode2:answer': (payload: { sheetId: string; text: string }) => void;
@@ -62,6 +63,7 @@ export const CLIENT_EVENT = {
   STROKE_CLEAR: 'stroke:clear',
   CHAT_SEND: 'chat:send',
   ANSWER_ACCEPT: 'answer:accept',
+  GAME_CUSTOM_PROMPT: 'game:custom:prompt',
   MODE2_PROMPT: 'mode2:prompt',
   MODE2_DRAW_DONE: 'mode2:draw:done',
   MODE2_ANSWER: 'mode2:answer',
@@ -86,3 +88,17 @@ export const SERVER_EVENT = {
 } as const satisfies Readonly<Record<string, keyof ServerEvents>>;
 
 export const SOCKET_NAMESPACE = '/game' as const;
+
+// ─── Presence ────────────────────────────────────────────────────────────────
+
+export type PresenceStatus = 'ONLINE' | 'OFFLINE' | 'IN_LOBBY' | 'IN_GAME';
+
+export type PresenceClientEvents = {
+  'presence:subscribe': (payload: { friendIds: string[] }) => void;
+};
+
+export type PresenceServerEvents = {
+  'presence:update': (payload: { userId: string; status: PresenceStatus }) => void;
+};
+
+export const PRESENCE_NAMESPACE = '/presence' as const;
