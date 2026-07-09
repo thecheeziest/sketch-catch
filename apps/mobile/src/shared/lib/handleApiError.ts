@@ -15,6 +15,7 @@ export const ERROR_HANDLERS: Record<string, ErrorAction> = {
   REQUEST_ALREADY_SENT: { type: 'setError', message: '이미 친구 요청을 보낸 상태예요.' },
   SELF_REQUEST: { type: 'setError', message: '자기 자신에게 요청을 보낼 수 없어요.' },
   ROOM_NOT_FOUND: { type: 'setError', message: '방을 찾을 수 없습니다. 코드를 다시 확인하세요.' },
+  INVALID_CODE: { type: 'setError', message: '방을 찾을 수 없습니다. 코드를 다시 확인하세요.' },
   ROOM_FULL: { type: 'setError', message: '방이 가득 찼습니다.' },
   ROOM_LOCKED: { type: 'setError', message: '잠긴 방입니다.' },
 };
