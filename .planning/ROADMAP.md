@@ -15,7 +15,7 @@ Decimal phases appear between their surrounding integers in numeric order.
 - [ ] **Phase 1: Foundation** - 모노레포 초기화, DB 스키마, 공유 타입, CI 파이프라인
 - [x] **Phase 2: Auth & Profile** - 카카오/애플 로그인, 가입 플로우, 마이페이지 (completed 2026-05-15)
 - [x] **Phase 3: Friends** - 친구코드 기반 친구 추가/목록/상태 표시 (completed 2026-05-15)
-- [ ] **Phase 4: Room & Lobby** - 방 생성/입장/랜덤 매칭, 대기실 슬롯/준비/방장 승계
+- [x] **Phase 4: Room & Lobby** - 방 생성/입장/랜덤 매칭, 대기실 슬롯/준비/방장 승계 (completed 2026-07-09)
 - [ ] **Phase 5: Game Mode 1** - 실시간 캔버스, 클래식 캐치마인드, 시상식
 - [ ] **Phase 6: Game Mode 2 & GIF** - 전언게임, GIF 생성/저장
 - [ ] **Phase 7: Polish** - 푸시 알림, 오프라인/연결 끊김 처리
@@ -75,18 +75,18 @@ Plans:
   2. 모든 참가자가 준비 완료를 누르면 방장에게 게임 시작 버튼이 활성화된다
   3. 방장이 나가면 다음 입장 순서 참가자가 자동으로 방장이 된다
   4. 랜덤 매칭 큐에 진입 후 인원이 채워지면 자동으로 방이 만들어지고, 30초 내 미충족 시 연장/취소 안내가 표시된다
-**Plans**: 9 plans
+**Plans**: 9/9 plans complete
 
 Plans:
-- [ ] 04-room-lobby/04-01-PLAN.md — shared 스키마 확장(title/locked) + socket 의존성 + Wave 0 테스트 스캐폴드
-- [ ] 04-room-lobby/04-02-PLAN.md — 방 생성/조회 REST (rooms.service + rooms 라우트)
-- [ ] 04-room-lobby/04-03-PLAN.md — 랜덤 매칭 REST + Redis ZSET 매치큐
-- [ ] 04-room-lobby/04-04-PLAN.md — Socket.io 서버 통합 + /game 네임스페이스 + room 핸들러(방장 승계/presence)
-- [ ] 04-room-lobby/04-05-PLAN.md — 모바일 useRoomStore(socket) + 방 REST 훅 4개
-- [ ] 04-room-lobby/04-06-PLAN.md — 홈 진입 3버튼 + 코드 입장 모달 + 방 생성 화면
-- [ ] 04-room-lobby/04-07-PLAN.md — 랜덤 매칭 화면 + 카운트업 버튼 + 매칭 중 탭 비활성화
-- [ ] 04-room-lobby/04-08-PLAN.md — 대기실 화면 + 슬롯 그리드(실시간/준비/방장 승계)
-- [ ] 04-room-lobby/04-09-PLAN.md — Phase 4 통합 검증 (checkpoint:human-verify)
+- [x] 04-room-lobby/04-01-PLAN.md — shared 스키마 확장(title/locked) + socket 의존성 + Wave 0 테스트 스캐폴드
+- [x] 04-room-lobby/04-02-PLAN.md — 방 생성/조회 REST (rooms.service + rooms 라우트)
+- [x] 04-room-lobby/04-03-PLAN.md — 랜덤 매칭 REST + Redis ZSET 매치큐
+- [x] 04-room-lobby/04-04-PLAN.md — Socket.io 서버 통합 + /game 네임스페이스 + room 핸들러(방장 승계/presence)
+- [x] 04-room-lobby/04-05-PLAN.md — 모바일 useRoomStore(socket) + 방 REST 훅 4개
+- [x] 04-room-lobby/04-06-PLAN.md — 홈 진입 3버튼 + 코드 입장 모달 + 방 생성 화면
+- [x] 04-room-lobby/04-07-PLAN.md — 랜덤 매칭 화면 + 카운트업 버튼 + 매칭 중 탭 비활성화
+- [x] 04-room-lobby/04-08-PLAN.md — 대기실 화면 + 슬롯 그리드(실시간/준비/방장 승계)
+- [x] 04-room-lobby/04-09-PLAN.md — Phase 4 통합 검증 (checkpoint:human-verify)
 **UI hint**: yes
 
 ### Phase 5: Game Mode 1
