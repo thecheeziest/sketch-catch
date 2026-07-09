@@ -3,13 +3,19 @@ import { handleRoomJoin, handleRoomReady, handleRoomStart, handleRoomLeave } fro
 import { SERVER_EVENT } from '@sketch-catch/shared';
 import type { RoomState } from '@sketch-catch/shared';
 
-vi.mock('../socket/handlers/game.js', () => ({ startRound: vi.fn() }));
+vi.mock('../socket/handlers/game.js', () => ({
+  startRound: vi.fn(),
+  initTurnSchedule: vi.fn(),
+  handlePlayerLeft: vi.fn(),
+}));
 
 // Redis mock
 vi.mock('../db/redis.js', () => ({
   redis: { set: vi.fn(), get: vi.fn(), del: vi.fn() },
   setPresence: vi.fn(),
   getPresence: vi.fn(),
+  setUserRoom: vi.fn(),
+  clearUserRoom: vi.fn(),
 }));
 
 // rooms.service mock
@@ -19,7 +25,7 @@ vi.mock('../services/rooms.service.js', () => ({
 }));
 
 import { getRoomState, saveRoomState } from '../services/rooms.service.js';
-import { setPresence, redis } from '../db/redis.js';
+import { setPresence, redis, clearUserRoom } from '../db/redis.js';
 
 const mockGetRoomState = vi.mocked(getRoomState);
 const mockSaveRoomState = vi.mocked(saveRoomState);
@@ -72,6 +78,7 @@ function makeRoomState(overrides: Partial<RoomState> = {}): RoomState {
 // Socket mock factory (매 테스트마다 신선한 mock 생성)
 function makeSocket(userId = 'u1', rooms: string[] = ['room:ABC123']) {
   return {
+    id: `${userId}-socket`,
     emit: vi.fn(),
     join: vi.fn(),
     leave: vi.fn(),
@@ -148,8 +155,8 @@ describe('socket room handlers', () => {
       expect(game.to).toHaveBeenCalledWith('room:ABC123');
       expect(game._broadcastEmit).toHaveBeenCalledWith(SERVER_EVENT.ROOM_STATE, expect.objectContaining({ code: 'ABC123' }));
 
-      // D-15: IN_GAME presence 갱신
-      expect(mockSetPresence).toHaveBeenCalledWith('u3', 'IN_GAME');
+      // 대기실 입장 시 presence IN_LOBBY 갱신
+      expect(mockSetPresence).toHaveBeenCalledWith('u3', 'IN_LOBBY');
     });
   });
 
@@ -284,6 +291,26 @@ describe('socket room handlers', () => {
       expect(mockRedisDel).toHaveBeenCalledWith('room:ABC123:state');
       // 빈 방에는 saveRoomState 호출 안 함
       expect(mockSaveRoomState).not.toHaveBeenCalled();
+    });
+
+    it('같은 유저의 다른 방 소켓이 살아 있으면 stale disconnect를 ONLINE으로 덮지 않는다', async () => {
+      const state = makeRoomState();
+      mockGetRoomState.mockResolvedValue(state);
+      const socket = makeSocket('u1', ['room:ABC123']);
+      const game = {
+        ...makeNamespace(),
+        in: vi.fn(() => ({
+          fetchSockets: vi.fn().mockResolvedValue([
+            { id: 'u1-active-socket', data: { userId: 'u1' } },
+          ]),
+        })),
+      };
+
+      await handleRoomLeave(game as any, socket as any);
+
+      expect(mockSaveRoomState).not.toHaveBeenCalled();
+      expect(clearUserRoom).not.toHaveBeenCalled();
+      expect(mockSetPresence).not.toHaveBeenCalledWith('u1', 'ONLINE');
     });
   });
 });

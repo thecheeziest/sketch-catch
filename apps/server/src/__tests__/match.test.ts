@@ -12,6 +12,7 @@ vi.mock('../db/redis.js', () => ({
     zrem: vi.fn().mockResolvedValue(1),
   },
   setPresence: vi.fn(),
+  setUserRoom: vi.fn(),
   getPresence: vi.fn(),
 }));
 
@@ -34,7 +35,7 @@ vi.mock('../services/rooms.service.js', () => ({
   createRoom: vi.fn().mockResolvedValue({ code: 'ABC123', hostId: 'u1', status: 'LOBBY', players: [] }),
 }));
 
-import { redis } from '../db/redis.js';
+import { redis, setPresence, setUserRoom } from '../db/redis.js';
 import { createRoom } from '../services/rooms.service.js';
 
 const mockedZadd    = vi.mocked(redis.zadd);
@@ -68,7 +69,11 @@ describe('match.service', () => {
 
     expect(mockedZpopmin).toHaveBeenCalledWith('matchqueue:1:6', 6);
     expect(mockedCreateRoom).toHaveBeenCalledOnce();
-    expect(result).toEqual({ code: 'ABC123' });
+    expect(result).toEqual({ code: 'ABC123', userIds: ['u1', 'u2', 'u3', 'u4', 'u5', 'u6'] });
+    expect(setPresence).toHaveBeenCalledWith('u1', 'IN_LOBBY');
+    expect(setPresence).toHaveBeenCalledWith('u6', 'IN_LOBBY');
+    expect(setUserRoom).toHaveBeenCalledWith('u1', 'ABC123');
+    expect(setUserRoom).toHaveBeenCalledWith('u6', 'ABC123');
   });
 
   it('ROOM-03: pop 결과가 playerCount 미만이면 다시 ZADD (레이스 컨디션 방어 — Pitfall 7)', async () => {

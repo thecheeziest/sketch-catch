@@ -18,16 +18,24 @@ vi.mock('../db/prisma.js', () => ({
 
 vi.mock('../db/redis.js', () => ({
   getPresence: vi.fn().mockResolvedValue('OFFLINE'),
+  getUserRoom: vi.fn().mockResolvedValue(null),
   redis: { get: vi.fn(), set: vi.fn(), del: vi.fn() },
 }));
 
+vi.mock('../services/rooms.service.js', () => ({
+  getRoomState: vi.fn(),
+  getRoomPassword: vi.fn(),
+}));
+
 const { prisma } = await import('../db/prisma.js');
-const { getPresence } = await import('../db/redis.js');
+const { getPresence, getUserRoom } = await import('../db/redis.js');
+const { getRoomState, getRoomPassword } = await import('../services/rooms.service.js');
 const {
   sendFriendRequest,
   respondToRequest,
   deleteFriend,
   getFriends,
+  InvalidFormatError,
   SelfRequestError,
   UserNotFoundError,
   AlreadyFriendsError,
@@ -41,12 +49,12 @@ const {
 describe('sendFriendRequest', () => {
   beforeEach(() => vi.clearAllMocks());
 
-  it('#이 없는 target → SelfRequestError (parseTarget null)', async () => {
-    await expect(sendFriendRequest('u1', '닉네임없는코드')).rejects.toBeInstanceOf(SelfRequestError);
+  it('#이 없는 target → InvalidFormatError (parseTarget null)', async () => {
+    await expect(sendFriendRequest('u1', '닉네임없는코드')).rejects.toBeInstanceOf(InvalidFormatError);
   });
 
-  it('코드 길이가 5가 아니면 → SelfRequestError', async () => {
-    await expect(sendFriendRequest('u1', '닉네임#AB')).rejects.toBeInstanceOf(SelfRequestError);
+  it('코드 길이가 5가 아니면 → InvalidFormatError', async () => {
+    await expect(sendFriendRequest('u1', '닉네임#AB')).rejects.toBeInstanceOf(InvalidFormatError);
   });
 
   it('사용자 미존재 → UserNotFoundError', async () => {
@@ -214,5 +222,54 @@ describe('getFriends', () => {
     const result = await getFriends('u1');
     expect(result[0]!.presenceStatus).toBe('ONLINE');
     expect(getPresence).toHaveBeenCalledWith('u2');
+  });
+
+  it('친구가 대기실 방에 있으면 room 정보와 IN_LOBBY를 반환', async () => {
+    const friendship = {
+      id: 'fs1',
+      userAId: 'u1',
+      userBId: 'u2',
+      userA: { id: 'u1', nickname: '유저A', friendCode: 'AAAAA', characterId: 'dog' },
+      userB: { id: 'u2', nickname: '유저B', friendCode: 'BBBBB', characterId: 'cat' },
+    };
+    vi.mocked(prisma.friendship.findMany).mockResolvedValue([friendship] as any);
+    vi.mocked(getPresence).mockResolvedValue('ONLINE');
+    vi.mocked(getUserRoom).mockResolvedValue('ABC123');
+    vi.mocked(getRoomPassword).mockResolvedValue(null);
+    vi.mocked(getRoomState).mockResolvedValue({
+      code: 'ABC123',
+      hostId: 'u2',
+      mode: 1,
+      status: 'LOBBY',
+      players: [
+        {
+          id: 'u2',
+          nickname: '유저B',
+          friendCode: 'BBBBB',
+          characterId: 'cat',
+          slot: 0,
+          isHost: true,
+          isReady: false,
+          connected: true,
+        },
+      ],
+      config: { roundCount: 5, drawTimer: 30, answerTimer: 10, categories: ['CUSTOM'], playerCountMax: 6 },
+      scoreboard: {},
+      current: null,
+      title: '테스트 방',
+      locked: false,
+    });
+
+    const result = await getFriends('u1');
+
+    expect(result[0]!.presenceStatus).toBe('IN_LOBBY');
+    expect(result[0]!.room).toEqual(
+      expect.objectContaining({
+        code: 'ABC123',
+        playerCount: 1,
+        playerCountMax: 6,
+        joinable: true,
+      }),
+    );
   });
 });

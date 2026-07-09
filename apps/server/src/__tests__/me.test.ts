@@ -32,7 +32,7 @@ describe('assertNicknameCooldown', () => {
 
 vi.mock('../db/prisma.js', () => ({
   prisma: {
-    user: { findUnique: vi.fn(), update: vi.fn(), delete: vi.fn().mockResolvedValue({}) },
+    user: { findUnique: vi.fn(), findFirst: vi.fn().mockResolvedValue(null), update: vi.fn(), delete: vi.fn().mockResolvedValue({}) },
     friendRequest: { deleteMany: vi.fn().mockResolvedValue({ count: 0 }) },
     friendship: { deleteMany: vi.fn().mockResolvedValue({ count: 0 }) },
     gameReplay: { deleteMany: vi.fn().mockResolvedValue({ count: 0 }) },
@@ -48,6 +48,8 @@ vi.mock('../db/prisma.js', () => ({
 }));
 vi.mock('../db/redis.js', () => ({
   redis: { get: vi.fn(), set: vi.fn(), del: vi.fn().mockResolvedValue(1) },
+  setPresence: vi.fn().mockResolvedValue(undefined),
+  getPresence: vi.fn().mockResolvedValue('OFFLINE'),
 }));
 
 const { prisma } = await import('../db/prisma.js');
@@ -147,6 +149,48 @@ describe('PATCH /me', () => {
     });
     expect(res.statusCode).toBe(200);
     expect(res.json().characterId).toBe('cat');
+  });
+});
+
+describe('POST /me/onboard', () => {
+  beforeEach(() => vi.clearAllMocks());
+
+  it('sets nickname/friendCode/characterId without nicknameChangedAt', async () => {
+    const { accessToken } = await signTokens('u1');
+    vi.mocked(redis.get).mockResolvedValue(accessToken);
+    vi.mocked(prisma.user.findUnique).mockResolvedValue(sampleUser as any);
+    const onboardedUser = { ...sampleUser, nickname: '새닉네임', friendCode: 'XYZ12', characterId: 'cat' };
+    vi.mocked(prisma.user.update).mockResolvedValue(onboardedUser as any);
+
+    const app = await buildApp();
+    const res = await app.inject({
+      method: 'POST',
+      url: '/me/onboard',
+      headers: { authorization: `Bearer ${accessToken}` },
+      payload: { nickname: '새닉네임', friendCode: 'XYZ12', characterId: 'cat' },
+    });
+    expect(res.statusCode).toBe(200);
+    expect(res.json().nickname).toBe('새닉네임');
+
+    const updateCall = vi.mocked(prisma.user.update).mock.calls[0]![0];
+    expect((updateCall.data as Record<string, unknown>).nicknameChangedAt).toBeUndefined();
+  });
+
+  it('returns 409 NICKNAME_CODE_CONFLICT when nickname+code already taken', async () => {
+    const { accessToken } = await signTokens('u1');
+    vi.mocked(redis.get).mockResolvedValue(accessToken);
+    vi.mocked(prisma.user.findUnique).mockResolvedValue(sampleUser as any);
+    vi.mocked(prisma.user.findFirst).mockResolvedValue({ id: 'other-user' } as any);
+
+    const app = await buildApp();
+    const res = await app.inject({
+      method: 'POST',
+      url: '/me/onboard',
+      headers: { authorization: `Bearer ${accessToken}` },
+      payload: { nickname: '닉네임', friendCode: 'ABCDE', characterId: 'cat' },
+    });
+    expect(res.statusCode).toBe(409);
+    expect(res.json().error).toBe('NICKNAME_CODE_CONFLICT');
   });
 });
 

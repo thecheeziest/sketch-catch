@@ -70,6 +70,7 @@ function makeRoomState(overrides: Partial<RoomState> = {}): RoomState {
     title: '테스트 방',
     locked: false,
     allReady: true,
+    turnSchedule: ['u1', 'u2', 'u3', 'u1', 'u2', 'u3', 'u1', 'u2', 'u3'],
     ...overrides,
   } as RoomState;
 }
