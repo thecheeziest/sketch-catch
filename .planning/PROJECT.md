@@ -12,7 +12,9 @@ React Native(Expo) + Node.js(Socket.io) 기반의 실시간 멀티플레이어 �
 
 ### Validated
 
-(None yet — ship to validate)
+- 친구 초대 방 생성 (6자리 코드, 인원 3~12, 모드/라운드/타이머 설정) — Phase 4-room-lobby
+- 대기실 (슬롯 표시, 준비 완료, 방장 승계) — Phase 4-room-lobby
+- 랜덤 매칭 큐 진입/취소 (자동 방 생성) — Phase 4-room-lobby, D-10: 30초 타임아웃 없이 무제한 대기 + 취소만 지원으로 변경
 
 ### Active
 
@@ -21,8 +23,6 @@ React Native(Expo) + Node.js(Socket.io) 기반의 실시간 멀티플레이어 �
 - [ ] 마이페이지 (닉네임 변경 30일 1회, 캐릭터 변경, 로그아웃/탈퇴)
 - [ ] 친구코드(`#A1B2C3`) 기반 친구 추가/수락/거절/삭제
 - [ ] 친구 목록 (온라인/오프라인/게임 중 상태 표시)
-- [ ] 친구 초대 방 생성 (6자리 코드, 인원 3~12, 모드/라운드/타이머 설정)
-- [ ] 대기실 (슬롯 표시, 준비 완료, 방장 승계)
 - [ ] 게임 모드 1 — 클래식 캐치마인드 (출제자 순환, 자동/수동 정답 처리, 점수 계산)
 - [ ] 인게임 채팅 (30자, 비속어 필터, 출제자 채팅 불가, 말풍선 표시 2.5초)
 - [ ] 카테고리별 제시어 풀 (7개 카테고리 × 50개 이상)
@@ -76,7 +76,8 @@ React Native(Expo) + Node.js(Socket.io) 기반의 실시간 멀티플레이어 �
 | Expo dev client (not bare workflow) | 네이티브 모듈 필요 (Skia, 카카오) + EAS 빌드 편의 | — Pending |
 | Fastify (not Express) | 더 빠름, TypeScript 친화, 스키마 기반 직렬화 | — Pending |
 | `@napi-rs/canvas` (not node-canvas) | Cairo 빌드 불필요, 미리 빌드된 바이너리 → Railway 배포 간소화 | — Pending |
-| 방 코드 방식 (not 딥링크) | 구현 단순화. 딥링크는 RN에서 설정 복잡 | — Pending |
+| 방 코드 방식 (not 딥링크) | 구현 단순화. 딥링크는 RN에서 설정 복잡 | Phase 4에서 구현 완료 — 6자리 영문대문자/숫자 코드 |
+| D-10: 랜덤 매칭 무제한 대기 (not 30초 타임아웃) | 타임아웃 시 연장/취소 UX 복잡도 회피 | Phase 4에서 구현 — 카운트업 표시 + 즉시 취소만 지원 |
 | MVP는 모드 1만 | 모드 2(전언게임)는 상태 관리 복잡 → v1으로 분리. 모드 1 먼저 검증 | — Pending |
 | GIF MVP = 직접 응답 방식 | 외부 스토리지 비용 0. 생성 후 클라이언트에 직접 전송, Redis TTL 10분 | — Pending |
 | 다중 디바이스 동시 로그인 정책 | 미결 — 기존 세션 끊기 vs 차단 선택 필요 | — Pending |
@@ -101,4 +102,4 @@ React Native(Expo) + Node.js(Socket.io) 기반의 실시간 멀티플레이어 �
 4. Context 업데이트
 
 ---
-*Last updated: 2026-05-13 after initialization*
+*Last updated: 2026-07-09 after Phase 4 (room-lobby) completion*
