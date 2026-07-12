@@ -39,6 +39,10 @@
           "kakaoAppKey": "4ac106e05b38f8ae3856df1ffe534420",
           "kotlinVersion": "1.9.0"
         }
+      ],
+      [
+        "expo-media-library",
+        { "photosPermission": "그림 GIF를 저장하려면 사진 접근 권한이 필요합니다." }
       ]
     ],
     "experiments": {
