@@ -29,12 +29,14 @@ export default function LobbyScreen() {
   const wasHostRef = useRef(false);
   const [editVisible, setEditVisible] = useState(false);
 
-  // MODE1_ROUND_START 시 게임 화면으로 전환
+  // MODE1_ROUND_START 시 게임 화면으로, MODE2_PROMPT_PHASE 시 모드2 화면으로 전환
   useEffect(() => {
     if (roomState?.status === 'MODE1_ROUND_START') {
       router.replace(`/room/${code}/game` as never);
+    } else if (roomState?.mode === 2 && roomState?.status === 'MODE2_PROMPT_PHASE') {
+      router.replace(`/room/${code}/mode2` as never);
     }
-  }, [roomState?.status, code, router]);
+  }, [roomState?.status, roomState?.mode, code, router]);
 
   useEffect(() => {
     if (!socket || !code) return;
