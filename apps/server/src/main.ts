@@ -12,6 +12,7 @@ import { meRoutes } from './routes/me.js';
 import { friendsRoutes } from './routes/friends.js';
 import { roomsRoutes } from './routes/rooms.js';
 import { matchRoutes } from './routes/match.js';
+import { replaysRoutes } from './routes/replays.js';
 import { registerGameNamespace } from './socket/game.namespace.js';
 import { registerPresenceNamespace } from './socket/presence.namespace.js';
 // shared 패키지 import 검증 — 빌드 시 워크스페이스 resolution 확인
@@ -32,6 +33,7 @@ async function bootstrap(): Promise<void> {
   await app.register(friendsRoutes);
   await app.register(roomsRoutes);
   await app.register(matchRoutes);
+  await app.register(replaysRoutes);
 
   await connectPrisma();
   await connectRedis();
