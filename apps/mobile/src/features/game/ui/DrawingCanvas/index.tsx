@@ -3,10 +3,11 @@ import { StyleSheet } from 'react-native';
 import { Canvas, Path, Skia } from '@shopify/react-native-skia';
 import { Gesture, GestureDetector } from 'react-native-gesture-handler';
 import type { SkPath } from '@shopify/react-native-skia';
-import type { Point } from '@sketch-catch/shared';
+import type { Point, Stroke } from '@sketch-catch/shared';
 import { colors } from '@/shared/config';
 import { useGameStore } from '@/features/game/model/useGameStore';
 import { useStrokeSender } from '@/features/game/api/useStrokeSender';
+import { useAuthStore } from '@/shared/model/auth';
 // 간단한 클라이언트용 stroke ID 생성 (서버가 authorId를 덮어쓰므로 충돌 무관)
 function makeStrokeId(): string {
   return `${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 8)}`;
@@ -17,15 +18,19 @@ type LocalStroke = {
   path: SkPath;
   color: string;
   width: number;
+  points: Point[];
 };
 
 type Props = {
   isDrawer: boolean;
+  // 모드2 DRAW 단계 제출용 — stroke 종료마다 지금까지 그린 전체 strokes를 전달 (선택적, mode1은 미사용)
+  onStrokesChange?: (strokes: Stroke[]) => void;
 };
 
-export function DrawingCanvas({ isDrawer }: Props) {
+export function DrawingCanvas({ isDrawer, onStrokesChange }: Props) {
   const { color, width, eraser, remoteStrokes } = useGameStore();
   const sender = useStrokeSender(isDrawer);
+  const myId = useAuthStore((s) => s.user?.id) ?? '';
 
   // 캔버스 크기 (onLayout으로 측정)
   const canvasSizeRef = useRef({ width: 0, height: 0 });
@@ -34,6 +39,16 @@ export function DrawingCanvas({ isDrawer }: Props) {
   // 출제자 로컬 stroke 목록 (본인에게는 stroke:remote가 오지 않으므로 별도 관리)
   const [localStrokes, setLocalStrokes] = useState<LocalStroke[]>([]);
   const currentStrokeRef = useRef<LocalStroke | null>(null);
+  const allStrokesRef = useRef<LocalStroke[]>([]);
+
+  const toSharedStroke = (s: LocalStroke): Stroke => ({
+    id: s.strokeId,
+    authorId: myId,
+    color: s.color,
+    width: s.width,
+    points: s.points,
+    startTime: s.points[0]?.t ?? Date.now(),
+  });
 
   const getStrokeColor = (): string => (eraser ? '#FFFFFF' : color);
   const getStrokeWidth = (): number => (eraser ? width * 2 : width);
@@ -53,16 +68,17 @@ export function DrawingCanvas({ isDrawer }: Props) {
       const path = Skia.Path.Make();
       path.moveTo(e.x, e.y);
 
-      const stroke: LocalStroke = { strokeId, path, color: strokeColor, width: strokeWidth };
-      currentStrokeRef.current = stroke;
-      setLocalStrokes((prev) => [...prev, stroke]);
-
-      sender.startStroke(strokeId, strokeColor, strokeWidth);
       const point: Point = {
         x: e.x / cw,
         y: e.y / ch,
         t: Date.now(),
       };
+      const stroke: LocalStroke = { strokeId, path, color: strokeColor, width: strokeWidth, points: [point] };
+      currentStrokeRef.current = stroke;
+      allStrokesRef.current = [...allStrokesRef.current, stroke];
+      setLocalStrokes(allStrokesRef.current);
+
+      sender.startStroke(strokeId, strokeColor, strokeWidth);
       sender.pushPoint(point);
     })
     .onUpdate((e) => {
@@ -71,20 +87,22 @@ export function DrawingCanvas({ isDrawer }: Props) {
       if (cw === 0 || ch === 0) return;
 
       currentStrokeRef.current.path.lineTo(e.x, e.y);
-      // force re-render by creating new array reference
-      setLocalStrokes((prev) => [...prev]);
-
       const point: Point = {
         x: e.x / cw,
         y: e.y / ch,
         t: Date.now(),
       };
+      currentStrokeRef.current.points.push(point);
+      // force re-render by creating new array reference
+      setLocalStrokes((prev) => [...prev]);
+
       sender.pushPoint(point);
     })
     .onEnd(() => {
       if (!isDrawer) return;
       sender.endStroke();
       currentStrokeRef.current = null;
+      onStrokesChange?.(allStrokesRef.current.map(toSharedStroke));
     });
 
   const handleLayout = useCallback(
