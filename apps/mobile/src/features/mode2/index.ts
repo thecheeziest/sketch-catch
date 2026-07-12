@@ -7,3 +7,6 @@ export { ReviewProgressHeader } from './ui/ReviewProgressHeader';
 export { FinalJudgeButton } from './ui/FinalJudgeButton';
 export { BestSheetVoteList } from './ui/BestSheetVoteList';
 export { SparkleBadge } from './ui/SparkleBadge';
+export { useGifDownload } from './api/useGifDownload';
+export { SheetGifTabs } from './ui/SheetGifTabs';
+export { SaveGifButton } from './ui/SaveGifButton';
