@@ -6,6 +6,7 @@ import { handleRoomJoin, handleRoomLeave, handleRoomReady, handleRoomStart } fro
 import { handleStrokeStart, handleStrokeAppend, handleStrokeEnd, handleStrokeUndo, handleStrokeClear } from './handlers/stroke.js';
 import { handleChatSend, handleAnswerAccept } from './handlers/chat.js';
 import { handleCustomPromptSubmit } from './handlers/game.js';
+import { handleMode2Prompt, handleMode2DrawDone, handleMode2Answer } from './handlers/mode2.js';
 
 declare module 'socket.io' {
   interface SocketData {
@@ -48,5 +49,10 @@ export function registerGameNamespace(io: Server<ClientEvents, ServerEvents>): v
     socket.on('chat:send', (payload) => void handleChatSend(game, socket, payload));
     socket.on('answer:accept', (payload) => void handleAnswerAccept(game, socket, payload));
     socket.on('game:custom:prompt', (payload) => void handleCustomPromptSubmit(game, socket, payload));
+
+    // MD2-01/02: 모드2 시트 로테이션 — 리터럴 이벤트명 직접 사용 (Phase 4 결정)
+    socket.on('mode2:prompt', (payload) => void handleMode2Prompt(game, socket, payload));
+    socket.on('mode2:draw:done', (payload) => void handleMode2DrawDone(game, socket, payload));
+    socket.on('mode2:answer', (payload) => void handleMode2Answer(game, socket, payload));
   });
 }

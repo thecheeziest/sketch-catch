@@ -6,6 +6,7 @@ import { redis, setPresence, setUserRoom, clearUserRoom } from '../../db/redis.j
 import { broadcastPresenceUpdate } from '../presence.namespace.js';
 import { prisma } from '../../db/prisma.js';
 import { startRound, initTurnSchedule, handlePlayerLeft } from './game.js';
+import { startMode2 } from './mode2.js';
 
 type GameNamespace = Namespace<ClientEvents, ServerEvents>;
 type GameSocket = Socket<ClientEvents, ServerEvents, Record<string, never>, { userId: string }>;
@@ -143,6 +144,17 @@ export async function handleRoomStart(
 
   if (!state.allReady) {
     socket.emit(SERVER_EVENT.ERROR, { code: 'NOT_ALL_READY', message: '모두 준비 완료 후 시작 가능합니다.' });
+    return;
+  }
+
+  // Pitfall 4: 모드 2는 시트 로테이션 상태 머신(startMode2)으로 분기 — initTurnSchedule(모드1 전용) 미호출
+  if (state.mode === 2) {
+    state.startedAt = Date.now();
+    await saveRoomState(state);
+    const active = state.players.filter((p) => p.connected);
+    await Promise.all(active.map((p) => setPresence(p.id, 'IN_GAME')));
+    active.forEach((p) => broadcastPresenceUpdate(p.id, 'IN_GAME'));
+    await startMode2(game, code);
     return;
   }
 
