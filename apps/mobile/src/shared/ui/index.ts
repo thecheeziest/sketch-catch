@@ -1,4 +1,5 @@
 export * from './Badge';
+export * from './GifPreviewPlayer';
 export * from './Icon';
 export * from './Button';
 export * from './Input';
