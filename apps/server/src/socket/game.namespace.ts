@@ -7,6 +7,7 @@ import { handleStrokeStart, handleStrokeAppend, handleStrokeEnd, handleStrokeUnd
 import { handleChatSend, handleAnswerAccept } from './handlers/chat.js';
 import { handleCustomPromptSubmit } from './handlers/game.js';
 import { handleMode2Prompt, handleMode2DrawDone, handleMode2Answer } from './handlers/mode2.js';
+import { handleMode2JudgeFinal, handleMode2VoteBest } from './handlers/mode2-review.js';
 
 declare module 'socket.io' {
   interface SocketData {
@@ -54,5 +55,9 @@ export function registerGameNamespace(io: Server<ClientEvents, ServerEvents>): v
     socket.on('mode2:prompt', (payload) => void handleMode2Prompt(game, socket, payload));
     socket.on('mode2:draw:done', (payload) => void handleMode2DrawDone(game, socket, payload));
     socket.on('mode2:answer', (payload) => void handleMode2Answer(game, socket, payload));
+
+    // MD2-03/04: 리뷰 최종 판정 + 베스트 시트 투표 — 리터럴 이벤트명 직접 사용 (Phase 4 결정)
+    socket.on('mode2:judge:final', (payload) => void handleMode2JudgeFinal(game, socket, payload));
+    socket.on('mode2:vote:best', (payload) => void handleMode2VoteBest(game, socket, payload));
   });
 }

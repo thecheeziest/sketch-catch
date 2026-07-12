@@ -12,19 +12,20 @@ import type {
 } from '@sketch-catch/shared';
 import { SERVER_EVENT } from '@sketch-catch/shared';
 import { getRoomState, saveRoomState } from '../../services/rooms.service.js';
+import { startMode2Review } from './mode2-review.js';
 
 type GameNamespace = Namespace<ClientEvents, ServerEvents>;
 type Mode2Socket = { data: { userId: string }; rooms: Set<string> };
 
 // 시트 1장의 진행 상태 — sheetId = 1단계(PROMPT) 작성자(원조자) userId
-type Mode2Sheet = {
+export type Mode2Sheet = {
   sheetId: string;
   ownerIndex: number; // 슬롯 정렬된 players 배열 내 원조자 인덱스
   steps: Mode2StepContent[];
 };
 
 // RoomState.current에 저장되는 모드2 진행 상태 (RoomState는 JSON 직렬화라 Set 대신 배열 사용)
-type Mode2Current = {
+export type Mode2Current = {
   step: number; // 0-indexed. 0=PROMPT, 홀수=DRAW, 짝수(0제외)=ANSWER
   phase: Mode2Phase;
   sheets: Mode2Sheet[];
@@ -63,7 +64,7 @@ function isMode2Active(status: RoomStatus): boolean {
   return status === 'MODE2_PROMPT_PHASE' || status === 'MODE2_DRAW_PHASE' || status === 'MODE2_ANSWER_PHASE';
 }
 
-function sortedPlayers(state: RoomState): Player[] {
+export function sortedPlayers(state: RoomState): Player[] {
   return [...state.players].sort((a, b) => a.slot - b.slot);
 }
 
@@ -104,24 +105,6 @@ function scheduleStepTimeout(game: GameNamespace, code: string, durationSec: num
     code,
     setTimeout(() => void advanceStep(game, code), durationSec * 1000),
   );
-}
-
-// 06-04에서 mode2-review.ts(startMode2Review)를 구현 — 순환 참조 회피를 위해 동적 import.
-// 아직 파일이 없는 시점(이 플랜)에는 조용히 무시된다.
-async function tryStartMode2Review(game: GameNamespace, code: string): Promise<void> {
-  try {
-    // 리터럴이 아닌 경로 변수를 사용해 tsc가 정적으로 모듈 존재를 검증하지 않도록 함
-    // (06-04에서 mode2-review.ts가 생성되기 전까지는 파일이 없어 타입 검사가 실패함)
-    const modulePath = './mode2-review.js';
-    const mod = (await import(modulePath)) as {
-      startMode2Review?: (game: GameNamespace, code: string) => Promise<void>;
-    };
-    if (typeof mod.startMode2Review === 'function') {
-      await mod.startMode2Review(game, code);
-    }
-  } catch {
-    // mode2-review.ts 미구현 상태 — 이후 플랜에서 채워짐
-  }
 }
 
 export async function startMode2(game: GameNamespace, code: string): Promise<void> {
@@ -259,7 +242,7 @@ export async function advanceStep(game: GameNamespace, code: string): Promise<vo
     state.current = current;
     await saveRoomState(state);
     game.to(`room:${code}`).emit(SERVER_EVENT.ROOM_STATE, state);
-    await tryStartMode2Review(game, code);
+    await startMode2Review(game, code);
     return;
   }
 
