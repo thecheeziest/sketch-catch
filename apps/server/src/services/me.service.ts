@@ -75,7 +75,7 @@ export async function deleteMe(userId: string): Promise<void> {
   await prisma.$transaction([
     prisma.friendRequest.deleteMany({ where: { OR: [{ senderId: userId }, { receiverId: userId }] } }),
     prisma.friendship.deleteMany({ where: { OR: [{ userAId: userId }, { userBId: userId }] } }),
-    prisma.gameReplay.deleteMany({ where: { userId } }),
+    prisma.gameReplay.deleteMany({ where: { ownerId: userId } }),
     prisma.user.delete({ where: { id: userId } }),
   ]);
 }

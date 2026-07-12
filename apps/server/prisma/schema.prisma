@@ -22,7 +22,6 @@ model User {
   friendsB     Friendship[]    @relation("FriendshipB")
   sentRequests FriendRequest[] @relation("Sender")
   recvRequests FriendRequest[] @relation("Receiver")
-  replays      GameReplay[]
 
   @@unique([provider, providerId])
   @@unique([nickname, friendCode])
@@ -65,17 +64,17 @@ model Friendship {
 }
 
 model GameReplay {
-  id        String   @id @default(uuid())
-  userId    String
-  prompt    String
-  strokes   Json
-  gifUrl    String?
-  expiresAt DateTime
-  createdAt DateTime @default(now())
+  id             String   @id @default(uuid())
+  roomCode       String
+  sheetId        String // = 시트 원조자 userId (원조자 식별)
+  ownerId        String // 시트 원조자
+  participantIds String[] // GIF-02: 저장 요청 권한자 = 시트 스텝 참여자 전원
+  steps          Json // Mode2StepContent[] — 텍스트(PROMPT/ANSWER)+스트로크(DRAW) 혼합 (D-14)
+  gifUrl         String? // 생성된 GIF 접근 키/경로
+  expiresAt      DateTime
+  createdAt      DateTime @default(now())
 
-  user User @relation(fields: [userId], references: [id])
-
-  @@index([userId])
+  @@index([sheetId])
   @@index([expiresAt])
 }
 
