@@ -1,4 +1,4 @@
-import type { Point } from '../types/stroke.js';
+import type { Point, Stroke } from '../types/stroke.js';
 import type { RoomState, Player } from '../types/room.js';
 import type {
   RoundStart,
@@ -6,7 +6,7 @@ import type {
   GameResult,
   ChatMessage,
   Mode2Step,
-  Mode2Review,
+  Mode2ReviewState,
 } from '../types/game.js';
 import type { StrokeEvent } from '../types/stroke.js';
 
@@ -26,9 +26,9 @@ export type ClientEvents = {
   'answer:accept': (payload: { messageId: string }) => void;
   'game:custom:prompt': (payload: { text: string }) => void;
   'mode2:prompt': (payload: { sheetId: string; text: string }) => void;
-  'mode2:draw:done': (payload: { sheetId: string }) => void;
+  'mode2:draw:done': (payload: { sheetId: string; strokes: Stroke[] }) => void; // GIF용 stroke 포함
   'mode2:answer': (payload: { sheetId: string; text: string }) => void;
-  'mode2:vote': (payload: { sheetId: string; stepIndex: number; ok: boolean }) => void;
+  'mode2:judge:final': (payload: { sheetId: string; ok: boolean }) => void; // D-02 최종 판정 1회
   'mode2:vote:best': (payload: { sheetId: string }) => void;
 };
 
@@ -44,8 +44,8 @@ export type ServerEvents = {
   'chat:message': (payload: ChatMessage) => void;
   'chat:correct': (payload: { userId: string; messageId: string }) => void;
   'mode2:step': (payload: Mode2Step) => void;
-  'mode2:review': (payload: Mode2Review) => void;
-  'cookie:ready': (payload: { sheetId: string }) => void;
+  'mode2:review': (payload: Mode2ReviewState) => void;
+  'cookie:ready': (payload: { sheetId: string; gifUrl: string }) => void;
   error: (payload: { code: string; message: string }) => void;
 };
 
@@ -67,7 +67,7 @@ export const CLIENT_EVENT = {
   MODE2_PROMPT: 'mode2:prompt',
   MODE2_DRAW_DONE: 'mode2:draw:done',
   MODE2_ANSWER: 'mode2:answer',
-  MODE2_VOTE: 'mode2:vote',
+  MODE2_JUDGE_FINAL: 'mode2:judge:final',
   MODE2_VOTE_BEST: 'mode2:vote:best',
 } as const satisfies Readonly<Record<string, keyof ClientEvents>>;
 
