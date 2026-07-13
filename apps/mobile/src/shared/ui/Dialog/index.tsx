@@ -18,9 +18,10 @@ type Props = {
   title: string;
   children?: ReactNode;
   buttons?: DialogButton[];
+  dismissible?: boolean; // false면 백드롭 탭/하드웨어 뒤로가기로 닫히지 않음 (기본 true)
 };
 
-export function Dialog({ visible, onClose, title, children, buttons }: Props) {
+export function Dialog({ visible, onClose, title, children, buttons, dismissible = true }: Props) {
   const overlayAnim = useRef(new Animated.Value(0)).current;
   const scaleXAnim = useRef(new Animated.Value(0.05)).current;
   const scaleYAnim = useRef(new Animated.Value(0)).current;
@@ -89,14 +90,14 @@ export function Dialog({ visible, onClose, title, children, buttons }: Props) {
       visible={visible}
       transparent
       animationType="none"
-      onRequestClose={dismiss}
+      onRequestClose={dismissible ? dismiss : () => {}}
       statusBarTranslucent
     >
       <Animated.View
         style={[StyleSheet.absoluteFill, styles.overlay, { opacity: overlayAnim }]}
         pointerEvents="none"
       />
-      <Pressable style={StyleSheet.absoluteFill} onPress={dismiss} />
+      <Pressable style={StyleSheet.absoluteFill} onPress={dismissible ? dismiss : undefined} />
       <View style={styles.center} pointerEvents="box-none">
         <Animated.View
           style={[styles.panel, { transform: [{ scaleX: scaleXAnim }, { scaleY: scaleYAnim }] }]}

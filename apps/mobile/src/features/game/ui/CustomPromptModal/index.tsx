@@ -53,6 +53,7 @@ export function CustomPromptModal({ visible, onSubmit }: Props) {
     <Dialog
       visible={visible}
       onClose={() => {}}
+      dismissible={false}
       title="출제 문제"
       buttons={
         isExpired
