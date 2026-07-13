@@ -54,14 +54,18 @@ export function CustomPromptModal({ visible, onSubmit }: Props) {
       visible={visible}
       onClose={() => {}}
       title="출제 문제"
-      buttons={[
-        {
-          label: '확인',
-          color: 'primary',
-          onPress: handleConfirm,
-          disabled: !text.trim() || isExpired,
-        },
-      ]}
+      buttons={
+        isExpired
+          ? []
+          : [
+              {
+                label: '확인',
+                color: 'primary',
+                onPress: handleConfirm,
+                disabled: !text.trim(),
+              },
+            ]
+      }
     >
       <Text sx={{ ...textSizes.B2, color: isExpired ? colors.ERROR_400 : colors.LIGHT_300 }}>
         {isExpired ? '시간 초과! 다음 출제자로 넘어갑니다.' : `${remaining}초 안에 출제 문제를 입력해 주세요!`}
