@@ -4,7 +4,7 @@ import { Pressable, Switch, StyleSheet } from 'react-native'
 import { SafeAreaView } from 'react-native-safe-area-context'
 import { useRouter } from 'expo-router'
 import { Button, AppInput, Icon } from '@/shared/ui'
-import { StepperField, CategorySelector, ALL_CATEGORIES } from '@/features/room/ui'
+import { StepperField, CategorySelector, CategoryChip, ALL_CATEGORIES } from '@/features/room/ui'
 import { useCreateRoom } from '@/features/room/api'
 import { useToastStore, useAuthStore } from '@/shared/model'
 import { colors, spacing } from '@/shared/config'
@@ -17,6 +17,7 @@ export default function RoomCreateScreen() {
   const nickname = useAuthStore.getState().user?.nickname
 
   const [title, setTitle] = useState('')
+  const [mode, setMode] = useState<1 | 2>(1)
   const [playerCountMax, setPlayerCountMax] = useState(6)
   const [roundCount, setRoundCount] = useState(5)
   const [drawTimer, setDrawTimer] = useState(30)
@@ -26,7 +27,7 @@ export default function RoomCreateScreen() {
 
   const handleCreate = (): void => {
     mutate(
-      { mode: 1, playerCountMax, roundCount, drawTimer, categories, title: title.trim() || undefined, locked, password: locked && password.trim() ? password.trim() : undefined },
+      { mode, playerCountMax, roundCount, drawTimer, categories, title: title.trim() || undefined, locked, password: locked && password.trim() ? password.trim() : undefined },
       { onError: (err) => { console.error('[createRoom]', err); showToast('방 만들기에 실패했습니다. 다시 시도해주세요.') } }
     )
   }
@@ -44,16 +45,23 @@ export default function RoomCreateScreen() {
       <ScrollView style={{ flex: 1 }} contentContainerStyle={{ paddingHorizontal: spacing.MD, paddingTop: spacing.MD, paddingBottom: spacing.LG, gap: spacing.LG }} keyboardShouldPersistTaps="handled">
         <AppInput label="방 제목" placeholder={nickname ? `${nickname}님의 방` : '방 제목을 입력하세요'} value={title} onChangeText={setTitle} maxLength={20} showCounter />
         <StepperField label="인원" value={playerCountMax} min={2} max={12} onChange={setPlayerCountMax} />
-        <View sx={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}>
-          <Text sx={{ color: colors.LIGHT_500 }}>모드</Text>
-          <Text sx={{ color: colors.WHITE }}>모드 1 — 클래식</Text>
-        </View>
-        <StepperField label="턴" value={roundCount} min={1} max={10} onChange={setRoundCount} />
-        <StepperField label="타이머" value={drawTimer} min={10} max={60} step={5} onChange={setDrawTimer} />
         <View sx={{ gap: spacing.SM }}>
-          <Text sx={{ color: colors.LIGHT_500 }}>카테고리</Text>
-          <CategorySelector value={categories} onChange={setCategories} />
+          <Text sx={{ color: colors.LIGHT_500 }}>모드</Text>
+          <View sx={{ flexDirection: 'row', gap: spacing.SM }}>
+            <CategoryChip label="모드 1 — 클래식" active={mode === 1} onPress={() => setMode(1)} />
+            <CategoryChip label="모드 2 — 전언게임" active={mode === 2} onPress={() => setMode(2)} />
+          </View>
         </View>
+        {mode === 1 && (
+          <>
+            <StepperField label="턴" value={roundCount} min={1} max={10} onChange={setRoundCount} />
+            <View sx={{ gap: spacing.SM }}>
+              <Text sx={{ color: colors.LIGHT_500 }}>카테고리</Text>
+              <CategorySelector value={categories} onChange={setCategories} />
+            </View>
+          </>
+        )}
+        <StepperField label="타이머" value={drawTimer} min={10} max={60} step={5} onChange={setDrawTimer} />
         <View sx={{ flexDirection: 'row', alignItems: 'center', gap: spacing.SM }}>
           <Text sx={{ flex: 1, color: colors.LIGHT_500 }}>잠금</Text>
           <Icon name={locked ? 'LOCK' : 'LOCK_OPEN'} size={20} />

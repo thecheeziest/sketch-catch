@@ -3,9 +3,9 @@ import { useRouter } from 'expo-router';
 import { apiPost } from '@/shared/api';
 import type { Category } from '@sketch-catch/shared';
 
-// D-04: 기본값 — 모드 1 고정 (MVP는 모드 1만), 인원 6, 라운드 5, 타이머 30
+// D-04: 기본값 — 인원 6, 라운드 5, 타이머 30
 type CreateRoomInput = {
-  mode: 1;
+  mode: 1 | 2;
   playerCountMax: number;
   roundCount: number;
   drawTimer: number;
