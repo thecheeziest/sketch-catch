@@ -1,8 +1,20 @@
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { createRequire } from 'node:module';
 import { createCanvas, GlobalFonts, type SKRSContext2D } from '@napi-rs/canvas';
-import { GIFEncoder, quantize, applyPalette, type GifEncoderInstance } from 'gifenc';
+import type { GifEncoderInstance } from 'gifenc';
 import type { Mode2StepContent, Stroke } from '@sketch-catch/shared';
+
+// gifenc(CJS, esbuild __export 헬퍼 패턴)는 cjs-module-lexer가 정적 분석하지 못해
+// named import(`import { GIFEncoder } from 'gifenc'`)가 plain Node ESM 런타임에서 undefined로 깨짐
+// (Vitest는 자체 트랜스폼으로 이 문제를 우회해 테스트만으로는 발견 불가 — 실서버 실행 시 재현되는 실제 버그, Rule 1)
+// createRequire로 CJS 그대로 로드해 로더 종류와 무관하게 안전하게 동작시킴
+const require = createRequire(import.meta.url);
+const { GIFEncoder, quantize, applyPalette } = require('gifenc') as {
+  GIFEncoder: (options?: { initialCapacity?: number; auto?: boolean }) => GifEncoderInstance;
+  quantize: (data: Uint8Array | Uint8ClampedArray, maxColors: number, options?: Record<string, unknown>) => number[][];
+  applyPalette: (data: Uint8Array | Uint8ClampedArray, palette: number[][], format?: string) => Uint8Array;
+};
 
 // D-14: 텍스트 카드 프레임(제시어/답변) + 스트로크 배속 재생 프레임을 하나의 GIF로 합성
 // (DEVELOPER.md §8.3 strokesToGif 확장 — UI-SPEC "GIF Text Frame Spec" 시각 파라미터 그대로 사용)
@@ -62,6 +74,19 @@ export async function sheetToGif(opts: SheetToGifOptions): Promise<Buffer> {
 
   enc.finish();
   return Buffer.from(enc.bytes());
+}
+
+// Pitfall 2 스모크 테스트 전용 디버그 헬퍼 — GIF 인코딩 없이 텍스트 프레임 픽셀만 확인
+export function debugRenderTextFrame(
+  text: string,
+  width = 480,
+  height = 480
+): { data: Uint8ClampedArray; width: number; height: number } {
+  ensureFontRegistered();
+  const canvas = createCanvas(width, height);
+  const ctx = canvas.getContext('2d');
+  renderTextFrame(ctx, text, width, height);
+  return ctx.getImageData(0, 0, width, height);
 }
 
 function writeCanvasFrame(enc: GifEncoderInstance, ctx: SKRSContext2D, width: number, height: number, delay: number): void {
