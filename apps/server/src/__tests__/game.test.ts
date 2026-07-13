@@ -13,11 +13,13 @@ vi.mock('../services/rooms.service.js', () => ({
 }));
 
 import { getRoomState, saveRoomState } from '../services/rooms.service.js';
+import { pickWord } from '../services/word.service.js';
 import { startRound, endRound, calcScore } from '../socket/handlers/game.js';
 import { handleStrokeStart, handleStrokeClear } from '../socket/handlers/stroke.js';
 import { handleChatSend, handleAnswerAccept } from '../socket/handlers/chat.js';
 
 const mockGetRoomState = vi.mocked(getRoomState);
+const mockPickWord = vi.mocked(pickWord);
 const mockSaveRoomState = vi.mocked(saveRoomState);
 
 function makeRoomState(overrides: Partial<RoomState> = {}): RoomState {
@@ -140,6 +142,54 @@ describe('game state machine (MD1-01, MD1-05)', () => {
         promptForDrawer: '강아지',
         durationSec: 30,
       }),
+    );
+  });
+
+  it('round category: CUSTOM+다른 카테고리 선택 시, CUSTOM이 아닌 카테고리가 뽑히면 해당 카테고리로 출제된다', async () => {
+    const state = makeRoomState({ config: { ...makeRoomState().config, categories: ['CUSTOM', 'ANIMAL', 'OBJECT'] } });
+    mockGetRoomState.mockResolvedValueOnce(state);
+    const game = makeNamespace();
+
+    // Math.random()이 categories[1]='ANIMAL'을 가리키도록 고정 (index = floor(0.5 * 3) = 1)
+    const randomSpy = vi.spyOn(Math, 'random').mockReturnValue(0.5);
+    try {
+      await startRound(game as any, 'ABC123', 0);
+    } finally {
+      randomSpy.mockRestore();
+    }
+
+    expect(mockPickWord).toHaveBeenCalledWith(['ANIMAL']);
+    const savedState = mockSaveRoomState.mock.calls[0]![0]! as RoomState;
+    expect((savedState.current as Mode1RoundCurrent).prompt).toBe('강아지');
+    expect(game._broadcastEmit).toHaveBeenCalledWith(
+      'game:round:start',
+      expect.objectContaining({ promptForDrawer: '강아지' }),
+    );
+    expect(game._broadcastEmit).not.toHaveBeenCalledWith(
+      'game:round:start',
+      expect.objectContaining({ needsCustomPrompt: true }),
+    );
+  });
+
+  it('round category: CUSTOM+다른 카테고리 선택 시, CUSTOM이 뽑히면 출제자 직접 입력 모드로 진입한다', async () => {
+    const state = makeRoomState({ config: { ...makeRoomState().config, categories: ['CUSTOM', 'ANIMAL', 'OBJECT'] } });
+    mockGetRoomState.mockResolvedValueOnce(state);
+    const game = makeNamespace();
+
+    // Math.random()이 categories[0]='CUSTOM'을 가리키도록 고정 (index = floor(0 * 3) = 0)
+    const randomSpy = vi.spyOn(Math, 'random').mockReturnValue(0);
+    try {
+      await startRound(game as any, 'ABC123', 0);
+    } finally {
+      randomSpy.mockRestore();
+    }
+
+    expect(mockPickWord).not.toHaveBeenCalled();
+    const savedState = mockSaveRoomState.mock.calls[0]![0]! as RoomState;
+    expect((savedState.current as Mode1RoundCurrent).prompt).toBe('');
+    expect(game._broadcastEmit).toHaveBeenCalledWith(
+      'game:round:start',
+      expect.objectContaining({ needsCustomPrompt: true }),
     );
   });
 
@@ -317,7 +367,7 @@ describe('answer detect (MD1-02)', () => {
     expect(mockSaveRoomState).toHaveBeenCalled();
   });
 
-  it('answer detect: 부분 일치는 오답 — chat:correct 미발생', async () => {
+  it('answer detect: 부분 일치는 오답 — chat:correct 미발생, answer:wrong은 제출자에게만 전달', async () => {
     mockGetRoomState.mockResolvedValueOnce(makeChatRoomState());
     const game = makeNamespace();
     const socket = { data: { userId: 'userB' }, rooms: new Set(['room:ABC123']), emit: vi.fn() };
@@ -326,6 +376,9 @@ describe('answer detect (MD1-02)', () => {
     expect(game._broadcastEmit).toHaveBeenCalledWith('chat:message', expect.anything());
     // chat:correct는 미발생
     expect(game._broadcastEmit).not.toHaveBeenCalledWith('chat:correct', expect.anything());
+    // answer:wrong은 broadcast가 아닌 제출자 소켓에만 직접 전달
+    expect(socket.emit).toHaveBeenCalledWith('answer:wrong', expect.objectContaining({ messageId: expect.any(String) }));
+    expect(game._broadcastEmit).not.toHaveBeenCalledWith('answer:wrong', expect.anything());
     // endRound 미호출 → saveRoomState 0회
     expect(mockSaveRoomState).not.toHaveBeenCalled();
   });

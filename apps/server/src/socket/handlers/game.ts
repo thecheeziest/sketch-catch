@@ -1,8 +1,14 @@
 import type { Namespace } from 'socket.io';
-import type { ClientEvents, ServerEvents, Mode1RoundCurrent, RoomState } from '@sketch-catch/shared';
+import type { ClientEvents, ServerEvents, Mode1RoundCurrent, RoomState, Category } from '@sketch-catch/shared';
 import { SERVER_EVENT } from '@sketch-catch/shared';
 import { getRoomState, saveRoomState } from '../../services/rooms.service.js';
 import { pickWord } from '../../services/word.service.js';
+
+// 선택된 카테고리 중 이번 라운드에 사용할 카테고리 1개를 균등 랜덤 선택 (CUSTOM도 동일 확률의 후보)
+function pickRoundCategory(categories: Category[]): Category {
+  if (categories.length === 0) return 'ANIMAL';
+  return categories[Math.floor(Math.random() * categories.length)]!;
+}
 
 type GameNamespace = Namespace<ClientEvents, ServerEvents>;
 
@@ -49,7 +55,9 @@ export async function startRound(
   const drawerId = state.turnSchedule[roundIndex];
   if (!drawerId) return;
 
-  if (state.config.categories.includes('CUSTOM')) {
+  const roundCategory = pickRoundCategory(state.config.categories);
+
+  if (roundCategory === 'CUSTOM') {
     // 커스텀 모드: 제시어 없이 시작, 출제자가 10초 내 직접 입력
     state.status = 'MODE1_ROUND_START';
     state.current = {
@@ -82,7 +90,7 @@ export async function startRound(
       }, 10_000),
     );
   } else {
-    const { word } = await pickWord(state.config.categories);
+    const { word } = await pickWord([roundCategory]);
 
     state.status = 'MODE1_ROUND_START';
     state.current = {
