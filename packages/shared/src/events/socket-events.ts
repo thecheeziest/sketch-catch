@@ -43,6 +43,7 @@ export type ServerEvents = {
   'stroke:remote': (payload: StrokeEvent) => void;
   'chat:message': (payload: ChatMessage) => void;
   'chat:correct': (payload: { userId: string; messageId: string }) => void;
+  'answer:wrong': (payload: { messageId: string }) => void; // 오답 제출자 본인에게만 전달
   'mode2:step': (payload: Mode2Step) => void;
   'mode2:review': (payload: Mode2ReviewState) => void;
   'cookie:ready': (payload: { sheetId: string; gifUrl: string }) => void;
@@ -81,6 +82,7 @@ export const SERVER_EVENT = {
   STROKE_REMOTE: 'stroke:remote',
   CHAT_MESSAGE: 'chat:message',
   CHAT_CORRECT: 'chat:correct',
+  ANSWER_WRONG: 'answer:wrong',
   MODE2_STEP: 'mode2:step',
   MODE2_REVIEW: 'mode2:review',
   COOKIE_READY: 'cookie:ready',

@@ -58,6 +58,9 @@ export async function handleChatSend(
       .to(`room:${code}`)
       .emit(SERVER_EVENT.CHAT_CORRECT, { userId: socket.data.userId, messageId: msg.id });
     await endRound(game, code, current.roundIndex, socket.data.userId, Date.now() - current.startedAt);
+  } else {
+    // 오답 피드백은 제출자 본인에게만 전달 (다른 플레이어의 채팅 로그는 chat:message로 충분)
+    socket.emit(SERVER_EVENT.ANSWER_WRONG, { messageId: msg.id });
   }
 }
 

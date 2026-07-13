@@ -25,6 +25,7 @@ type GameStore = {
   remoteStrokes: RemoteStroke[];
   chatMessages: ChatMessage[];
   correct: { userId: string; messageId: string } | null;
+  wrongAnswer: { messageId: string } | null;
   result: GameResult | null;
   roundResult: RoundEnd | null;
   // 도구 상태 (DRAW-02)
@@ -51,6 +52,7 @@ export const useGameStore = create<GameStore>()(
     remoteStrokes: [],
     chatMessages: [],
     correct: null,
+    wrongAnswer: null,
     result: null,
     roundResult: null,
     color: colors.DARK_500,
@@ -150,6 +152,12 @@ export const useGameStore = create<GameStore>()(
           st.correct = payload;
         });
       });
+
+      socket.on('answer:wrong', (payload: { messageId: string }) => {
+        set((st) => {
+          st.wrongAnswer = payload;
+        });
+      });
     },
 
     setColor: (c) =>
@@ -183,6 +191,7 @@ export const useGameStore = create<GameStore>()(
         st.remoteStrokes = [];
         st.chatMessages = [];
         st.correct = null;
+        st.wrongAnswer = null;
         st.result = null;
         st.roundResult = null;
         st.color = colors.DARK_500;

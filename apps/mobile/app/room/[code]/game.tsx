@@ -30,6 +30,7 @@ export default function GameScreen() {
   const promptHint = useGameStore((s) => s.promptHint);
   const chatMessages = useGameStore((s) => s.chatMessages);
   const correct = useGameStore((s) => s.correct);
+  const wrongAnswer = useGameStore((s) => s.wrongAnswer);
   const roundResult = useGameStore((s) => s.roundResult);
   const currentPrompt = useGameStore((s) => s.currentPrompt);
   const needsCustomPrompt = useGameStore((s) => s.needsCustomPrompt);
@@ -95,6 +96,14 @@ export default function GameScreen() {
       }
     }
   }, [correct, roundResult]);
+
+  const prevWrongAnswerRef = useRef<typeof wrongAnswer>(null);
+  useEffect(() => {
+    if (wrongAnswer !== null && wrongAnswer !== prevWrongAnswerRef.current) {
+      prevWrongAnswerRef.current = wrongAnswer;
+      Alert.alert('오답입니다~!');
+    }
+  }, [wrongAnswer]);
 
   const handleBubbleExpire = useCallback((userId: string) => {
     setActiveBubbles((prev) => ({ ...prev, [userId]: null }));
