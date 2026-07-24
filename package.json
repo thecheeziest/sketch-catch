@@ -7,6 +7,8 @@
     "node": ">=20.11.0"
   },
   "scripts": {
+    "start": "pnpm --filter @sketch-catch/server run dev",
+    "ios:dev": "pnpm --filter @sketch-catch/mobile run ios:dev",
     "lint": "pnpm -r run lint",
     "typecheck": "pnpm -r run typecheck",
     "build": "pnpm -r run build",

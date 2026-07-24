@@ -176,6 +176,12 @@ None yet.
 
 **Resolved:** 04-09 Task1 자동검증 실패 — 작업 트리의 208개 미커밋 변경(Dripsy/FSD 마이그레이션)을 9개 논리 단위 커밋으로 정리(`1e421c8`~`24c6a94`). 원인 수정: (1) `room/[code]/index.tsx`가 `dripsy`에서 직접 FlatList import — `@/shared/ui` 타입 래퍼 규칙 위반, `@/shared/ui`로 교정. (2) `me.test.ts` redis mock에 `getPresence` 스텁 누락 — authenticate 미들웨어 500 오류 원인, 스텁 추가. (3) `game.test.ts` `makeRoomState()` 픽스처에 `turnSchedule` 누락 — `startRound` 조기 반환 원인, 추가. 전체 게이트(shared build/server test 81건/server·mobile typecheck) GREEN 확인. Task2 수동 검증 재개 가능.
 
+### Quick Tasks Completed
+
+| # | Description | Date | Commit | Directory |
+|---|-------------|------|--------|-----------|
+| 260724-jqb | 루트 package.json에 start(서버 dev 위임), ios:dev(모바일 위임) 스크립트 추가 | 2026-07-24 | (pending) | [260724-jqb-package-json-pnpm-start-dev-pnpm-ios-dev](./quick/260724-jqb-package-json-pnpm-start-dev-pnpm-ios-dev/) |
+
 ## Session Continuity
 
 Last session: 2026-07-09T07:48:04.488Z
