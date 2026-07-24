@@ -60,12 +60,13 @@ export default function AwardScreen() {
     players.map((p) => [p.id, p.characterId])
   );
 
-  // ranking 항목을 PodiumPlayer 형태로 변환
+  // ranking 항목을 PodiumPlayer 형태로 변환 — 중도 퇴장 여부(left)도 함께 전달
   const toPodiumPlayer = (item: { userId: string; rank: number; score: number }) => ({
     userId: item.userId,
     nickname: players.find((p) => p.id === item.userId)?.nickname ?? item.userId,
     characterId: characterMap[item.userId] ?? 'cat',
     score: item.score,
+    left: players.find((p) => p.id === item.userId)?.left === true,
   });
 
   const rank1 = ranking.find((r) => r.rank === 1);
@@ -131,10 +132,13 @@ export default function AwardScreen() {
                   paddingVertical: spacing.XS,
                 }}
               >
-                <Text sx={{ ...textSizes.B1, color: colors.LIGHT_100 }}>
-                  {item.rank}위 {player.nickname}
+                <Text
+                  sx={{ ...textSizes.B1, color: player.left ? colors.GRAY : colors.LIGHT_100 }}
+                  style={player.left ? { textDecorationLine: 'line-through' } : undefined}
+                >
+                  {item.rank}위 {player.nickname}{player.left ? ' (나감)' : ''}
                 </Text>
-                <Text sx={{ ...textSizes.B1, color: colors.ACCENT_300 }}>
+                <Text sx={{ ...textSizes.B1, color: player.left ? colors.GRAY : colors.ACCENT_300 }}>
                   {item.score}점
                 </Text>
               </View>
@@ -162,7 +166,7 @@ export default function AwardScreen() {
         </Text>
         <Button
           label="나가기"
-          color="light"
+          color="primary"
           height={36}
           onPress={() => router.replace('/(tabs)')}
         />

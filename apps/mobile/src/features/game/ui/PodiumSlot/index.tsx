@@ -9,6 +9,7 @@ type PodiumPlayer = {
   nickname: string;
   characterId: string;
   score: number;
+  left?: boolean;
 };
 
 type Props = {
@@ -47,7 +48,7 @@ export function PodiumSlot({ rank, player, baseCardWidth }: Props) {
 
   return (
     <View sx={{ alignItems: 'center' }}>
-      <SlotCard player={slotPlayer} isMe={false} cardWidth={cardWidth} />
+      <SlotCard player={slotPlayer} isMe={false} cardWidth={cardWidth} isLeft={player.left === true} />
       <Text
         style={[
           styles.rankLabel,

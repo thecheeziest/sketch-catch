@@ -45,6 +45,9 @@ export default function Mode2Screen() {
   useEffect(() => {
     if (roomState?.status === 'MODE2_REVIEW') {
       router.replace(`/room/${code}/mode2-review` as never);
+    } else if (roomState?.status === 'AWARD') {
+      // 참가자 이탈 등으로 게임이 강제종료된 경우
+      router.replace(`/room/${code}/award` as never);
     }
   }, [roomState?.status, code, router]);
 

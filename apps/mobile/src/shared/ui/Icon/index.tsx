@@ -8,6 +8,7 @@ const TEXT_ICONS = {
   ADD_FRIEND: '+',
   BACK: '<',
   CHEVRON_RIGHT: '>',
+  CLOSE: 'X',
 } as const
 
 // FA_ICONS: FontAwesome 벡터 아이콘 (이모지 대체)

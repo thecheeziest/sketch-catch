@@ -1,5 +1,6 @@
 import { colors, getCharacterImageSource, spacing } from '@/shared/config';
 import { Badge } from '@/shared/ui/Badge';
+import { Icon } from '@/shared/ui/Icon';
 import { PixelFrame } from '@/shared/ui/PixelFrame';
 import type { Player } from '@sketch-catch/shared';
 import { Image, Text, View } from 'dripsy';
@@ -18,9 +19,10 @@ type Props = {
   player: Player | null;
   isMe: boolean;
   cardWidth: number;
+  isLeft?: boolean; // 게임 강제종료 시 중도 퇴장 플레이어 표시
 };
 
-export function SlotCard({ player, isMe, cardWidth }: Props) {
+export function SlotCard({ player, isMe, cardWidth, isLeft = false }: Props) {
   const shineProgress = useSharedValue(0);
 
   useEffect(() => {
@@ -56,8 +58,16 @@ export function SlotCard({ player, isMe, cardWidth }: Props) {
   }
 
   const isHost = player.isHost;
-  const backgroundColor = player.isReady ? colors.SECONDARY_200 : colors.SECONDARY_100;
-  const borderColor = isHost ? colors.PRIMARY_400 : isMe ? colors.DARK_100 : player.isReady ? colors.DARK_100 : colors.GRAY;
+  const backgroundColor = isLeft ? colors.DARK_100 : player.isReady ? colors.SECONDARY_200 : colors.SECONDARY_100;
+  const borderColor = isLeft
+    ? colors.GRAY
+    : isHost
+      ? colors.PRIMARY_400
+      : isMe
+        ? colors.DARK_100
+        : player.isReady
+          ? colors.DARK_100
+          : colors.GRAY;
   const borderWidth = isMe ? 3 : 2;
   const imageSource = getCharacterImageSource(player.characterId);
 
@@ -69,32 +79,46 @@ export function SlotCard({ player, isMe, cardWidth }: Props) {
         style={StyleSheet.absoluteFillObject}
       >
         <View style={[StyleSheet.absoluteFillObject, { backgroundColor }]} />
-        {isHost && (
+        {isHost && !isLeft && (
           <View style={styles.badgeContainer}>
             <Badge label="방장" color={colors.PRIMARY_400} />
           </View>
         )}
+        {isLeft && (
+          <View style={[styles.badgeContainer, styles.leftBadge]}>
+            <Icon name="CLOSE" size={14} color={colors.LIGHT_100} />
+          </View>
+        )}
         <View sx={{ flex: 1, alignItems: 'center', justifyContent: 'center', paddingTop: spacing.SM }}>
           {imageSource !== null ? (
-            <Image source={imageSource} sx={{ width: 48, height: 48 }} resizeMode="contain" />
+            <Image
+              source={imageSource}
+              sx={{ width: 48, height: 48 }}
+              resizeMode="contain"
+              style={isLeft ? styles.dimmedImage : undefined}
+            />
           ) : (
-            <View sx={{ width: 48, height: 48, backgroundColor: colors.SECONDARY_400 }} />
+            <View
+              sx={{ width: 48, height: 48, backgroundColor: colors.SECONDARY_400 }}
+              style={isLeft ? styles.dimmedImage : undefined}
+            />
           )}
         </View>
         <View sx={{ paddingHorizontal: spacing.XS, paddingBottom: spacing.SM, gap: spacing.XS }}>
           <Text
-            sx={{ color: player.isReady ? colors.LIGHT_100 : colors.SECONDARY_500, textAlign: 'center' }}
+            sx={{ color: isLeft ? colors.GRAY : player.isReady ? colors.LIGHT_100 : colors.SECONDARY_500, textAlign: 'center' }}
+            style={isLeft ? styles.strikethrough : undefined}
             numberOfLines={1}
           >
             {player.nickname}
           </Text>
           {!isHost && (
-            <Text variant="B4" sx={{ color: player.isReady ? colors.LIGHT_100 : colors.DARK_100, textAlign: 'center' }}>
-              {player.isReady ? '준비 완료' : '대기 중'}
+            <Text variant="B4" sx={{ color: isLeft ? colors.GRAY : player.isReady ? colors.LIGHT_100 : colors.DARK_100, textAlign: 'center' }}>
+              {isLeft ? '나감' : player.isReady ? '준비 완료' : '대기 중'}
             </Text>
           )}
         </View>
-        {isHost && <Animated.View style={[styles.shine, shineStyle]} pointerEvents="none" />}
+        {isHost && !isLeft && <Animated.View style={[styles.shine, shineStyle]} pointerEvents="none" />}
       </PixelFrame>
     </View>
   );
@@ -102,6 +126,16 @@ export function SlotCard({ player, isMe, cardWidth }: Props) {
 
 const styles = StyleSheet.create({
   badgeContainer: { position: 'absolute', top: 8, right: 8, zIndex: 1 },
+  leftBadge: {
+    width: 22,
+    height: 22,
+    borderRadius: 11,
+    backgroundColor: colors.GRAY,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  dimmedImage: { opacity: 0.35 },
+  strikethrough: { textDecorationLine: 'line-through' },
   shine: {
     position: 'absolute',
     top: -60,
