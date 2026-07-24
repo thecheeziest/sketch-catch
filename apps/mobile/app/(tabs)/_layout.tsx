@@ -27,16 +27,16 @@ export default function TabsLayout() {
         tabBarStyle: {
           position: 'absolute',
           backgroundColor: 'transparent',
-          borderTopWidth: 3,
-          borderTopColor: colors.BLACK,
+          borderTopWidth: 1,
+          borderTopColor: 'rgba(255, 255, 255, 0.18)',
           height: 64 + bottom,
           paddingTop: 8,
           paddingBottom: bottom,
         },
         tabBarBackground: () => (
-          <BlurView intensity={20} tint="light" style={StyleSheet.absoluteFillObject}>
+          <BlurView intensity={45} tint="dark" experimentalBlurMethod="dimezisBlurView" style={StyleSheet.absoluteFillObject}>
             <View
-              style={[StyleSheet.absoluteFillObject, { backgroundColor: 'rgba(10, 10, 16, 0.82)' }]}
+              style={[StyleSheet.absoluteFillObject, { backgroundColor: 'rgba(10, 10, 16, 0.38)' }]}
             />
           </BlurView>
         ),
