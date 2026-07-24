@@ -180,7 +180,7 @@ None yet.
 
 | # | Description | Date | Commit | Directory |
 |---|-------------|------|--------|-----------|
-| 260724-jqb | 루트 package.json에 start(서버 dev 위임), ios:dev(모바일 위임) 스크립트 추가 | 2026-07-24 | (pending) | [260724-jqb-package-json-pnpm-start-dev-pnpm-ios-dev](./quick/260724-jqb-package-json-pnpm-start-dev-pnpm-ios-dev/) |
+| 260724-jqb | 루트 package.json에 start(서버 dev 위임), ios:dev(모바일 위임) 스크립트 추가 | 2026-07-24 | 95f8e63 | [260724-jqb-package-json-pnpm-start-dev-pnpm-ios-dev](./quick/260724-jqb-package-json-pnpm-start-dev-pnpm-ios-dev/) |
 
 ## Session Continuity
 
