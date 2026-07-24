@@ -9,5 +9,14 @@ export default function RoomCodeLayout() {
     return () => disconnect();
   }, []);
 
-  return <Stack screenOptions={{ headerShown: false }} />;
+  return (
+    <Stack screenOptions={{ headerShown: false }}>
+      <Stack.Screen name="index" />
+      <Stack.Screen name="game" options={{ gestureEnabled: false }} />
+      <Stack.Screen name="mode2" options={{ gestureEnabled: false }} />
+      <Stack.Screen name="mode2-review" options={{ gestureEnabled: false }} />
+      <Stack.Screen name="mode2-end" />
+      <Stack.Screen name="award" />
+    </Stack>
+  );
 }

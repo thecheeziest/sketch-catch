@@ -18,6 +18,8 @@ import {
   TurnEndOverlay,
   CustomPromptModal,
 } from '@/features/game/ui';
+import { PixelFireworks } from '@/features/game/ui/PixelFireworks';
+import { WrongAnswerFeedback } from '@/features/game/ui/WrongAnswerFeedback';
 
 export default function GameScreen() {
   const router = useRouter();
@@ -44,6 +46,7 @@ export default function GameScreen() {
     visible: false,
   });
   const [turnEndInfo, setTurnEndInfo] = useState<{ result: RoundEnd; prompt: string | null } | null>(null);
+  const [wrongFeedbackVisible, setWrongFeedbackVisible] = useState(false);
 
   useEffect(() => {
     if (!socket || !code) return;
@@ -101,7 +104,8 @@ export default function GameScreen() {
   useEffect(() => {
     if (wrongAnswer !== null && wrongAnswer !== prevWrongAnswerRef.current) {
       prevWrongAnswerRef.current = wrongAnswer;
-      Alert.alert('오답입니다~!');
+      setWrongFeedbackVisible(true);
+      setTimeout(() => setWrongFeedbackVisible(false), 800);
     }
   }, [wrongAnswer]);
 
@@ -207,7 +211,9 @@ export default function GameScreen() {
       {/* key를 roundIndex로 고정해 턴 전환 시 캔버스 초기화 */}
       <DrawingCanvas isDrawer={isDrawer} key={`canvas-${roundIndex}`} />
 
+      {scoreFeedback.visible && <PixelFireworks />}
       <ScoreFeedback score={scoreFeedback.score} visible={scoreFeedback.visible} />
+      <WrongAnswerFeedback visible={wrongFeedbackVisible} />
 
       {isDrawer && <ToolbarRow />}
 

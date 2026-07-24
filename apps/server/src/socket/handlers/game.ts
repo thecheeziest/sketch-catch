@@ -261,18 +261,21 @@ async function endGame(game: GameNamespace, code: string): Promise<void> {
 
   const timestamps = answerTimestamps.get(code) ?? new Map<string, number>();
 
-  const ranked = [...Object.entries(state.scoreboard)]
-    .sort(([userA, scoreA], [userB, scoreB]) => {
+  // 전원 랭킹에 포함 — scoreboard에 없는 플레이어(득점 전 강제종료 등)도 0점으로 표시되어야 캐릭터가 보임
+  const ranked = [...state.players]
+    .sort((a, b) => {
+      const scoreA = state.scoreboard[a.id] ?? 0;
+      const scoreB = state.scoreboard[b.id] ?? 0;
       if (scoreB !== scoreA) return scoreB - scoreA;
-      const atA = timestamps.get(userA) ?? Infinity;
-      const atB = timestamps.get(userB) ?? Infinity;
+      const atA = timestamps.get(a.id) ?? Infinity;
+      const atB = timestamps.get(b.id) ?? Infinity;
       return atA - atB;
     })
-    .map(([userId, score], index) => ({
-      userId,
+    .map((player, index) => ({
+      userId: player.id,
       rank: index + 1,
-      score,
-      answeredAt: timestamps.get(userId) ?? null,
+      score: state.scoreboard[player.id] ?? 0,
+      answeredAt: timestamps.get(player.id) ?? null,
     }));
 
   await saveRoomState(state);
