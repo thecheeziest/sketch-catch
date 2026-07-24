@@ -28,7 +28,7 @@ export function ProfileHeader({ rightSlot }: Props) {
 
   if (!user) {
     return (
-      <BlurView intensity={20} tint="light" experimentalBlurMethod="dimezisBlurView" style={containerStyle}>
+      <BlurView intensity={20} tint="light" style={containerStyle}>
         <View style={[StyleSheet.absoluteFillObject, { backgroundColor: 'rgba(10, 10, 16, 0.82)' }]} />
         <Pressable
           onPress={async () => {
@@ -59,7 +59,7 @@ export function ProfileHeader({ rightSlot }: Props) {
 
   return (
     <>
-      <BlurView intensity={20} tint="light" experimentalBlurMethod="dimezisBlurView" style={containerStyle}>
+      <BlurView intensity={20} tint="light" style={containerStyle}>
         <View
           style={[StyleSheet.absoluteFillObject, { backgroundColor: 'rgba(10, 10, 16, 0.82)' }]}
         />

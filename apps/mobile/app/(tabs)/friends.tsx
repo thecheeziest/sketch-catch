@@ -97,7 +97,7 @@ export default function FriendsScreen() {
 
         {activeTab === 0 && (
           <View style={{ flex: 1 }}>
-            <BlurView intensity={50} tint="light" experimentalBlurMethod="dimezisBlurView" style={StyleSheet.absoluteFillObject} />
+            <BlurView intensity={50} tint="light" style={StyleSheet.absoluteFillObject} />
             <FlatList
               data={friends}
               keyExtractor={item => item.friendshipId}
@@ -129,7 +129,7 @@ export default function FriendsScreen() {
 
         {activeTab === 1 && (
           <View style={{ flex: 1 }}>
-            <BlurView intensity={50} tint="dark" experimentalBlurMethod="dimezisBlurView" style={StyleSheet.absoluteFillObject} />
+            <BlurView intensity={50} tint="dark" style={StyleSheet.absoluteFillObject} />
             <FlatList
               data={requests}
               keyExtractor={item => `recv-${item.id}`}

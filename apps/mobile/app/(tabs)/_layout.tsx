@@ -34,7 +34,7 @@ export default function TabsLayout() {
           paddingBottom: bottom,
         },
         tabBarBackground: () => (
-          <BlurView intensity={45} tint="dark" experimentalBlurMethod="dimezisBlurView" style={StyleSheet.absoluteFillObject}>
+          <BlurView intensity={45} tint="dark" style={StyleSheet.absoluteFillObject}>
             <View
               style={[StyleSheet.absoluteFillObject, { backgroundColor: 'rgba(10, 10, 16, 0.38)' }]}
             />
