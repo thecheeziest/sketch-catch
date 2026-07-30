@@ -116,3 +116,13 @@ None - no external service configuration required for this plan. (Push notificat
 ---
 *Phase: 07-polish*
 *Completed: 2026-07-30*
+
+## Self-Check: PASSED
+
+- FOUND: packages/shared/src/types/game.ts (contains `endReason`)
+- FOUND: packages/shared/dist/types/game.d.ts (contains `endReason`, gitignored, rebuilt)
+- FOUND: apps/mobile/package.json dependencies['expo-notifications'] = ~0.28.19
+- FOUND: apps/server/package.json dependencies['expo-server-sdk'] = ^6.1.0
+- FOUND: commit e991d9b (Task 1)
+- FOUND: commit adc484e (Task 3)
+- FOUND: commit 5af6bb1 (SUMMARY.md)
