@@ -6,6 +6,8 @@ import {
   InvalidFormatError, SelfRequestError, UserNotFoundError, AlreadyFriendsError, DuplicateRequestError,
   RequestNotFoundError, ForbiddenError,
 } from '../services/friends.service.js';
+import { sendPush, shouldSend } from '../services/push.service.js';
+import { prisma } from '../db/prisma.js';
 import { logger } from '../lib/logger.js';
 
 const sendRequestSchema = z.object({ target: z.string().refine((v) => v.includes('#'), { message: 'target must include #' }) });
@@ -21,7 +23,22 @@ export const friendsRoutes: FastifyPluginAsync = async (app) => {
     const parsed = sendRequestSchema.safeParse(req.body);
     if (!parsed.success) return reply.status(400).send({ error: 'INVALID_FORMAT' });
     try {
-      await sendFriendRequest(req.userId!, parsed.data.target);
+      const senderId = req.userId!;
+      const receiver = await sendFriendRequest(senderId, parsed.data.target);
+
+      // PUSH-01: fire-and-forget — 응답을 푸시 발송에 블로킹하지 않음
+      if (receiver.pushToken) {
+        const pushToken = receiver.pushToken;
+        void (async () => {
+          if (!(await shouldSend(`friend-request:${senderId}:${receiver.id}`))) return;
+          const me = await prisma.user.findUnique({ where: { id: senderId }, select: { nickname: true } });
+          await sendPush([pushToken], {
+            title: '친구 요청',
+            body: `${me?.nickname ?? '친구'}님이 친구 요청을 보냈어요.`,
+          });
+        })().catch((err) => logger.error({ err }, 'push send failed'));
+      }
+
       return reply.status(201).send({ ok: true });
     } catch (err) {
       if (err instanceof InvalidFormatError) return reply.status(400).send({ error: err.code });
@@ -49,7 +66,23 @@ export const friendsRoutes: FastifyPluginAsync = async (app) => {
     if (!parsed.success) return reply.status(400).send({ error: 'INVALID_INPUT' });
     const { id } = req.params as { id: string };
     try {
-      await respondToRequest(req.userId!, id, parsed.data.action);
+      const accepterId = req.userId!;
+      const requester = await respondToRequest(accepterId, id, parsed.data.action);
+
+      // PUSH-02: ACCEPT일 때만, fire-and-forget — 응답을 푸시 발송에 블로킹하지 않음
+      if (parsed.data.action === 'ACCEPT' && requester?.pushToken) {
+        const requesterId = requester.id;
+        const pushToken = requester.pushToken;
+        void (async () => {
+          if (!(await shouldSend(`friend-accept:${accepterId}:${requesterId}`))) return;
+          const me = await prisma.user.findUnique({ where: { id: accepterId }, select: { nickname: true } });
+          await sendPush([pushToken], {
+            title: '친구 요청 수락',
+            body: `${me?.nickname ?? '친구'}님이 친구 요청을 수락했어요.`,
+          });
+        })().catch((err) => logger.error({ err }, 'push send failed'));
+      }
+
       return reply.send({ ok: true });
     } catch (err) {
       if (err instanceof RequestNotFoundError) return reply.status(404).send({ error: err.code });

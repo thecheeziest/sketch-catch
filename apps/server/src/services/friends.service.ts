@@ -27,7 +27,10 @@ function normalizeIds(a: string, b: string): { userAId: string; userBId: string 
   return a < b ? { userAId: a, userBId: b } : { userAId: b, userBId: a };
 }
 
-export async function sendFriendRequest(senderId: string, target: string): Promise<void> {
+export async function sendFriendRequest(
+  senderId: string,
+  target: string
+): Promise<{ id: string; pushToken: string | null }> {
   const parsed = parseTarget(target);
   if (!parsed) throw new InvalidFormatError();
 
@@ -50,6 +53,8 @@ export async function sendFriendRequest(senderId: string, target: string): Promi
   } catch {
     throw new DuplicateRequestError();
   }
+
+  return { id: receiver.id, pushToken: receiver.pushToken };
 }
 
 export type FriendRoom = {
@@ -209,7 +214,7 @@ export async function respondToRequest(
   userId: string,
   requestId: string,
   action: 'ACCEPT' | 'REJECT'
-): Promise<void> {
+): Promise<{ id: string; pushToken: string | null } | null> {
   const req = await prisma.friendRequest.findUnique({ where: { id: requestId } });
   if (!req || req.status !== 'PENDING') throw new RequestNotFoundError();
   if (req.receiverId !== userId) throw new ForbiddenError();
@@ -220,9 +225,15 @@ export async function respondToRequest(
       prisma.friendRequest.update({ where: { id: requestId }, data: { status: 'ACCEPTED' } }),
       prisma.friendship.create({ data: { userAId, userBId } }),
     ]);
-  } else {
-    await prisma.friendRequest.update({ where: { id: requestId }, data: { status: 'REJECTED' } });
+    const requester = await prisma.user.findUnique({
+      where: { id: req.senderId },
+      select: { id: true, pushToken: true },
+    });
+    return requester;
   }
+
+  await prisma.friendRequest.update({ where: { id: requestId }, data: { status: 'REJECTED' } });
+  return null;
 }
 
 export async function deleteFriend(userId: string, friendId: string): Promise<void> {

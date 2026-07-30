@@ -74,11 +74,11 @@ describe('sendFriendRequest', () => {
   });
 
   it('정상 요청 → friendRequest.create 호출', async () => {
-    vi.mocked(prisma.user.findUnique).mockResolvedValue({ id: 'u2' } as any);
+    vi.mocked(prisma.user.findUnique).mockResolvedValue({ id: 'u2', pushToken: null } as any);
     vi.mocked(prisma.friendship.findUnique).mockResolvedValue(null);
     vi.mocked(prisma.friendRequest.create).mockResolvedValue({} as any);
 
-    await expect(sendFriendRequest('u1', '닉네임#ABCDE')).resolves.toBeUndefined();
+    await expect(sendFriendRequest('u1', '닉네임#ABCDE')).resolves.toEqual({ id: 'u2', pushToken: null });
     expect(prisma.friendRequest.create).toHaveBeenCalledWith(
       expect.objectContaining({ data: expect.objectContaining({ senderId: 'u1', receiverId: 'u2' }) })
     );
@@ -123,8 +123,9 @@ describe('respondToRequest', () => {
     } as any);
     vi.mocked(prisma.friendRequest.update).mockResolvedValue({} as any);
     vi.mocked(prisma.friendship.create).mockResolvedValue({} as any);
+    vi.mocked(prisma.user.findUnique).mockResolvedValue({ id: 'u1', pushToken: null } as any);
 
-    await expect(respondToRequest('u2', 'req1', 'ACCEPT')).resolves.toBeUndefined();
+    await expect(respondToRequest('u2', 'req1', 'ACCEPT')).resolves.toEqual({ id: 'u1', pushToken: null });
     expect(prisma.$transaction).toHaveBeenCalled();
     expect(prisma.friendRequest.update).toHaveBeenCalledWith(
       expect.objectContaining({ data: { status: 'ACCEPTED' } })
@@ -138,7 +139,7 @@ describe('respondToRequest', () => {
     } as any);
     vi.mocked(prisma.friendRequest.update).mockResolvedValue({} as any);
 
-    await expect(respondToRequest('u2', 'req1', 'REJECT')).resolves.toBeUndefined();
+    await expect(respondToRequest('u2', 'req1', 'REJECT')).resolves.toBeNull();
     expect(prisma.friendRequest.update).toHaveBeenCalledWith(
       expect.objectContaining({ data: { status: 'REJECTED' } })
     );
