@@ -22,6 +22,7 @@ const FA_ICONS = {
   ERASER: 'eraser',
   TRASH: 'trash',
   UNDO: 'undo',
+  INVITE: 'paper-plane',
 } as const
 
 export type IconName = keyof typeof TEXT_ICONS | keyof typeof FA_ICONS
