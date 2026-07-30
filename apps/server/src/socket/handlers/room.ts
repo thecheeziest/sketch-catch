@@ -1,12 +1,12 @@
 import type { Namespace, Socket } from 'socket.io';
-import type { ClientEvents, ServerEvents } from '@sketch-catch/shared';
+import type { ClientEvents, ServerEvents, RoomState } from '@sketch-catch/shared';
 import { SERVER_EVENT } from '@sketch-catch/shared';
 import { getRoomState, saveRoomState } from '../../services/rooms.service.js';
 import { redis, setPresence, setUserRoom, clearUserRoom } from '../../db/redis.js';
 import { broadcastPresenceUpdate } from '../presence.namespace.js';
 import { prisma } from '../../db/prisma.js';
 import { startRound, initTurnSchedule, handlePlayerLeft } from './game.js';
-import { startMode2 } from './mode2.js';
+import { startMode2, handleMode2PlayerLeft } from './mode2.js';
 
 type GameNamespace = Namespace<ClientEvents, ServerEvents>;
 type GameSocket = Socket<ClientEvents, ServerEvents, Record<string, never>, { userId: string }>;
@@ -17,6 +17,18 @@ type SocketFetcher = {
 
 function canFetchSockets(game: GameNamespace): game is GameNamespace & SocketFetcher {
   return typeof (game as Partial<SocketFetcher>).in === 'function';
+}
+
+// D-08: 게임 진행 중 상태 판정 — handleRoomJoin(재입장 거부)과 handleRoomLeave(퇴장 라우팅)가 공유
+function isGameInProgressStatus(status: RoomState['status']): boolean {
+  return (
+    status === 'MODE1_ROUND_START' ||
+    status === 'MODE1_ROUND_END' ||
+    status === 'MODE2_PROMPT_PHASE' ||
+    status === 'MODE2_DRAW_PHASE' ||
+    status === 'MODE2_ANSWER_PHASE' ||
+    status === 'MODE2_REVIEW'
+  );
 }
 
 async function hasActiveUserSocketInRoom(
@@ -45,6 +57,11 @@ export async function handleRoomJoin(
 
   const existingPlayer = state.players.find((p) => p.id === userId);
   if (existingPlayer) {
+    // Pitfall 5: 게임 진행 중 이미 이탈(left=true)한 유저의 재입장은 거부 — 서버가 진실의 출처
+    if (existingPlayer.left && isGameInProgressStatus(state.status)) {
+      socket.emit(SERVER_EVENT.ERROR, { code: 'ALREADY_LEFT', message: '이미 게임에서 퇴장한 방입니다.' });
+      return;
+    }
     // 재접속: connected 복원
     existingPlayer.connected = true;
   } else {
@@ -190,12 +207,15 @@ export async function handleRoomLeave(
       continue;
     }
 
-    const isGameInProgress =
-      state.status === 'MODE1_ROUND_START' || state.status === 'MODE1_ROUND_END';
+    const isGameInProgress = isGameInProgressStatus(state.status);
 
     if (isGameInProgress) {
-      // 게임 중 퇴장: 플레이어 제거 대신 left 마킹 후 턴 조정
-      await handlePlayerLeft(game, code, userId);
+      // 게임 중 퇴장: 플레이어 제거 대신 left 마킹 후 모드별 후속 처리로 라우팅 (D-08)
+      if (state.mode === 2) {
+        await handleMode2PlayerLeft(game, code, userId);
+      } else {
+        await handlePlayerLeft(game, code, userId);
+      }
     } else {
       // 로비/시상식: 기존 퇴장 처리
       state.players = state.players.filter((p) => p.id !== userId);
