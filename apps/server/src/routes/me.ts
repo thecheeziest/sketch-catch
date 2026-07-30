@@ -1,4 +1,5 @@
 import type { FastifyPluginAsync } from 'fastify';
+import { z } from 'zod';
 import { updateMeSchema, onboardingSchema } from '@sketch-catch/shared';
 import { prisma } from '../db/prisma.js';
 import { redis } from '../db/redis.js';
@@ -76,6 +77,21 @@ export const meRoutes: FastifyPluginAsync = async (app) => {
         return reply.status(404).send({ error: 'NOT_FOUND' });
       }
       logger.error({ err }, 'PATCH /me failed');
+      return reply.status(500).send({ error: 'INTERNAL' });
+    }
+  });
+
+  app.post('/me/push-token', { preHandler: authenticate }, async (request, reply) => {
+    const parsed = z.object({ token: z.string().min(1) }).safeParse(request.body);
+    if (!parsed.success) {
+      return reply.status(400).send({ error: 'INVALID_INPUT' });
+    }
+    const userId = request.userId!;
+    try {
+      await prisma.user.update({ where: { id: userId }, data: { pushToken: parsed.data.token } });
+      return reply.send({ ok: true });
+    } catch (err) {
+      logger.error({ err }, 'POST /me/push-token failed');
       return reply.status(500).send({ error: 'INTERNAL' });
     }
   });
