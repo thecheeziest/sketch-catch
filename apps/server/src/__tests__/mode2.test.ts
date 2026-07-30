@@ -7,18 +7,26 @@ vi.mock('../services/rooms.service.js', () => ({
   saveRoomState: vi.fn(),
 }));
 
+// game.js mock (endGame만 필요 — handleMode2PlayerLeft가 INSUFFICIENT_PLAYERS 종료 시 호출)
+vi.mock('../socket/handlers/game.js', () => ({
+  endGame: vi.fn(),
+}));
+
 import { getRoomState, saveRoomState } from '../services/rooms.service.js';
+import { endGame } from '../socket/handlers/game.js';
 import {
   startMode2,
   handleMode2Prompt,
   handleMode2DrawDone,
   handleMode2Answer,
+  handleMode2PlayerLeft,
   currentAssignee,
   phaseForStep,
 } from '../socket/handlers/mode2.js';
 
 const mockGetRoomState = vi.mocked(getRoomState);
 const mockSaveRoomState = vi.mocked(saveRoomState);
+const mockEndGame = vi.mocked(endGame);
 
 function makeMode2RoomState(playerCount: number, overrides: Partial<RoomState> = {}): RoomState {
   const players: Player[] = Array.from({ length: playerCount }, (_, i) => ({
@@ -220,6 +228,133 @@ describe('mode2', () => {
       await handleMode2Prompt(game as any, wrongSocket as any, { sheetId: sheet.sheetId, text: '몰래제출' });
 
       expect(mockSaveRoomState).not.toHaveBeenCalled();
+    });
+  });
+
+  describe('handleMode2PlayerLeft (OFFL-05)', () => {
+    it('DRAW 단계 담당 시트 이탈: 빈 콘텐츠로 즉시 제출 처리되고 전원 제출 완료 시 다음 단계로 advance한다', async () => {
+      const initial = makeMode2RoomState(4);
+      const ctl = makeStatefulMocks(initial);
+      const game = makeNamespace();
+
+      await startMode2(game as any, 'ABC123'); // step0 PROMPT
+
+      // 전원 prompt 제출 -> step1 DRAW
+      const step0 = ctl.state.current as any;
+      for (const sheet of step0.sheets) {
+        const assignee = currentAssignee(initial.players, sheet.ownerIndex, step0.step);
+        const socket = { data: { userId: assignee.id }, rooms: new Set(['room:ABC123']) };
+        await handleMode2Prompt(game as any, socket as any, { sheetId: sheet.sheetId, text: '강아지' });
+      }
+      expect(ctl.state.status).toBe('MODE2_DRAW_PHASE');
+
+      // step1: ownerIndex=0 시트의 담당자는 p1 — 나머지 3장은 정상 제출
+      const step1 = ctl.state.current as any;
+      const leaverSheet = step1.sheets.find((s: any) => s.ownerIndex === 0);
+      const otherSheets = step1.sheets.filter((s: any) => s.ownerIndex !== 0);
+      for (const sheet of otherSheets) {
+        const assignee = currentAssignee(initial.players, sheet.ownerIndex, step1.step);
+        const socket = { data: { userId: assignee.id }, rooms: new Set(['room:ABC123']) };
+        await handleMode2DrawDone(game as any, socket as any, { sheetId: sheet.sheetId, strokes: [] });
+      }
+      expect(ctl.state.status).toBe('MODE2_DRAW_PHASE'); // 아직 leaverSheet 미제출 — advance 안됨
+
+      // p1(leaverSheet 담당자)이 이탈
+      await handleMode2PlayerLeft(game as any, 'ABC123', 'p1');
+
+      const leftPlayer = ctl.state.players.find((p: any) => p.id === 'p1')!;
+      expect(leftPlayer.left).toBe(true);
+      expect(leftPlayer.connected).toBe(false);
+
+      // 강제 빈 제출 처리 후 전원 제출 완료 -> step2 ANSWER로 advance
+      expect(ctl.state.status).toBe('MODE2_ANSWER_PHASE');
+      const advancedCurrent = ctl.state.current as any;
+      expect(advancedCurrent.step).toBe(2);
+      expect(leaverSheet.steps[1]).toMatchObject({ kind: 'DRAW', authorId: 'p1', strokes: [] });
+    });
+
+    it('활성 인원이 3명 미만이 되면 endGame(INSUFFICIENT_PLAYERS)이 호출되고 시트 처리는 건너뛴다', async () => {
+      const initial = makeMode2RoomState(3);
+      const ctl = makeStatefulMocks(initial);
+      const game = makeNamespace();
+
+      await startMode2(game as any, 'ABC123'); // step0 PROMPT, 3명
+
+      // 전원 prompt 제출 -> step1 DRAW
+      const step0 = ctl.state.current as any;
+      for (const sheet of step0.sheets) {
+        const assignee = currentAssignee(initial.players, sheet.ownerIndex, step0.step);
+        const socket = { data: { userId: assignee.id }, rooms: new Set(['room:ABC123']) };
+        await handleMode2Prompt(game as any, socket as any, { sheetId: sheet.sheetId, text: '강아지' });
+      }
+      expect(ctl.state.status).toBe('MODE2_DRAW_PHASE');
+
+      const beforeSubmitted = [...(ctl.state.current as any).submitted];
+
+      await handleMode2PlayerLeft(game as any, 'ABC123', 'p0');
+
+      expect(mockEndGame).toHaveBeenCalledWith(game, 'ABC123', 'INSUFFICIENT_PLAYERS');
+      const p0 = ctl.state.players.find((p: any) => p.id === 'p0')!;
+      expect(p0.left).toBe(true);
+      // 시트 강제 제출 로직은 실행되지 않음 — submitted 배열 불변
+      expect((ctl.state.current as any).submitted).toEqual(beforeSubmitted);
+    });
+
+    it('MODE2_REVIEW 중 이탈은 left만 마킹하고 시트 강제 제출은 수행하지 않는다', async () => {
+      const initial = makeMode2RoomState(4);
+      const ctl = makeStatefulMocks(initial);
+      const game = makeNamespace();
+
+      await startMode2(game as any, 'ABC123');
+
+      async function submitAllForStep() {
+        const current = ctl.state.current as any;
+        for (const sheet of current.sheets) {
+          const assignee = currentAssignee(initial.players, sheet.ownerIndex, current.step);
+          const socket = { data: { userId: assignee.id }, rooms: new Set(['room:ABC123']) };
+          if (current.phase === 'PROMPT') {
+            await handleMode2Prompt(game as any, socket as any, { sheetId: sheet.sheetId, text: '강아지' });
+          } else if (current.phase === 'DRAW') {
+            await handleMode2DrawDone(game as any, socket as any, { sheetId: sheet.sheetId, strokes: [] });
+          } else {
+            await handleMode2Answer(game as any, socket as any, { sheetId: sheet.sheetId, text: '멍멍이' });
+          }
+        }
+      }
+
+      // step0~3 전부 제출 -> REVIEW 진입
+      await submitAllForStep();
+      await submitAllForStep();
+      await submitAllForStep();
+      await submitAllForStep();
+      expect(ctl.state.status).toBe('MODE2_REVIEW');
+
+      const beforeSheets = JSON.parse(JSON.stringify((ctl.state.current as any).sheets));
+
+      await handleMode2PlayerLeft(game as any, 'ABC123', 'p2');
+
+      const p2 = ctl.state.players.find((p: any) => p.id === 'p2')!;
+      expect(p2.left).toBe(true);
+      expect(p2.connected).toBe(false);
+      expect(ctl.state.status).toBe('MODE2_REVIEW');
+      // REVIEW는 isMode2Active=false — 시트 내용 변경 없음
+      expect((ctl.state.current as any).sheets).toEqual(beforeSheets);
+    });
+
+    it('이미 left=true인 플레이어에 대한 재호출은 아무 상태 변경 없이 조용히 종료된다 (idempotent)', async () => {
+      const initial = makeMode2RoomState(4);
+      const ctl = makeStatefulMocks(initial);
+      const game = makeNamespace();
+
+      await startMode2(game as any, 'ABC123');
+
+      await handleMode2PlayerLeft(game as any, 'ABC123', 'p1');
+      expect(mockSaveRoomState).toHaveBeenCalled();
+      const callCountAfterFirst = mockSaveRoomState.mock.calls.length;
+
+      await handleMode2PlayerLeft(game as any, 'ABC123', 'p1');
+
+      expect(mockSaveRoomState.mock.calls.length).toBe(callCountAfterFirst); // 추가 저장 없음
     });
   });
 });
