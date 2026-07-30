@@ -116,15 +116,26 @@ Plans:
 **UI hint**: yes
 
 ### Phase 7: Polish
-**Goal**: 친구 관련 푸시 알림이 전달되고, 연결이 끊겨도 게임이 우아하게 복구되거나 종료된다
+**Goal**: 친구 관련 푸시 알림이 전달되고, 연결이 끊기면 게임이 우아하게 종료되거나 진행된다
 **Depends on**: Phase 6
 **Requirements**: PUSH-01, PUSH-02, PUSH-03, OFFL-01, OFFL-02, OFFL-03, OFFL-04, OFFL-05
 **Success Criteria** (what must be TRUE):
   1. 친구 요청/수락/게임 초대가 오면 앱이 백그라운드 상태여도 푸시 알림이 도착한다
-  2. 게임 중 연결이 끊겨도 30초 내 복귀하면 진행 상황이 복원된다
-  3. 30초 초과 이탈 시 자동 퇴장되고 남은 참가자에게 알림이 표시된다
-  4. 게임 중 인원이 3명 미만이 되면 즉시 종료되고 진행분 결과가 표시된다
-**Plans**: TBD
+  2. 게임 중 연결이 끊기면 (재접속 유예 없이) 즉시 자동 퇴장 처리되고 남은 참가자에게 알림이 표시된다 — D-01 재정의: OFFL-01/02의 30초 유예 폐기
+  3. 게임 중 인원이 3명 미만이 되면 즉시 종료되고 진행분 결과 + 조기 종료 안내가 표시된다
+  4. 출제자(모드1)/시트담당자(모드2) 이탈 시 해당 라운드/단계가 무효·스킵되고 게임이 계속 진행된다
+**Plans**: 9 plans
+
+Plans:
+- [ ] 07-polish/07-01-PLAN.md — 공유 GameResult.endReason + 패키지 정당성 게이트 + expo-notifications/expo-server-sdk 설치
+- [ ] 07-polish/07-02-PLAN.md — 모드1 오프라인 임계값 `<3` + endGame reason 스레딩 + export (game.ts)
+- [ ] 07-polish/07-03-PLAN.md — 서버 push.service(sendPush/dedupe) + POST /me/push-token + friends 발송 훅
+- [ ] 07-polish/07-04-PLAN.md — 모바일 푸시 런타임(등록/토큰POST/리스너/D-11 게이트)
+- [ ] 07-polish/07-05-PLAN.md — 모바일 초대 UI(INVITE 아이콘 + 친구 피커 + LOBBY 게이트)
+- [ ] 07-polish/07-06-PLAN.md — 모드2 handleMode2PlayerLeft + room dispatch + rejoin 가드
+- [ ] 07-polish/07-07-PLAN.md — 서버 초대 라우트(D-12 LOBBY 강제) + main 등록
+- [ ] 07-polish/07-08-PLAN.md — 모바일 _layout 배선(권한/리스너/게이트) + AWARD 조기종료 배너 + 마이페이지 권한 힌트
+- [ ] 07-polish/07-09-PLAN.md — Phase 7 디바이스 검증 (checkpoint:human-verify)
 
 ## Progress
 
@@ -139,4 +150,4 @@ Phases execute in numeric order: 1 → 2 → 3 → 4 → 5 → 6 → 7
 | 4. Room & Lobby | 8/9 | In Progress|  |
 | 5. Game Mode 1 | 8/9 | In Progress|  |
 | 6. Game Mode 2 & GIF | 0/? | Not started | - |
-| 7. Polish | 0/? | Not started | - |
+| 7. Polish | 0/9 | Planned | - |
