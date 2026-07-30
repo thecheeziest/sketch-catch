@@ -14,7 +14,7 @@ vi.mock('../services/rooms.service.js', () => ({
 
 import { getRoomState, saveRoomState } from '../services/rooms.service.js';
 import { pickWord } from '../services/word.service.js';
-import { startRound, endRound, calcScore } from '../socket/handlers/game.js';
+import { startRound, endRound, calcScore, handlePlayerLeft } from '../socket/handlers/game.js';
 import { handleStrokeStart, handleStrokeClear } from '../socket/handlers/stroke.js';
 import { handleChatSend, handleAnswerAccept } from '../socket/handlers/chat.js';
 
@@ -451,5 +451,95 @@ describe('score calc (MD1-04)', () => {
     expect(calcScore(0).drawerScore).toBe(500);
     // 30000ms: guesser=100, drawer=min(500, floor(100*0.5))=min(500,50)=50
     expect(calcScore(30000).drawerScore).toBe(50);
+  });
+});
+
+describe('handlePlayerLeft 인원부족 종료 (OFFL-03)', () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+    // mockGetRoomState.mockResolvedValueOnce 큐는 clearAllMocks로 비워지지 않는다.
+    // 앞선 'round timer' 테스트가 소비되지 않은 once 값을 남겨 이 describe로 새어 들어오는 것을 방지.
+    mockGetRoomState.mockReset();
+    mockSaveRoomState.mockResolvedValue(undefined);
+  });
+
+  function makeFourPlayerRoomState(overrides: Partial<RoomState> = {}): RoomState {
+    return makeRoomState({
+      players: [
+        { id: 'u1', nickname: '호스트', friendCode: 'CODE1', characterId: 'cat', slot: 0, isHost: true, isReady: true, connected: true },
+        { id: 'u2', nickname: '참가자', friendCode: 'CODE2', characterId: 'dog', slot: 1, isHost: false, isReady: true, connected: true },
+        { id: 'u3', nickname: '참가자2', friendCode: 'CODE3', characterId: 'rabbit', slot: 2, isHost: false, isReady: true, connected: true },
+        { id: 'u4', nickname: '참가자3', friendCode: 'CODE4', characterId: 'fox', slot: 3, isHost: false, isReady: true, connected: true },
+      ],
+      turnSchedule: ['u1', 'u2', 'u3', 'u4', 'u1', 'u2', 'u3', 'u4'],
+      ...overrides,
+    } as RoomState);
+  }
+
+  it('3명 중 1명 퇴장 시 2명(<3)이 되어 game:end가 endReason: INSUFFICIENT_PLAYERS로 emit된다', async () => {
+    const state = makeRoomState({
+      status: 'MODE1_ROUND_START',
+      current: {
+        roundIndex: 0,
+        drawerId: 'u1',
+        prompt: '강아지',
+        startedAt: Date.now(),
+      } satisfies Mode1RoundCurrent,
+    });
+    mockGetRoomState.mockResolvedValueOnce(state); // handlePlayerLeft 내부 조회
+    mockGetRoomState.mockResolvedValueOnce(state); // endGame 내부 재조회
+    const game = makeNamespace();
+
+    await handlePlayerLeft(game as any, 'ABC123', 'u2');
+
+    expect(game._broadcastEmit).toHaveBeenCalledWith(
+      'game:end',
+      expect.objectContaining({ endReason: 'INSUFFICIENT_PLAYERS' }),
+    );
+  });
+
+  it('4명 중 1명 퇴장 시 3명이 남으면 game:end가 발생하지 않는다 (라운드 무효화 경로)', async () => {
+    const state = makeFourPlayerRoomState({
+      status: 'MODE1_ROUND_START',
+      current: {
+        roundIndex: 0,
+        drawerId: 'u1',
+        prompt: '강아지',
+        startedAt: Date.now(),
+      } satisfies Mode1RoundCurrent,
+    });
+    mockGetRoomState.mockResolvedValueOnce(state);
+    const game = makeNamespace();
+
+    // u3(비출제자) 퇴장 → 3명(u1,u2,u4) 남음, <3 아님
+    await handlePlayerLeft(game as any, 'ABC123', 'u3');
+
+    expect(game._broadcastEmit).not.toHaveBeenCalledWith('game:end', expect.anything());
+    expect(mockSaveRoomState).toHaveBeenCalledTimes(1);
+  });
+
+  it('idempotent guard: 이미 퇴장 처리된 플레이어에 대한 중복 호출은 재처리/재emit하지 않는다', async () => {
+    const state = makeFourPlayerRoomState({
+      status: 'MODE1_ROUND_START',
+      current: {
+        roundIndex: 0,
+        drawerId: 'u1',
+        prompt: '강아지',
+        startedAt: Date.now(),
+      } satisfies Mode1RoundCurrent,
+    });
+    const game = makeNamespace();
+
+    // 1차 호출: u3(비출제자) 퇴장 처리 → left=true로 mutate됨
+    mockGetRoomState.mockResolvedValueOnce(state);
+    await handlePlayerLeft(game as any, 'ABC123', 'u3');
+    expect(mockSaveRoomState).toHaveBeenCalledTimes(1);
+    expect(game._broadcastEmit).toHaveBeenCalledTimes(1);
+
+    // 2차 호출: 동일 userId, 이미 left=true인 동일 state 재조회 → 즉시 반환, 추가 처리 없음
+    mockGetRoomState.mockResolvedValueOnce(state);
+    await handlePlayerLeft(game as any, 'ABC123', 'u3');
+    expect(mockSaveRoomState).toHaveBeenCalledTimes(1);
+    expect(game._broadcastEmit).toHaveBeenCalledTimes(1);
   });
 });
