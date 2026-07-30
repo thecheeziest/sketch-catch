@@ -125,3 +125,13 @@ None — this plan only wires already-built client-side push infrastructure into
 ---
 *Phase: 07-polish*
 *Completed: 2026-07-30*
+
+## Self-Check: PASSED
+
+- FOUND: apps/mobile/app/_layout.tsx
+- FOUND: apps/mobile/app/room/[code]/award.tsx
+- FOUND: apps/mobile/app/settings.tsx
+- FOUND: .planning/phases/07-polish/07-08-SUMMARY.md
+- FOUND: commit c1cbae8 (Task 1)
+- FOUND: commit 7e95113 (Task 2)
+- FOUND: commit bd073ef (Task 3)
