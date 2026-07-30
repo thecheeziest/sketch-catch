@@ -1,4 +1,8 @@
 import { useMe } from '@/features/auth/api';
+import { useRegisterPushToken } from '@/features/push/api/useRegisterPushToken';
+import { registerForPushNotificationsAsync } from '@/features/push/lib/registerForPushNotificationsAsync';
+import { useNotificationListeners } from '@/features/push/lib/useNotificationListeners';
+import { NotificationGate } from '@/features/push/ui/NotificationGate';
 import { queryClient } from '@/shared/api';
 import { colors, icons, theme } from '@/shared/config';
 import { hydrateAuthStore, useAuthStore, usePresenceStore } from '@/shared/model';
@@ -121,6 +125,7 @@ export default function RootLayout() {
   const isAuthenticated = useAuthStore((s) => s.isAuthenticated);
   const needsOnboarding = useAuthStore((s) => s.needsOnboarding);
   const [splashDone, setSplashDone] = useState(false);
+  const registerPushToken = useRegisterPushToken();
 
   useEffect(() => {
     hydrateAuthStore().catch(() => undefined);
@@ -133,6 +138,17 @@ export default function RootLayout() {
       usePresenceStore.getState().disconnect();
     }
   }, [isAuthenticated]);
+
+  useEffect(() => {
+    // D-13: 온보딩 완료 직후 1회 알림 권한 요청 + 토큰 등록
+    if (!isAuthenticated || needsOnboarding) return;
+    registerForPushNotificationsAsync().then((token) => {
+      if (token) registerPushToken.mutate({ token });
+    });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isAuthenticated, needsOnboarding]);
+
+  useNotificationListeners();
 
   useEffect(() => {
     if ((!fontsLoaded && !fontError) || !isLoaded) return;
@@ -154,6 +170,7 @@ export default function RootLayout() {
               <Stack.Screen name="(tabs)" redirect={!isAuthenticated || needsOnboarding} />
             </Stack>
             <ToastHost />
+            <NotificationGate />
             {!splashDone && (
               <SplashOverlay isAuthenticated={isAuthenticated} onDone={() => setSplashDone(true)} />
             )}
