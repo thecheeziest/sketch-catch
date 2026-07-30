@@ -11,6 +11,7 @@ import { authRoutes } from './routes/auth.js';
 import { meRoutes } from './routes/me.js';
 import { friendsRoutes } from './routes/friends.js';
 import { roomsRoutes } from './routes/rooms.js';
+import { invitesRoutes } from './routes/invites.js';
 import { matchRoutes } from './routes/match.js';
 import { replaysRoutes } from './routes/replays.js';
 import { registerGameNamespace } from './socket/game.namespace.js';
@@ -32,6 +33,7 @@ async function bootstrap(): Promise<void> {
   await app.register(meRoutes);
   await app.register(friendsRoutes);
   await app.register(roomsRoutes);
+  await app.register(invitesRoutes);
   await app.register(matchRoutes);
   await app.register(replaysRoutes);
 
