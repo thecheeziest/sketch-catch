@@ -13,6 +13,7 @@ import type {
 import { SERVER_EVENT } from '@sketch-catch/shared';
 import { getRoomState, saveRoomState } from '../../services/rooms.service.js';
 import { startMode2Review } from './mode2-review.js';
+import { endGame } from './game.js';
 
 type GameNamespace = Namespace<ClientEvents, ServerEvents>;
 type Mode2Socket = { data: { userId: string }; rooms: Set<string> };
@@ -60,7 +61,7 @@ function durationForPhase(phase: Mode2Phase, config: RoomState['config']): numbe
   return config.answerTimer;
 }
 
-function isMode2Active(status: RoomStatus): boolean {
+export function isMode2Active(status: RoomStatus): boolean {
   return status === 'MODE2_PROMPT_PHASE' || status === 'MODE2_DRAW_PHASE' || status === 'MODE2_ANSWER_PHASE';
 }
 
@@ -254,4 +255,48 @@ export async function advanceStep(game: GameNamespace, code: string): Promise<vo
 
   emitSteps(game, code, state, current);
   scheduleStepTimeout(game, code, durationForPhase(current.phase, state.config));
+}
+
+// OFFL-05/D-08: 모드2 전용 이탈 처리 — mode1의 handlePlayerLeft와는 별도 함수로 유지
+export async function handleMode2PlayerLeft(
+  game: GameNamespace,
+  code: string,
+  userId: string,
+): Promise<void> {
+  const state = await getRoomState(code);
+  if (!state) return;
+
+  const player = state.players.find((p) => p.id === userId);
+  if (!player || player.left) return; // 이미 처리됨
+
+  player.connected = false;
+  player.left = true;
+
+  const activePlayers = state.players.filter((p) => !p.left);
+
+  // 3명 미만이면 게임 즉시 종료 (D-03과 동일 임계값)
+  if (activePlayers.length < 3) {
+    await saveRoomState(state);
+    game.to(`room:${code}`).emit(SERVER_EVENT.ROOM_STATE, state);
+    await endGame(game, code, 'INSUFFICIENT_PLAYERS');
+    return;
+  }
+
+  await saveRoomState(state);
+  game.to(`room:${code}`).emit(SERVER_EVENT.ROOM_STATE, state);
+
+  // D-07: REVIEW 단계는 force-submit 대상 아님 (isMode2Active=false) — left 마킹만 하고 종료
+  if (!isMode2Active(state.status)) return;
+
+  const current = state.current as Mode2Current;
+  const players = sortedPlayers(state);
+  for (const sheet of current.sheets) {
+    if (current.submitted.includes(sheet.sheetId)) continue;
+    const assignee = currentAssignee(players, sheet.ownerIndex, current.step);
+    if (assignee.id !== userId) continue;
+    sheet.steps.push(emptyContent(current.phase, assignee.id));
+    current.submitted.push(sheet.sheetId);
+  }
+  await saveRoomState(state);
+  await checkAllSubmitted(game, code, current);
 }
