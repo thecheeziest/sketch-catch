@@ -9,6 +9,11 @@ vi.mock('../socket/handlers/game.js', () => ({
   handlePlayerLeft: vi.fn(),
 }));
 
+vi.mock('../socket/handlers/mode2.js', () => ({
+  startMode2: vi.fn(),
+  handleMode2PlayerLeft: vi.fn(),
+}));
+
 // Redis mock
 vi.mock('../db/redis.js', () => ({
   redis: { set: vi.fn(), get: vi.fn(), del: vi.fn() },
@@ -26,11 +31,15 @@ vi.mock('../services/rooms.service.js', () => ({
 
 import { getRoomState, saveRoomState } from '../services/rooms.service.js';
 import { setPresence, redis, clearUserRoom } from '../db/redis.js';
+import { handlePlayerLeft } from '../socket/handlers/game.js';
+import { handleMode2PlayerLeft } from '../socket/handlers/mode2.js';
 
 const mockGetRoomState = vi.mocked(getRoomState);
 const mockSaveRoomState = vi.mocked(saveRoomState);
 const mockSetPresence = vi.mocked(setPresence);
 const mockRedisDel = vi.mocked(redis.del);
+const mockHandlePlayerLeft = vi.mocked(handlePlayerLeft);
+const mockHandleMode2PlayerLeft = vi.mocked(handleMode2PlayerLeft);
 
 // 기본 RoomState fixture
 function makeRoomState(overrides: Partial<RoomState> = {}): RoomState {
@@ -311,6 +320,74 @@ describe('socket room handlers', () => {
       expect(mockSaveRoomState).not.toHaveBeenCalled();
       expect(clearUserRoom).not.toHaveBeenCalled();
       expect(mockSetPresence).not.toHaveBeenCalledWith('u1', 'ONLINE');
+    });
+
+    it('OFFL-05/D-08: mode===2 상태의 MODE2_* 진행 중 퇴장은 handleMode2PlayerLeft로 라우팅되고 handlePlayerLeft는 호출되지 않는다', async () => {
+      const state = makeRoomState();
+      state.mode = 2;
+      state.status = 'MODE2_DRAW_PHASE';
+      mockGetRoomState.mockResolvedValue(state);
+      const socket = makeSocket('u1', ['room:ABC123']);
+      const game = makeNamespace();
+
+      await handleRoomLeave(game as any, socket as any);
+
+      expect(mockHandleMode2PlayerLeft).toHaveBeenCalledWith(game, 'ABC123', 'u1');
+      expect(mockHandlePlayerLeft).not.toHaveBeenCalled();
+    });
+
+    it('mode===1 상태의 MODE1_ROUND_START 진행 중 퇴장은 handlePlayerLeft로 라우팅되고 handleMode2PlayerLeft는 호출되지 않는다', async () => {
+      const state = makeRoomState();
+      state.status = 'MODE1_ROUND_START';
+      mockGetRoomState.mockResolvedValue(state);
+      const socket = makeSocket('u1', ['room:ABC123']);
+      const game = makeNamespace();
+
+      await handleRoomLeave(game as any, socket as any);
+
+      expect(mockHandlePlayerLeft).toHaveBeenCalledWith(game, 'ABC123', 'u1');
+      expect(mockHandleMode2PlayerLeft).not.toHaveBeenCalled();
+    });
+  });
+
+  // Pitfall 5: 재입장 시 이미 이탈(left=true)한 플레이어 거부
+  describe('handleRoomJoin — 재입장 거부 (left=true)', () => {
+    it('게임 진행 중(MODE2_DRAW_PHASE) left=true 플레이어의 재입장은 ALREADY_LEFT를 emit하고 connected를 복원하지 않는다', async () => {
+      const state = makeRoomState();
+      state.mode = 2;
+      state.status = 'MODE2_DRAW_PHASE';
+      state.players[0]!.left = true;
+      state.players[0]!.connected = false;
+      mockGetRoomState.mockResolvedValue(state);
+      const socket = makeSocket('u1', []);
+      const game = makeNamespace();
+
+      await handleRoomJoin(game as any, socket as any, 'ABC123');
+
+      expect(socket.emit).toHaveBeenCalledWith(SERVER_EVENT.ERROR, {
+        code: 'ALREADY_LEFT',
+        message: expect.any(String),
+      });
+      expect(state.players[0]!.connected).toBe(false);
+      expect(mockSaveRoomState).not.toHaveBeenCalled();
+    });
+
+    it('LOBBY/AWARD로 새 게임이 시작된 방에서는 left=true였던 플레이어도 정상 재입장한다', async () => {
+      const state = makeRoomState();
+      state.status = 'LOBBY';
+      state.players[0]!.left = true;
+      state.players[0]!.connected = false;
+      mockGetRoomState.mockResolvedValue(state);
+      const socket = makeSocket('u1', []);
+      const game = makeNamespace();
+
+      await handleRoomJoin(game as any, socket as any, 'ABC123');
+
+      expect(state.players[0]!.connected).toBe(true);
+      expect(socket.emit).not.toHaveBeenCalledWith(
+        SERVER_EVENT.ERROR,
+        expect.objectContaining({ code: 'ALREADY_LEFT' }),
+      );
     });
   });
 });
