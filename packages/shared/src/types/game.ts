@@ -27,6 +27,7 @@ export type RoundEnd = {
 export type GameResult = {
   finalScoreboard: Record<string, number>;
   ranking: Array<{ userId: string; rank: number; score: number; answeredAt: number | null }>;
+  endReason?: 'NORMAL' | 'INSUFFICIENT_PLAYERS';
 };
 
 export type ChatMessage = {

@@ -29,6 +29,7 @@
     "@sketch-catch/shared": "workspace:*",
     "badwords-ko": "^1.0.4",
     "dotenv": "^16.4.5",
+    "expo-server-sdk": "^6.1.0",
     "fastify": "^4.28.1",
     "fastify-socket.io": "5.1.0",
     "gifenc": "^1.0.3",
