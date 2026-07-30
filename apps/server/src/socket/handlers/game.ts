@@ -223,11 +223,11 @@ export async function handlePlayerLeft(
 
   const activePlayers = state.players.filter((p) => !p.left);
 
-  // 1명 이하면 게임 즉시 종료
-  if (activePlayers.length <= 1) {
+  // 3명 미만이면 게임 즉시 종료 (D-03)
+  if (activePlayers.length < 3) {
     await saveRoomState(state);
     game.to(`room:${code}`).emit(SERVER_EVENT.ROOM_STATE, state);
-    await endGame(game, code);
+    await endGame(game, code, 'INSUFFICIENT_PLAYERS');
     return;
   }
 
@@ -253,7 +253,11 @@ export async function handlePlayerLeft(
   }
 }
 
-async function endGame(game: GameNamespace, code: string): Promise<void> {
+export async function endGame(
+  game: GameNamespace,
+  code: string,
+  reason?: 'INSUFFICIENT_PLAYERS',
+): Promise<void> {
   const state = await getRoomState(code);
   if (!state) return;
 
@@ -286,5 +290,6 @@ async function endGame(game: GameNamespace, code: string): Promise<void> {
   game.to(`room:${code}`).emit('game:end', {
     finalScoreboard: state.scoreboard,
     ranking: ranked,
+    endReason: reason,
   });
 }
