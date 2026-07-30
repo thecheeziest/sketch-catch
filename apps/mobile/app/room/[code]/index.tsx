@@ -1,4 +1,4 @@
-import { RoomEditModal, SlotCard } from '@/features/room/ui';
+import { InviteModal, RoomEditModal, SlotCard } from '@/features/room/ui';
 import { colors, spacing } from '@/shared/config';
 import { useAuthStore, useRoomStore, useToastStore } from '@/shared/model';
 import { copyToClipboard } from '@/shared/lib';
@@ -28,6 +28,7 @@ export default function LobbyScreen() {
   const myId = useAuthStore.getState().user?.id;
   const wasHostRef = useRef(false);
   const [editVisible, setEditVisible] = useState(false);
+  const [inviteOpen, setInviteOpen] = useState(false);
 
   // MODE1_ROUND_START 시 게임 화면으로, MODE2_PROMPT_PHASE 시 모드2 화면으로 전환
   useEffect(() => {
@@ -125,6 +126,11 @@ export default function LobbyScreen() {
               {code}
             </Text>
             <Icon name="COPY" size={16} onPress={handleCopyCode} />
+            {roomState?.status === 'LOBBY' && (
+              <Pressable onPress={() => setInviteOpen(true)} hitSlop={12}>
+                <Icon name="INVITE" size={20} color={colors.LIGHT_100} />
+              </Pressable>
+            )}
             {isHost && <Icon name="SETTINGS" size={16} onPress={() => setEditVisible(true)} />}
           </View>
         </View>
@@ -178,6 +184,12 @@ export default function LobbyScreen() {
         visible={editVisible}
         onClose={() => setEditVisible(false)}
         roomCode={code ?? ''}
+      />
+
+      <InviteModal
+        visible={inviteOpen}
+        onClose={() => setInviteOpen(false)}
+        code={code ?? ''}
       />
     </SafeAreaView>
     </ImageBackground>
