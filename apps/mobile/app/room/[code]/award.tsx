@@ -88,6 +88,13 @@ export default function AwardScreen() {
         게임 종료
       </Text>
 
+      {/* 인원 부족 조기 종료 안내 배너 (D-05, OFFL-03) */}
+      {result?.endReason === 'INSUFFICIENT_PLAYERS' && (
+        <Text sx={{ ...textSizes.B3, color: colors.GRAY, textAlign: 'center', paddingBottom: spacing.XS }}>
+          인원이 부족해 조기 종료되었어요
+        </Text>
+      )}
+
       {/* 시상대 — 2위(왼쪽 하단), 1위(가운데 상단), 3위(오른쪽 최하단) */}
       <View
         sx={{
