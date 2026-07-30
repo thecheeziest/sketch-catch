@@ -1,6 +1,7 @@
 export * from './CategoryChip';
 export * from './CategorySelector';
 export * from './CodeJoinModal';
+export * from './InviteModal';
 export * from './MatchingStatus';
 export * from './RoomEditModal';
 export * from './SlotCard';
