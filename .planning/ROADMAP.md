@@ -150,4 +150,4 @@ Phases execute in numeric order: 1 → 2 → 3 → 4 → 5 → 6 → 7
 | 4. Room & Lobby | 8/9 | In Progress|  |
 | 5. Game Mode 1 | 8/9 | In Progress|  |
 | 6. Game Mode 2 & GIF | 0/? | Not started | - |
-| 7. Polish | 0/9 | Planned | - |
+| 7. Polish | 8/9 | In Progress|  |
