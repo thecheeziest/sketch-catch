@@ -82,6 +82,32 @@ export async function saveRoomState(state: RoomState): Promise<void> {
   await redis.set(`room:${state.code}:state`, JSON.stringify(state), 'KEEPTTL');
 }
 
+// 동시 입장 시 슬롯 번호 등 read-modify-write 충돌 방지용 방 단위 락.
+// 짧은 임계구역(get→mutate→save)만 감싸는 용도라 SET NX + 짧은 폴링 재시도로 충분.
+const LOCK_TTL_SEC = 5;
+const LOCK_RETRY_MS = 30;
+const LOCK_MAX_ATTEMPTS = 50; // ~1.5초
+
+export async function withRoomLock<T>(code: string, fn: () => Promise<T>): Promise<T> {
+  const lockKey = `room:${code}:lock`;
+  let acquired = false;
+  for (let attempt = 0; attempt < LOCK_MAX_ATTEMPTS; attempt++) {
+    const result = await redis.set(lockKey, '1', 'EX', LOCK_TTL_SEC, 'NX');
+    if (result === 'OK') {
+      acquired = true;
+      break;
+    }
+    await new Promise((resolve) => setTimeout(resolve, LOCK_RETRY_MS));
+  }
+  if (!acquired) throw new Error(`ROOM_LOCK_TIMEOUT: ${code}`);
+
+  try {
+    return await fn();
+  } finally {
+    await redis.del(lockKey);
+  }
+}
+
 export async function assertJoinable(state: RoomState, password?: string): Promise<void> {
   if (state.players.length >= state.config.playerCountMax) throw new RoomFullError();
   if (state.locked) {

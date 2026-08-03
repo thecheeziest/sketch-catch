@@ -3,14 +3,15 @@ import type { RoomState } from '@sketch-catch/shared';
 
 const mockRedisSet = vi.fn().mockResolvedValue('OK');
 const mockRedisGet = vi.fn();
+const mockRedisDel = vi.fn();
 
 vi.mock('../db/redis.js', () => ({
-  redis: { set: mockRedisSet, get: mockRedisGet, del: vi.fn() },
+  redis: { set: mockRedisSet, get: mockRedisGet, del: mockRedisDel },
   setPresence: vi.fn(),
   getPresence: vi.fn(),
 }));
 
-const { createRoom, getRoomState } = await import('../services/rooms.service.js');
+const { createRoom, getRoomState, withRoomLock } = await import('../services/rooms.service.js');
 
 const baseConfig = {
   roundCount: 5,
@@ -96,5 +97,39 @@ describe('rooms.service', () => {
     const result = await getRoomState('ABC123');
     expect(result).toEqual(fakeState);
     expect(mockRedisGet).toHaveBeenCalledWith('room:ABC123:state');
+  });
+
+  // ROOM-03: withRoomLock — 동시 room:join 레이스 방지 (07-REVIEW CR-02)
+  describe('withRoomLock', () => {
+    it('ROOM-03: 락 획득 성공 시 콜백을 실행하고 finally에서 락을 해제한다', async () => {
+      mockRedisSet.mockResolvedValueOnce('OK');
+      const fn = vi.fn().mockResolvedValue('done');
+
+      const result = await withRoomLock('ABC123', fn);
+
+      expect(result).toBe('done');
+      expect(fn).toHaveBeenCalledOnce();
+      expect(mockRedisSet).toHaveBeenCalledWith('room:ABC123:lock', '1', 'EX', 5, 'NX');
+      expect(mockRedisDel).toHaveBeenCalledWith('room:ABC123:lock');
+    });
+
+    it('ROOM-03: 락이 이미 잡혀 있으면 재시도 후 획득한다', async () => {
+      mockRedisSet.mockResolvedValueOnce(null).mockResolvedValueOnce(null).mockResolvedValueOnce('OK');
+      const fn = vi.fn().mockResolvedValue('done');
+
+      const result = await withRoomLock('ABC123', fn);
+
+      expect(result).toBe('done');
+      expect(mockRedisSet).toHaveBeenCalledTimes(3);
+      expect(mockRedisDel).toHaveBeenCalledWith('room:ABC123:lock');
+    });
+
+    it('ROOM-03: 콜백이 실패해도 락은 반드시 해제된다', async () => {
+      mockRedisSet.mockResolvedValueOnce('OK');
+      const fn = vi.fn().mockRejectedValue(new Error('boom'));
+
+      await expect(withRoomLock('ABC123', fn)).rejects.toThrow('boom');
+      expect(mockRedisDel).toHaveBeenCalledWith('room:ABC123:lock');
+    });
   });
 });

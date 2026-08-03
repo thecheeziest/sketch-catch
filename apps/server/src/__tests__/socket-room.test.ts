@@ -27,6 +27,7 @@ vi.mock('../db/redis.js', () => ({
 vi.mock('../services/rooms.service.js', () => ({
   getRoomState: vi.fn(),
   saveRoomState: vi.fn(),
+  withRoomLock: vi.fn((_code: string, fn: () => unknown) => fn()),
 }));
 
 import { getRoomState, saveRoomState } from '../services/rooms.service.js';

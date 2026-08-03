@@ -1,7 +1,7 @@
 import type { Namespace, Socket } from 'socket.io';
 import type { ClientEvents, ServerEvents, RoomState } from '@sketch-catch/shared';
 import { SERVER_EVENT } from '@sketch-catch/shared';
-import { getRoomState, saveRoomState } from '../../services/rooms.service.js';
+import { getRoomState, saveRoomState, withRoomLock } from '../../services/rooms.service.js';
 import { redis, setPresence, setUserRoom, clearUserRoom } from '../../db/redis.js';
 import { broadcastPresenceUpdate } from '../presence.namespace.js';
 import { prisma } from '../../db/prisma.js';
@@ -43,58 +43,71 @@ async function hasActiveUserSocketInRoom(
   return sockets.some((s) => s.id !== leavingSocketId && s.data.userId === userId);
 }
 
+type JoinResult =
+  | { ok: true; state: RoomState }
+  | { ok: false; code: 'ROOM_NOT_FOUND' | 'ALREADY_LEFT' | 'ROOM_FULL'; message: string };
+
 export async function handleRoomJoin(
   game: GameNamespace,
   socket: GameSocket,
   code: string,
 ): Promise<void> {
   const userId = socket.data.userId;
-  const state = await getRoomState(code);
-  if (!state) {
-    socket.emit(SERVER_EVENT.ERROR, { code: 'ROOM_NOT_FOUND', message: '방을 찾을 수 없습니다. 코드를 다시 확인하세요.' });
+
+  // 동시 입장 시 slot 번호가 겹치는 read-modify-write 레이스를 막기 위해 방 단위 락으로 감싼다.
+  const result: JoinResult = await withRoomLock(code, async () => {
+    const state = await getRoomState(code);
+    if (!state) {
+      return { ok: false, code: 'ROOM_NOT_FOUND', message: '방을 찾을 수 없습니다. 코드를 다시 확인하세요.' };
+    }
+
+    const existingPlayer = state.players.find((p) => p.id === userId);
+    if (existingPlayer) {
+      // Pitfall 5: 게임 진행 중 이미 이탈(left=true)한 유저의 재입장은 거부 — 서버가 진실의 출처
+      if (existingPlayer.left && isGameInProgressStatus(state.status)) {
+        return { ok: false, code: 'ALREADY_LEFT', message: '이미 게임에서 퇴장한 방입니다.' };
+      }
+      // 재접속: connected 복원
+      existingPlayer.connected = true;
+    } else {
+      // 인원 초과 검사
+      if (state.players.length >= state.config.playerCountMax) {
+        return { ok: false, code: 'ROOM_FULL', message: '방이 가득 찼습니다.' };
+      }
+
+      // 사용 중인 slot 번호를 제외한 최소 slot 번호 계산
+      const usedSlots = new Set(state.players.map((p) => p.slot));
+      let slot = 0;
+      while (usedSlots.has(slot)) slot++;
+
+      const userRecord = await prisma.user.findUnique({
+        where: { id: userId },
+        select: { nickname: true, characterId: true, friendCode: true },
+      });
+
+      state.players.push({
+        id: userId,
+        nickname: userRecord?.nickname ?? '',
+        friendCode: userRecord?.friendCode ?? '',
+        characterId: userRecord?.characterId ?? '',
+        slot,
+        isHost: userId === state.hostId,
+        isReady: false,
+        connected: true,
+      });
+    }
+
+    await saveRoomState(state);
+    return { ok: true, state };
+  });
+
+  if (!result.ok) {
+    socket.emit(SERVER_EVENT.ERROR, { code: result.code, message: result.message });
     return;
   }
 
-  const existingPlayer = state.players.find((p) => p.id === userId);
-  if (existingPlayer) {
-    // Pitfall 5: 게임 진행 중 이미 이탈(left=true)한 유저의 재입장은 거부 — 서버가 진실의 출처
-    if (existingPlayer.left && isGameInProgressStatus(state.status)) {
-      socket.emit(SERVER_EVENT.ERROR, { code: 'ALREADY_LEFT', message: '이미 게임에서 퇴장한 방입니다.' });
-      return;
-    }
-    // 재접속: connected 복원
-    existingPlayer.connected = true;
-  } else {
-    // 인원 초과 검사
-    if (state.players.length >= state.config.playerCountMax) {
-      socket.emit(SERVER_EVENT.ERROR, { code: 'ROOM_FULL', message: '방이 가득 찼습니다.' });
-      return;
-    }
-
-    // 사용 중인 slot 번호를 제외한 최소 slot 번호 계산
-    const usedSlots = new Set(state.players.map((p) => p.slot));
-    let slot = 0;
-    while (usedSlots.has(slot)) slot++;
-
-    const userRecord = await prisma.user.findUnique({
-      where: { id: userId },
-      select: { nickname: true, characterId: true, friendCode: true },
-    });
-
-    state.players.push({
-      id: userId,
-      nickname: userRecord?.nickname ?? '',
-      friendCode: userRecord?.friendCode ?? '',
-      characterId: userRecord?.characterId ?? '',
-      slot,
-      isHost: userId === state.hostId,
-      isReady: false,
-      connected: true,
-    });
-  }
-
+  const { state } = result;
   await socket.join(`room:${code}`);
-  await saveRoomState(state);
 
   const roomName = `room:${code}`;
   game.to(roomName).emit(SERVER_EVENT.ROOM_STATE, state);

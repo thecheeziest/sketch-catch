@@ -231,6 +231,119 @@ describe('mode2', () => {
     });
   });
 
+  describe('mode2 입력 검증 (07-REVIEW CR-01) — 클라이언트 입력 절대 신뢰 금지', () => {
+    it('handleMode2Prompt: text가 MAX_TEXT_LENGTH(40)를 넘으면 서버가 잘라서 저장한다', async () => {
+      const initial = makeMode2RoomState(3);
+      const ctl = makeStatefulMocks(initial);
+      const game = makeNamespace();
+
+      await startMode2(game as any, 'ABC123');
+
+      const current = ctl.state.current as any;
+      const sheet = current.sheets[0];
+      const assignee = currentAssignee(initial.players, sheet.ownerIndex, current.step);
+      const socket = { data: { userId: assignee.id }, rooms: new Set(['room:ABC123']) };
+      const longText = 'a'.repeat(200);
+
+      await handleMode2Prompt(game as any, socket as any, { sheetId: sheet.sheetId, text: longText });
+
+      const savedSheet = (ctl.state.current as any).sheets.find((s: any) => s.sheetId === sheet.sheetId);
+      expect(savedSheet.steps[0].text).toBe('a'.repeat(40));
+    });
+
+    it('handleMode2Answer: 앞뒤 공백을 trim하고 길이를 제한한다', async () => {
+      const initial = makeMode2RoomState(3);
+      const ctl = makeStatefulMocks(initial);
+      const game = makeNamespace();
+
+      await startMode2(game as any, 'ABC123');
+      const p0 = ctl.state.current as any;
+      for (const sheet of p0.sheets) {
+        const assignee = currentAssignee(initial.players, sheet.ownerIndex, p0.step);
+        const socket = { data: { userId: assignee.id }, rooms: new Set(['room:ABC123']) };
+        await handleMode2Prompt(game as any, socket as any, { sheetId: sheet.sheetId, text: '강아지' });
+      }
+      const drawPhase = ctl.state.current as any;
+      for (const sheet of drawPhase.sheets) {
+        const assignee = currentAssignee(initial.players, sheet.ownerIndex, drawPhase.step);
+        const socket = { data: { userId: assignee.id }, rooms: new Set(['room:ABC123']) };
+        await handleMode2DrawDone(game as any, socket as any, { sheetId: sheet.sheetId, strokes: [] });
+      }
+
+      const answerPhase = ctl.state.current as any;
+      const sheet = answerPhase.sheets[0];
+      const assignee = currentAssignee(initial.players, sheet.ownerIndex, answerPhase.step);
+      const socket = { data: { userId: assignee.id }, rooms: new Set(['room:ABC123']) };
+
+      await handleMode2Answer(game as any, socket as any, { sheetId: sheet.sheetId, text: '  멍멍이  ' });
+
+      const savedSheet = (ctl.state.current as any).sheets.find((s: any) => s.sheetId === sheet.sheetId);
+      expect(savedSheet.steps.at(-1).text).toBe('멍멍이');
+    });
+
+    it('handleMode2DrawDone: strokes가 300개를 넘으면 300개로 잘리고, authorId는 클라이언트 값이 아닌 검증된 assignee로 강제된다', async () => {
+      const initial = makeMode2RoomState(3);
+      const ctl = makeStatefulMocks(initial);
+      const game = makeNamespace();
+
+      await startMode2(game as any, 'ABC123');
+      const p0 = ctl.state.current as any;
+      for (const sheet of p0.sheets) {
+        const assignee = currentAssignee(initial.players, sheet.ownerIndex, p0.step);
+        const socket = { data: { userId: assignee.id }, rooms: new Set(['room:ABC123']) };
+        await handleMode2Prompt(game as any, socket as any, { sheetId: sheet.sheetId, text: '강아지' });
+      }
+
+      const drawPhase = ctl.state.current as any;
+      const sheet = drawPhase.sheets[0];
+      const assignee = currentAssignee(initial.players, sheet.ownerIndex, drawPhase.step);
+      const socket = { data: { userId: assignee.id }, rooms: new Set(['room:ABC123']) };
+
+      const oversizedStrokes = Array.from({ length: 500 }, (_, i) => ({
+        id: `s${i}`,
+        authorId: 'spoofed-user',
+        color: '#000000',
+        width: 0.01,
+        points: [{ x: 0.1, y: 0.2, t: 100 }],
+        startTime: 0,
+      }));
+
+      await handleMode2DrawDone(game as any, socket as any, { sheetId: sheet.sheetId, strokes: oversizedStrokes });
+
+      const savedSheet = (ctl.state.current as any).sheets.find((s: any) => s.sheetId === sheet.sheetId);
+      const savedStrokes = savedSheet.steps.at(-1).strokes;
+      expect(savedStrokes.length).toBe(300);
+      expect(savedStrokes.every((s: any) => s.authorId === assignee.id)).toBe(true);
+    });
+
+    it('handleMode2DrawDone: 배열이 아니거나 형식이 잘못된 stroke는 조용히 걸러진다', async () => {
+      const initial = makeMode2RoomState(3);
+      const ctl = makeStatefulMocks(initial);
+      const game = makeNamespace();
+
+      await startMode2(game as any, 'ABC123');
+      const p0 = ctl.state.current as any;
+      for (const sheet of p0.sheets) {
+        const assignee = currentAssignee(initial.players, sheet.ownerIndex, p0.step);
+        const socket = { data: { userId: assignee.id }, rooms: new Set(['room:ABC123']) };
+        await handleMode2Prompt(game as any, socket as any, { sheetId: sheet.sheetId, text: '강아지' });
+      }
+
+      const drawPhase = ctl.state.current as any;
+      const sheet = drawPhase.sheets[0];
+      const assignee = currentAssignee(initial.players, sheet.ownerIndex, drawPhase.step);
+      const socket = { data: { userId: assignee.id }, rooms: new Set(['room:ABC123']) };
+
+      await handleMode2DrawDone(game as any, socket as any, {
+        sheetId: sheet.sheetId,
+        strokes: ['not-an-object', { id: 's1' /* color/width/points 누락 */ }] as any,
+      });
+
+      const savedSheet = (ctl.state.current as any).sheets.find((s: any) => s.sheetId === sheet.sheetId);
+      expect(savedSheet.steps.at(-1).strokes).toEqual([]);
+    });
+  });
+
   describe('handleMode2PlayerLeft (OFFL-05)', () => {
     it('DRAW 단계 담당 시트 이탈: 빈 콘텐츠로 즉시 제출 처리되고 전원 제출 완료 시 다음 단계로 advance한다', async () => {
       const initial = makeMode2RoomState(4);

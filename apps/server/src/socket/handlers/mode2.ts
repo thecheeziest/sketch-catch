@@ -37,6 +37,12 @@ export type Mode2Current = {
 // PROMPT 단계는 고정 20초 (UI-SPEC). DRAW/ANSWER는 RoomConfig 값 사용.
 const PROMPT_DURATION_SEC = 20;
 
+// 클라이언트 입력 절대 신뢰 금지 — mobile MAX_TEXT_LENGTH(mode2.tsx)와 동일한 상한
+const MAX_TEXT_LENGTH = 40;
+// strokes는 RoomState에 영구 저장되고 GIF 렌더링 입력으로도 쓰이므로 상한 없이는 저장 폭증/렌더링 DoS 위험
+const MAX_STROKES = 300;
+const MAX_POINTS_PER_STROKE = 2000;
+
 export const mode2Timers = new Map<string, ReturnType<typeof setTimeout>>();
 
 export function currentAssignee(players: Player[], ownerIndex: number, step: number): Player {
@@ -153,6 +159,36 @@ async function assertAssignee(
   return { state, current, sheet };
 }
 
+function sanitizeText(text: unknown): string {
+  if (typeof text !== 'string') return '';
+  return text.trim().slice(0, MAX_TEXT_LENGTH);
+}
+
+function sanitizeStrokes(strokes: unknown, authorId: string): Stroke[] {
+  if (!Array.isArray(strokes)) return [];
+  const clean: Stroke[] = [];
+  for (const s of strokes.slice(0, MAX_STROKES)) {
+    if (typeof s !== 'object' || s === null) continue;
+    const stroke = s as Partial<Stroke>;
+    if (typeof stroke.id !== 'string' || typeof stroke.color !== 'string') continue;
+    if (typeof stroke.width !== 'number' || typeof stroke.startTime !== 'number') continue;
+    if (!Array.isArray(stroke.points)) continue;
+    const points = stroke.points
+      .slice(0, MAX_POINTS_PER_STROKE)
+      .filter(
+        (p): p is Stroke['points'][number] =>
+          typeof p === 'object' &&
+          p !== null &&
+          typeof (p as { x?: unknown }).x === 'number' &&
+          typeof (p as { y?: unknown }).y === 'number' &&
+          typeof (p as { t?: unknown }).t === 'number',
+      );
+    // authorId는 클라이언트 값을 신뢰하지 않고 서버가 검증한 assignee로 강제
+    clean.push({ id: stroke.id, authorId, color: stroke.color, width: stroke.width, points, startTime: stroke.startTime });
+  }
+  return clean;
+}
+
 function findRoomCode(socket: Mode2Socket): string | null {
   const roomName = Array.from(socket.rooms).find((r) => r.startsWith('room:'));
   return roomName ? roomName.replace('room:', '') : null;
@@ -178,7 +214,7 @@ export async function handleMode2Prompt(
   const ctx = await assertAssignee(code, socket, payload.sheetId);
   if (!ctx) return;
 
-  ctx.sheet.steps.push({ kind: 'PROMPT', authorId: socket.data.userId, text: payload.text });
+  ctx.sheet.steps.push({ kind: 'PROMPT', authorId: socket.data.userId, text: sanitizeText(payload.text) });
   ctx.current.submitted.push(payload.sheetId);
   await saveRoomState(ctx.state);
   await checkAllSubmitted(game, code, ctx.current);
@@ -194,7 +230,7 @@ export async function handleMode2Answer(
   const ctx = await assertAssignee(code, socket, payload.sheetId);
   if (!ctx) return;
 
-  ctx.sheet.steps.push({ kind: 'ANSWER', authorId: socket.data.userId, text: payload.text });
+  ctx.sheet.steps.push({ kind: 'ANSWER', authorId: socket.data.userId, text: sanitizeText(payload.text) });
   ctx.current.submitted.push(payload.sheetId);
   await saveRoomState(ctx.state);
   await checkAllSubmitted(game, code, ctx.current);
@@ -210,7 +246,11 @@ export async function handleMode2DrawDone(
   const ctx = await assertAssignee(code, socket, payload.sheetId);
   if (!ctx) return;
 
-  ctx.sheet.steps.push({ kind: 'DRAW', authorId: socket.data.userId, strokes: payload.strokes });
+  ctx.sheet.steps.push({
+    kind: 'DRAW',
+    authorId: socket.data.userId,
+    strokes: sanitizeStrokes(payload.strokes, socket.data.userId),
+  });
   ctx.current.submitted.push(payload.sheetId);
   await saveRoomState(ctx.state);
   await checkAllSubmitted(game, code, ctx.current);
