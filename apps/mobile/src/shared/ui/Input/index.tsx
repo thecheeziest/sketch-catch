@@ -1,8 +1,8 @@
 import { Text, TextInput, View } from 'dripsy'
 import { colors, fontFamily, spacing, textSizes } from '@/shared/config';
-import { PixelFrame } from '@/shared/ui';
 import { useState } from 'react';
 import type { StyleProp, TextInputProps, TextStyle } from 'react-native';
+import { PixelFrame } from '../PixelFrame';
 
 type InputColor = 'PRIMARY' | 'SECONDARY' | 'LIGHT' | 'DARK' | 'WARNING' | 'INFO' | 'SUCCESS';
 
