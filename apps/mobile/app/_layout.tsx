@@ -15,7 +15,7 @@ import { useFonts } from 'expo-font';
 import { Stack } from 'expo-router';
 import * as SplashScreen from 'expo-splash-screen';
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { Animated, Dimensions, StyleSheet } from 'react-native';
+import { Animated, Dimensions, LogBox, StyleSheet } from 'react-native';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 
@@ -133,6 +133,12 @@ function PushTokenRegistrar({
   }, [isAuthenticated, needsOnboarding]);
 
   return null;
+}
+
+if (__DEV__) {
+  // 개발 모드 전용 LogBox 노이즈 억제 (릴리즈 빌드에는 영향 없음)
+  // - pending callbacks: SplashOverlay의 legacy Animated.loop이 브릿지 완료 콜백을 누적시켜 발생 (근본 원인은 별도 이슈)
+  LogBox.ignoreLogs(['Excessive number of pending callbacks', 'Possible unhandled promise rejection']);
 }
 
 SplashScreen.preventAutoHideAsync().catch(() => undefined);
