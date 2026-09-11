@@ -3,7 +3,7 @@ import { PRESENCE_NAMESPACE } from '@sketch-catch/shared';
 import { io, type Socket } from 'socket.io-client';
 import { create } from 'zustand';
 import { Platform } from 'react-native';
-import { queryClient } from '../api';
+import { queryClient } from '../api/queryClient';
 import { useAuthStore } from './auth';
 import type { Friend } from './friends';
 

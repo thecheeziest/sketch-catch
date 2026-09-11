@@ -1,5 +1,6 @@
 import { Platform } from 'react-native';
-import { useAuthStore, useToastStore } from '@/shared/model';
+import { useAuthStore } from '@/shared/model/auth';
+import { useToastStore } from '@/shared/model/toast';
 
 const DEV_HOST = Platform.OS === 'android' ? '10.0.2.2' : 'localhost';
 const BASE_URL = process.env.EXPO_PUBLIC_API_URL?.replace('localhost', DEV_HOST) ?? `http://${DEV_HOST}:3000`;

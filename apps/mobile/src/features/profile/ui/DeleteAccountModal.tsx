@@ -1,6 +1,6 @@
 import { Text } from 'dripsy'
 import { useRouter } from 'expo-router'
-import { Dialog } from '@/shared/ui'
+import { Dialog } from '@/shared/ui/Dialog'
 import { useDeleteMe } from '@/features/auth/api'
 import { colors } from '@/shared/config'
 

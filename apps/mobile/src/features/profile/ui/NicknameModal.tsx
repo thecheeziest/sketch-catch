@@ -1,4 +1,5 @@
-import { Dialog, AppInput } from '@/shared/ui';
+import { Dialog } from '@/shared/ui/Dialog';
+import { AppInput } from '@/shared/ui/Input';
 import { useUpdateMe } from '@/features/auth/api';
 import { useModalForm, handleApiError } from '@/shared/lib';
 import { nicknameSchema } from '@sketch-catch/shared';

@@ -1,7 +1,7 @@
 import { Text, View } from 'dripsy'
 import { Pressable, StyleSheet } from 'react-native'
 import { colors, spacing } from '@/shared/config'
-import { Icon } from '@/shared/ui'
+import { Icon } from '@/shared/ui/Icon'
 
 type Props = {
   label: string
