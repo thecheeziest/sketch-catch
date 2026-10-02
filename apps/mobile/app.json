@@ -12,6 +12,7 @@
       "supportsTablet": false,
       "bundleIdentifier": "com.sketchcatch.app",
       "usesAppleSignIn": true,
+      "buildNumber": "2",
       "infoPlist": {
         "ITSAppUsesNonExemptEncryption": false
       }
