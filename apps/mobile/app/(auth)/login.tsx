@@ -32,7 +32,7 @@ export default function LoginScreen() {
       <View sx={{ flex: 6, alignItems: 'center', justifyContent: 'center' }}>
         <Image source={icons.LOGO_SPLASH} sx={{ width: logoWidth, height: logoWidth / 3 }} resizeMode="contain" />
       </View>
-      <View sx={{ flex: 4, gap: spacing.SM, justifyContent: 'center' }}>
+      <View sx={{ flex: 4, gap: spacing.SM, justifyContent: Platform.OS === 'ios' ? 'center' : 'flex-end' }}>
         <SocialButton
           provider="kakao"
           disabled={kakaoLogin.isPending}
