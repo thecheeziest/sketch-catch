@@ -1,4 +1,3 @@
-import LOGO from '@assets/logo.png';
 import LOGO_SPLASH from '@assets/logo-splash-v2.png';
 import LOGO_HOME from '@assets/logo-home-v2.png';
 
@@ -24,7 +23,6 @@ import fox from '@assets/characters/fox.png';
 import chicken from '@assets/characters/chicken.png';
 
 export const icons = {
-  LOGO,
   LOGO_SPLASH,
   LOGO_HOME,
 } as const;

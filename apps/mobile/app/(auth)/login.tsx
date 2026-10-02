@@ -1,15 +1,16 @@
 import { View, Image } from 'dripsy'
-import { Platform } from 'react-native'
+import { Platform, useWindowDimensions } from 'react-native'
 import { useRouter } from 'expo-router'
 import { SafeAreaView } from 'react-native-safe-area-context'
 import { SocialButton } from '@/shared/ui'
 import { useKakaoLogin, useAppleLogin } from '@/features/auth/lib'
 import { useToastStore } from '@/shared/model'
-import { colors, spacing } from '@/shared/config'
-import LOGO from '@assets/logo.png'
+import { colors, icons, spacing } from '@/shared/config'
 
 export default function LoginScreen() {
   const router = useRouter()
+  const { width: screenWidth } = useWindowDimensions()
+  const logoWidth = (screenWidth - spacing.XL * 2) * 0.55
 
   const kakaoLogin = useKakaoLogin()
   const appleLogin = useAppleLogin()
@@ -29,7 +30,7 @@ export default function LoginScreen() {
   return (
     <SafeAreaView style={{ flex: 1, backgroundColor: colors.DARK_200, paddingHorizontal: spacing.XL }}>
       <View sx={{ flex: 6, alignItems: 'center', justifyContent: 'center' }}>
-        <Image source={LOGO} sx={{ width: '55%', aspectRatio: 1 }} resizeMode="contain" />
+        <Image source={icons.LOGO_SPLASH} sx={{ width: logoWidth, height: logoWidth / 3 }} resizeMode="contain" />
       </View>
       <View sx={{ flex: 4, gap: spacing.SM, justifyContent: 'center' }}>
         <SocialButton
