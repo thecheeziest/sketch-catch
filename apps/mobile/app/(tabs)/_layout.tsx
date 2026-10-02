@@ -56,7 +56,6 @@ export default function TabsLayout() {
           <View style={styles.tabBarPill}>
             <BlurView intensity={78} tint="dark" style={StyleSheet.absoluteFill}>
               <View style={styles.tabBarTint} />
-              <View style={styles.tabBarTopEdge} />
             </BlurView>
           </View>
         ),
@@ -129,14 +128,6 @@ const styles = StyleSheet.create({
   tabBarTint: {
     ...StyleSheet.absoluteFill,
     backgroundColor: 'rgba(18, 13, 32, 0.56)',
-  },
-  tabBarTopEdge: {
-    backgroundColor: 'rgba(255, 255, 255, 0.24)',
-    height: 1,
-    left: 20,
-    position: 'absolute',
-    right: 20,
-    top: 1,
   },
   tabButton: {
     flex: 1,
