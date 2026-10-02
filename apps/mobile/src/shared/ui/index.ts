@@ -4,6 +4,7 @@ export * from './Icon';
 export * from './Button';
 export * from './Input';
 export * from './PixelFrame';
+export * from './PlatformBadge';
 export * from './FlatList';
 export * from './CharacterGrid';
 export * from './FriendItem';

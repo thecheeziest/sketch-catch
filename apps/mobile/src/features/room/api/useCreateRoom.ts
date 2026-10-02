@@ -3,7 +3,7 @@ import { useRouter } from 'expo-router';
 import { apiPost } from '@/shared/api';
 import type { Category } from '@sketch-catch/shared';
 
-// D-04: 기본값 — 인원 6, 라운드 5, 타이머 30
+// D-04: 기본값 — 인원 6, 라운드 3, 타이머 30
 type CreateRoomInput = {
   mode: 1 | 2;
   playerCountMax: number;
@@ -18,10 +18,18 @@ type CreateRoomInput = {
 export function useCreateRoom() {
   const router = useRouter();
 
-  return useMutation({
+  const mutation = useMutation({
     mutationFn: (input: CreateRoomInput) => apiPost<{ code: string }>('/rooms', input),
     onSuccess: ({ code }) => {
       router.push(`/room/${code}`);
     },
   });
+
+  // 버튼 연타로 mutate가 재진입하면 방이 여러 번 생성되고 /room/[code]가 중복으로 쌓인다.
+  const mutate: typeof mutation.mutate = (...args) => {
+    if (mutation.isPending) return;
+    mutation.mutate(...args);
+  };
+
+  return { ...mutation, mutate };
 }

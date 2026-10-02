@@ -1,4 +1,4 @@
-import type { Namespace } from 'socket.io';
+import type { Namespace, Socket } from 'socket.io';
 import type {
   ClientEvents,
   ServerEvents,
@@ -10,7 +10,7 @@ import type {
   Mode2Step,
   Stroke,
 } from '@sketch-catch/shared';
-import { SERVER_EVENT } from '@sketch-catch/shared';
+import { MODE2_PLAYER_MIN, SERVER_EVENT } from '@sketch-catch/shared';
 import { getRoomState, saveRoomState } from '../../services/rooms.service.js';
 import { startMode2Review } from './mode2-review.js';
 import { endGame } from './game.js';
@@ -27,7 +27,7 @@ export type Mode2Sheet = {
 
 // RoomState.current에 저장되는 모드2 진행 상태 (RoomState는 JSON 직렬화라 Set 대신 배열 사용)
 export type Mode2Current = {
-  step: number; // 0-indexed. 0=PROMPT, 홀수=DRAW, 짝수(0제외)=ANSWER
+  step: number; // 0-indexed. 0=PROMPT, 이후 DRAW/ANSWER 교대
   phase: Mode2Phase;
   sheets: Mode2Sheet[];
   submitted: string[]; // 이번 step 제출 완료된 sheetId 배열
@@ -47,7 +47,12 @@ export const mode2Timers = new Map<string, ReturnType<typeof setTimeout>>();
 
 export function currentAssignee(players: Player[], ownerIndex: number, step: number): Player {
   const n = players.length;
-  return players[(ownerIndex + step) % n]!;
+  const offset = (() => {
+    if (step === 0) return 0;
+    if (n % 2 === 0) return step - 1;
+    return step;
+  })();
+  return players[(ownerIndex + offset) % n]!;
 }
 
 export function phaseForStep(step: number): Mode2Phase {
@@ -75,6 +80,10 @@ export function sortedPlayers(state: RoomState): Player[] {
   return [...state.players].sort((a, b) => a.slot - b.slot);
 }
 
+export function finalStepForPlayerCount(playerCount: number): number {
+  return playerCount % 2 === 0 ? playerCount : playerCount - 1;
+}
+
 function emptyContent(phase: Mode2Phase, authorId: string): Mode2StepContent {
   if (phase === 'DRAW') return { kind: 'DRAW', authorId, strokes: [] };
   if (phase === 'PROMPT') return { kind: 'PROMPT', authorId, text: '' };
@@ -87,22 +96,41 @@ function toPreviousContent(content: Mode2StepContent | undefined): Mode2Step['pr
   return { kind: 'TEXT', text: content.text };
 }
 
-function emitSteps(game: GameNamespace, code: string, state: RoomState, current: Mode2Current): void {
+function buildStepPayloads(state: RoomState, current: Mode2Current): Mode2Step[] {
   const players = sortedPlayers(state);
-  const roomName = `room:${code}`;
-  for (const sheet of current.sheets) {
+  const totalSteps = finalStepForPlayerCount(players.length) + 1;
+  return current.sheets.map((sheet) => {
     const assignee = currentAssignee(players, sheet.ownerIndex, current.step);
-    const previousContent = toPreviousContent(sheet.steps[sheet.steps.length - 1]);
-    const payload: Mode2Step = {
+    return {
       sheetId: sheet.sheetId,
       stepIndex: current.step,
       phase: current.phase,
       assigneeId: assignee.id,
-      previousContent,
+      previousContent: toPreviousContent(sheet.steps[sheet.steps.length - 1]),
       durationSec: durationForPhase(current.phase, state.config),
-      totalSteps: players.length,
+      totalSteps,
     };
+  });
+}
+
+function emitSteps(game: GameNamespace, code: string, state: RoomState, current: Mode2Current): void {
+  const roomName = `room:${code}`;
+  for (const payload of buildStepPayloads(state, current)) {
     game.to(roomName).emit('mode2:step', payload);
+  }
+}
+
+// startMode2/advanceStep의 mode2:step broadcast는 room:state 직후 발생하므로, 그 시점에
+// 아직 모드2 화면이 mount되지 않은 클라이언트(화면 전환 중)는 첫 스텝 이벤트를 놓쳐
+// 다음 스텝까지 까만 화면만 보게 된다. room:join 시 현재 스텝을 해당 소켓에만 재전송한다.
+export function resendCurrentStep(
+  socket: Pick<Socket<ClientEvents, ServerEvents>, 'emit'>,
+  state: RoomState,
+): void {
+  if (!isMode2Active(state.status)) return;
+  const current = state.current as Mode2Current;
+  for (const payload of buildStepPayloads(state, current)) {
+    socket.emit('mode2:step', payload);
   }
 }
 
@@ -119,6 +147,11 @@ export async function startMode2(game: GameNamespace, code: string): Promise<voi
   if (!state) return;
 
   const players = sortedPlayers(state);
+  if (players.length < MODE2_PLAYER_MIN) {
+    await endGame(game, code, 'INSUFFICIENT_PLAYERS');
+    return;
+  }
+
   const sheets: Mode2Sheet[] = players.map((p, i) => ({ sheetId: p.id, ownerIndex: i, steps: [] }));
 
   const current: Mode2Current = {
@@ -246,10 +279,13 @@ export async function handleMode2DrawDone(
   const ctx = await assertAssignee(code, socket, payload.sheetId);
   if (!ctx) return;
 
+  const strokes = sanitizeStrokes(payload.strokes, socket.data.userId);
+  if (strokes.length === 0) return;
+
   ctx.sheet.steps.push({
     kind: 'DRAW',
     authorId: socket.data.userId,
-    strokes: sanitizeStrokes(payload.strokes, socket.data.userId),
+    strokes,
   });
   ctx.current.submitted.push(payload.sheetId);
   await saveRoomState(ctx.state);
@@ -276,7 +312,7 @@ export async function advanceStep(game: GameNamespace, code: string): Promise<vo
   const nextStep = current.step + 1;
   current.submitted = [];
 
-  if (nextStep >= current.sheets.length) {
+  if (nextStep > finalStepForPlayerCount(players.length)) {
     // 원조자에게 시트 복귀 — 리뷰 단계로 전환
     current.step = nextStep;
     state.status = 'MODE2_REVIEW';
@@ -314,8 +350,8 @@ export async function handleMode2PlayerLeft(
 
   const activePlayers = state.players.filter((p) => !p.left);
 
-  // 3명 미만이면 게임 즉시 종료 (D-03과 동일 임계값)
-  if (activePlayers.length < 3) {
+  // 텔레스테이션 룰은 최소 4명부터 성립한다.
+  if (activePlayers.length < MODE2_PLAYER_MIN) {
     await saveRoomState(state);
     game.to(`room:${code}`).emit(SERVER_EVENT.ROOM_STATE, state);
     await endGame(game, code, 'INSUFFICIENT_PLAYERS');

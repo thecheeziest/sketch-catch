@@ -17,8 +17,6 @@ type Mode2ReviewSocket = { data: { userId: string }; rooms: Set<string> };
 // D-01/D-03: 슬라이드쇼 프레임 표시 시간 — 텍스트 3초, 그림(정적) 4초 (UI-SPEC 6-4)
 const TEXT_FRAME_MS = 3000;
 const DRAW_FRAME_MS = 4000;
-// D-08 강제진행 패턴을 판정 단계로 확장 — 15초 무응답 시 자동 O 처리 (UI-SPEC 6-4)
-const JUDGE_TIMEOUT_MS = 15000;
 // 베스트 투표 제한시간 (UI-SPEC 6-4, Claude's Discretion)
 const VOTE_TIMEOUT_MS = 20000;
 // BEST_REVEAL 연출 후 GIF 사전 생성 트리거까지 짧은 대기 (D-10)
@@ -86,45 +84,25 @@ function buildReviewSheets(state: RoomState, current: Mode2Current): Mode2Review
   });
 }
 
-// MD2-03: 리뷰 진입 — 시트별 최종 판정 대기부터 시작 (mode2.ts advanceStep에서 호출)
+// MD2-03: 리뷰 진입 — 텔레스테이션처럼 각 시트를 순서대로 바로 공개한다.
 export async function startMode2Review(game: GameNamespace, code: string): Promise<void> {
   const state = await getRoomState(code);
   if (!state) return;
 
   const mode2Current = state.current as Mode2Current;
   const review: Mode2ReviewCurrent = {
-    subPhase: 'FINAL_JUDGE',
+    subPhase: 'SLIDESHOW',
     currentSheetIndex: 0,
+    currentFrameIndex: 0,
     sheets: buildReviewSheets(state, mode2Current),
     votes: {},
   };
   state.current = review;
   await saveRoomState(state);
   emitReview(game, code, review);
-  scheduleJudgeTimeout(game, code);
-}
 
-function scheduleJudgeTimeout(game: GameNamespace, code: string): void {
-  clearReviewTimer(code);
-  reviewTimers.set(
-    code,
-    setTimeout(() => void autoJudgeCurrentSheet(game, code), JUDGE_TIMEOUT_MS),
-  );
-}
-
-async function autoJudgeCurrentSheet(game: GameNamespace, code: string): Promise<void> {
-  const state = await getRoomState(code);
-  if (!state || state.status !== 'MODE2_REVIEW') return;
-  const review = state.current as Mode2ReviewCurrent;
-  if (review.subPhase !== 'FINAL_JUDGE') return;
-
-  const sheet = review.sheets[review.currentSheetIndex];
-  if (!sheet || sheet.finalJudge) return;
-
-  sheet.finalJudge = { ok: true, judgedBy: sheet.ownerId };
-  state.current = review;
-  await saveRoomState(state);
-  await startSlideshow(game, code, state, review, sheet);
+  const firstSheet = review.sheets[0];
+  if (firstSheet) scheduleFrame(game, code, firstSheet, 0);
 }
 
 // D-02: 원조자가 마지막 단계 결과를 보고 O/X 1회 판정
@@ -198,12 +176,13 @@ async function advanceFrame(game: GameNamespace, code: string): Promise<void> {
       return;
     }
     review.currentSheetIndex = nextSheetIndex;
-    review.subPhase = 'FINAL_JUDGE';
-    review.currentFrameIndex = undefined;
+    review.subPhase = 'SLIDESHOW';
+    review.currentFrameIndex = 0;
     state.current = review;
     await saveRoomState(state);
     emitReview(game, code, review);
-    scheduleJudgeTimeout(game, code);
+    const nextSheet = review.sheets[nextSheetIndex];
+    if (nextSheet) scheduleFrame(game, code, nextSheet, 0);
     return;
   }
 

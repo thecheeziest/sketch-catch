@@ -3,11 +3,10 @@ import Constants from 'expo-constants';
 import { Platform } from 'react-native';
 
 // D-10: 포그라운드일 때 OS 배너 대신 기존 Toast를 재사용 — 모듈 스코프에서 배너 억제
-// 설치된 expo-notifications@0.28.19는 shouldShowBanner/shouldShowList 분리 플래그를 지원하지 않음
-// (RESEARCH A4 fallback) — 구버전 shouldShowAlert 형태 사용
 Notifications.setNotificationHandler({
   handleNotification: async () => ({
-    shouldShowAlert: false,
+    shouldShowBanner: false,
+    shouldShowList: false,
     shouldPlaySound: false,
     shouldSetBadge: false,
   }),

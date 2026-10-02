@@ -5,29 +5,26 @@
     "scheme": "sketchcatch",
     "version": "0.0.1",
     "orientation": "portrait",
-    "icon": "./assets/icon.png",
+    "icon": "./assets/app-icons/04-shooting-star-symbol.png",
     "userInterfaceStyle": "light",
-    "newArchEnabled": false,
-    "splash": {
-      "image": "./assets/splash.png",
-      "resizeMode": "contain",
-      "backgroundColor": "#FAFAF0"
-    },
     "ios": {
-      "icon": "./assets/icon-ios.png",
+      "icon": "./assets/app-icons/04-shooting-star-symbol.png",
       "supportsTablet": false,
       "bundleIdentifier": "com.sketchcatch.app",
-      "usesAppleSignIn": true
+      "usesAppleSignIn": true,
+      "infoPlist": {
+        "ITSAppUsesNonExemptEncryption": false
+      }
     },
     "android": {
       "adaptiveIcon": {
-        "foregroundImage": "./assets/adaptive-icon.png",
-        "backgroundColor": "#FFFFFF"
+        "foregroundImage": "./assets/app-icons/symbol-adaptive-foreground.png",
+        "backgroundColor": "#1E1C2C"
       },
       "package": "com.sketchcatch.app"
     },
     "web": {
-      "favicon": "./assets/favicon.png"
+      "favicon": "./assets/app-icons/04-shooting-star-symbol.png"
     },
     "plugins": [
       "expo-router",
@@ -42,7 +39,37 @@
       ],
       [
         "expo-media-library",
-        { "photosPermission": "그림 GIF를 저장하려면 사진 접근 권한이 필요합니다." }
+        {
+          "photosPermission": "그림 GIF를 저장하려면 사진 접근 권한이 필요합니다."
+        }
+      ],
+      [
+        "expo-build-properties",
+        {
+          "ios": {
+            "deploymentTarget": "16.4"
+          }
+        }
+      ],
+      [
+        "expo-splash-screen",
+        {
+          "image": "./assets/logo-splash-v2.png",
+          "resizeMode": "contain",
+          "backgroundColor": "#FAFAF0",
+          "imageWidth": 280,
+          "ios": {
+            "enableFullScreenImage_legacy": true
+          }
+        }
+      ],
+      "expo-image",
+      "expo-status-bar",
+      [
+        "./plugins/withStoreIcon.cjs",
+        {
+          "storeIcon": "./assets/app-icons/01-deep-space.png"
+        }
       ]
     ],
     "experiments": {

@@ -28,7 +28,7 @@ type Props = {
  *
  * 사용 패턴:
  * - 고정 크기 부모 (Button, Input 등): 콘텐츠를 PixelFrame 안에 배치
- * - 자동 크기 부모 (Chip, Badge 등): PixelFrame을 absoluteFillObject로 두고
+ * - 자동 크기 부모 (Chip, Badge 등): PixelFrame을 absoluteFill로 두고
  *   콘텐츠를 PixelFrame 밖 normal flow에 배치 → 부모가 콘텐츠 크기를 결정
  */
 export function PixelFrame({
@@ -86,7 +86,7 @@ export function PixelFrame({
   return (
     <View style={style}>
       <MaskedView
-        style={StyleSheet.absoluteFillObject}
+        style={StyleSheet.absoluteFill}
         maskElement={
           <View style={styles.maskRoot}>
             <View style={{ position: 'absolute', top: n, left: 0, right: 0, bottom: n, backgroundColor: 'white' }} />

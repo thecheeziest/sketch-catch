@@ -90,8 +90,8 @@ export default function Mode2EndScreen() {
       <SheetGifTabs sheets={sheets} selectedId={selectedSheetId} onSelect={setSelectedSheetId} />
 
       <View sx={{ flex: 1, paddingHorizontal: spacing.MD, paddingVertical: spacing.SM }}>
-        <PixelFrame borderColor={colors.SECONDARY_300} style={StyleSheet.absoluteFillObject}>
-          <View style={[StyleSheet.absoluteFillObject, { backgroundColor: colors.DARK_300 }]} />
+        <PixelFrame borderColor={colors.SECONDARY_300} style={StyleSheet.absoluteFill}>
+          <View style={[StyleSheet.absoluteFill, { backgroundColor: colors.DARK_300 }]} />
           {isReady && gifUrl != null ? (
             <GifPreviewPlayer
               uri={`${BASE_URL}${gifUrl}`}

@@ -3,6 +3,7 @@ import type { PresenceClientEvents, PresenceServerEvents, PresenceStatus } from 
 import { PRESENCE_NAMESPACE } from '@sketch-catch/shared';
 import { verifyAccessToken } from '../auth/jwt.js';
 import { getPresence } from '../db/redis.js';
+import { getFriendRoomView } from '../services/friends.service.js';
 
 type PresenceNamespace = Namespace<PresenceClientEvents, PresenceServerEvents>;
 
@@ -29,10 +30,11 @@ export function registerPresenceNamespace(io: Server): void {
       void (async () => {
         for (const friendId of friendIds) {
           await socket.join(`presence_of:${friendId}`);
-          // 구독 즉시 현재 상태 전송 — 이전 broadcast를 놓쳤더라도 최신 값 수신
-          const status = await getPresence(friendId);
-          socket.emit('presence:update', { userId: friendId, status });
-          console.log(`[presence] snapshot sent: ${friendId} → ${status}`);
+          // 구독 즉시 현재 상태 전송 — 이전 broadcast를 놓쳤더라도 최신 값(room 포함) 수신
+          const baseStatus = await getPresence(friendId);
+          const { presenceStatus, room } = await getFriendRoomView(friendId, baseStatus);
+          socket.emit('presence:update', { userId: friendId, status: presenceStatus, room });
+          console.log(`[presence] snapshot sent: ${friendId} → ${presenceStatus}`);
         }
       })();
     });
@@ -43,9 +45,15 @@ export function registerPresenceNamespace(io: Server): void {
   });
 }
 
-// 상태가 변경되는 모든 지점(인증 미들웨어, 방 소켓 핸들러, REST 라우트)에서 호출
+// 상태가 변경되는 모든 지점(인증 미들웨어, 방 소켓 핸들러, REST 라우트)에서 호출.
+// room 정보를 broadcast 시점에 서버에서 직접 계산해 함께 보낸다 — 구독자별 REST refetch에
+// 의존하면 응답 속도 차이로 일부 친구에게만 방 정보가 늦게(또는 누락되어) 반영되는 레이스가 생긴다.
 export function broadcastPresenceUpdate(userId: string, status: PresenceStatus): void {
   if (!ns) return;
-  console.log(`[presence] broadcast: ${userId} → ${status}`);
-  ns.to(`presence_of:${userId}`).emit('presence:update', { userId, status });
+  const target = ns;
+  void (async () => {
+    const { presenceStatus, room } = await getFriendRoomView(userId, status);
+    console.log(`[presence] broadcast: ${userId} → ${presenceStatus}`);
+    target.to(`presence_of:${userId}`).emit('presence:update', { userId, status: presenceStatus, room });
+  })();
 }

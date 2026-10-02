@@ -15,8 +15,14 @@ declare module 'socket.io' {
   }
 }
 
+type GameNamespace = Namespace<ClientEvents, ServerEvents>;
+
+// REST 라우트·매칭 타이머 등 소켓 연결 콜백 바깥(다른 모듈)에서 특정 유저에게 push할 때 사용
+let gameNs: GameNamespace | null = null;
+
 export function registerGameNamespace(io: Server<ClientEvents, ServerEvents>): void {
-  const game = io.of(SOCKET_NAMESPACE) as Namespace<ClientEvents, ServerEvents>;
+  const game = io.of(SOCKET_NAMESPACE) as GameNamespace;
+  gameNs = game;
 
   // JWT 인증 미들웨어 — 모든 소켓 이벤트 전에 인증 강제
   game.use(async (socket, next) => {
@@ -31,6 +37,9 @@ export function registerGameNamespace(io: Server<ClientEvents, ServerEvents>): v
   });
 
   game.on('connection', (socket) => {
+    // 특정 room에 join하지 않은 상태(매칭 대기 중 등)에서도 유저 개인에게 push할 수 있는 채널
+    void socket.join(`user:${socket.data.userId}`);
+
     socket.on('room:join', ({ code }) => void handleRoomJoin(game, socket, code));
     socket.on('room:leave', () => void handleRoomLeave(game, socket));
     socket.on('room:ready', ({ ready }) => void handleRoomReady(game, socket, ready));
@@ -60,4 +69,14 @@ export function registerGameNamespace(io: Server<ClientEvents, ServerEvents>): v
     socket.on('mode2:judge:final', (payload) => void handleMode2JudgeFinal(game, socket, payload));
     socket.on('mode2:vote:best', (payload) => void handleMode2VoteBest(game, socket, payload));
   });
+}
+
+// 특정 유저의 개인 채널(`user:{userId}`)로 push — 매칭 로비처럼 아직 특정 room에 join하지 않은 상태에서도 도달
+export function emitToUser<E extends keyof ServerEvents>(
+  userId: string,
+  event: E,
+  ...args: Parameters<ServerEvents[E]>
+): void {
+  if (!gameNs) return;
+  gameNs.to(`user:${userId}`).emit(event, ...args);
 }

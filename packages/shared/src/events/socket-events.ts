@@ -43,11 +43,22 @@ export type ServerEvents = {
   'stroke:remote': (payload: StrokeEvent) => void;
   'chat:message': (payload: ChatMessage) => void;
   'chat:correct': (payload: { userId: string; messageId: string }) => void;
-  'answer:wrong': (payload: { messageId: string }) => void; // 오답 제출자 본인에게만 전달
+  'answer:wrong': (payload: { messageId: string; roundIndex: number }) => void; // 오답 제출자 본인에게만 전달
   'mode2:step': (payload: Mode2Step) => void;
   'mode2:review': (payload: Mode2ReviewState) => void;
   'cookie:ready': (payload: { sheetId: string; gifUrl: string }) => void;
+  'match:update': (payload: MatchLobbyUpdate) => void;
+  'match:found': (payload: { code: string }) => void;
   error: (payload: { code: string; message: string }) => void;
+};
+
+// 매칭 로비 상태 — 대기 인원/카운트다운 마감시각을 로비 전원에게 push
+export type MatchLobbyUpdate = {
+  mode: 1 | 2;
+  count: number;
+  min: number;
+  max: number;
+  deadline: number | null; // epoch ms. null = 아직 최소 인원 미달(카운트다운 시작 전)
 };
 
 // 문자열 상수 — emit/on에서 매직 스트링 방지
@@ -86,6 +97,8 @@ export const SERVER_EVENT = {
   MODE2_STEP: 'mode2:step',
   MODE2_REVIEW: 'mode2:review',
   COOKIE_READY: 'cookie:ready',
+  MATCH_UPDATE: 'match:update',
+  MATCH_FOUND: 'match:found',
   ERROR: 'error',
 } as const satisfies Readonly<Record<string, keyof ServerEvents>>;
 
@@ -95,12 +108,24 @@ export const SOCKET_NAMESPACE = '/game' as const;
 
 export type PresenceStatus = 'ONLINE' | 'OFFLINE' | 'IN_LOBBY' | 'IN_GAME';
 
+// IN_LOBBY일 때만 채워지는 방 요약 정보. presence:update가 이 값을 직접 실어 보내므로
+// 클라이언트가 별도 REST refetch로 뒤늦게 채울 필요가 없다.
+export type PresenceRoomSummary = {
+  code: string;
+  title: string;
+  playerCount: number;
+  playerCountMax: number;
+  locked: boolean;
+  hasPassword: boolean;
+  joinable: boolean;
+};
+
 export type PresenceClientEvents = {
   'presence:subscribe': (payload: { friendIds: string[] }) => void;
 };
 
 export type PresenceServerEvents = {
-  'presence:update': (payload: { userId: string; status: PresenceStatus }) => void;
+  'presence:update': (payload: { userId: string; status: PresenceStatus; room?: PresenceRoomSummary }) => void;
 };
 
 export const PRESENCE_NAMESPACE = '/presence' as const;

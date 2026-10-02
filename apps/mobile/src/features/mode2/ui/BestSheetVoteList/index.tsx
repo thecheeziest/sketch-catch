@@ -47,9 +47,9 @@ export function BestSheetVoteList({ sheets, myId, selectedId, onSelect }: Props)
           <Pressable onPress={() => onSelect(item.sheetId)} style={styles.card}>
             <PixelFrame
               borderColor={selected ? colors.PRIMARY_400 : colors.SECONDARY_300}
-              style={StyleSheet.absoluteFillObject}
+              style={StyleSheet.absoluteFill}
             >
-              <View style={[StyleSheet.absoluteFillObject, { backgroundColor: colors.DARK_100 }]} />
+              <View style={[StyleSheet.absoluteFill, { backgroundColor: colors.DARK_100 }]} />
             </PixelFrame>
             <View sx={{ flex: 1, alignItems: 'center', justifyContent: 'center' }}>
               {source !== null ? (

@@ -9,7 +9,8 @@ vi.mock('../socket/handlers/game.js', () => ({
   handlePlayerLeft: vi.fn(),
 }));
 
-vi.mock('../socket/handlers/mode2.js', () => ({
+vi.mock('../socket/handlers/mode2.js', async (importOriginal) => ({
+  ...(await importOriginal<typeof import('../socket/handlers/mode2.js')>()),
   startMode2: vi.fn(),
   handleMode2PlayerLeft: vi.fn(),
 }));
@@ -256,6 +257,24 @@ describe('socket room handlers', () => {
         SERVER_EVENT.ROOM_STATE,
         expect.objectContaining({ startedAt: expect.any(Number) }),
       );
+    });
+
+    it('LBBY-02: 모드2는 4명 미만이면 시작을 거부한다', async () => {
+      const state = makeRoomState();
+      state.mode = 2;
+      state.allReady = true;
+      state.players.forEach((p) => (p.isReady = true));
+      mockGetRoomState.mockResolvedValue(state);
+      const socket = makeSocket('u1');
+      const game = makeNamespace();
+
+      await handleRoomStart(game as any, socket as any);
+
+      expect(socket.emit).toHaveBeenCalledWith(SERVER_EVENT.ERROR, {
+        code: 'INSUFFICIENT_PLAYERS',
+        message: '모드 2는 최소 4명이 필요합니다.',
+      });
+      expect(mockSaveRoomState).not.toHaveBeenCalled();
     });
   });
 

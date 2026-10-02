@@ -1,6 +1,6 @@
 import { FontAwesome } from '@expo/vector-icons'
 import { Text } from 'dripsy'
-import { Pressable } from 'react-native'
+import { Pressable, StyleProp, TextStyle } from 'react-native'
 import { fontFamily } from '@/shared/config'
 
 // TEXT_ICONS: Mona 픽셀 폰트로 렌더링되는 ASCII 문자
@@ -23,6 +23,7 @@ const FA_ICONS = {
   TRASH: 'trash',
   UNDO: 'undo',
   INVITE: 'paper-plane',
+  TROPHY: 'trophy',
 } as const
 
 export type IconName = keyof typeof TEXT_ICONS | keyof typeof FA_ICONS
@@ -32,16 +33,17 @@ type Props = {
   size?: number
   color?: string
   opacity?: number
+  style?: StyleProp<TextStyle>
   onPress?: () => void
 }
 
-function IconContent({ name, size = 24, color = '#FAFAF0', opacity = 1 }: Omit<Props, 'onPress'>) {
+function IconContent({ name, size = 24, color = '#FAFAF0', opacity = 1, style }: Omit<Props, 'onPress'>) {
   if (name in TEXT_ICONS) {
     return (
       <Text
         sx={{ fontFamily: fontFamily.BOLD, fontSize: size, lineHeight: size, opacity, color }}
         // Mona 픽셀 폰트는 em box 상단에 글리프가 치우쳐 있어 수동 보정 필요
-        style={{ includeFontPadding: false, marginTop: Math.round(size * 0.2) }}
+        style={[{ includeFontPadding: false, marginTop: Math.round(size * 0.2) }, style]}
         allowFontScaling={false}
       >
         {TEXT_ICONS[name as keyof typeof TEXT_ICONS]}
@@ -53,18 +55,18 @@ function IconContent({ name, size = 24, color = '#FAFAF0', opacity = 1 }: Omit<P
       name={FA_ICONS[name as keyof typeof FA_ICONS]}
       size={size}
       color={color}
-      style={{ opacity }}
+      style={[{ opacity }, style]}
     />
   )
 }
 
-export function Icon({ name, size = 24, color = '#FAFAF0', opacity = 1, onPress }: Props) {
+export function Icon({ name, size = 24, color = '#FAFAF0', opacity = 1, style, onPress }: Props) {
   if (onPress) {
     return (
       <Pressable onPress={onPress} hitSlop={8}>
-        <IconContent name={name} size={size} color={color} opacity={opacity} />
+        <IconContent name={name} size={size} color={color} opacity={opacity} style={style} />
       </Pressable>
     )
   }
-  return <IconContent name={name} size={size} color={color} opacity={opacity} />
+  return <IconContent name={name} size={size} color={color} opacity={opacity} style={style} />
 }

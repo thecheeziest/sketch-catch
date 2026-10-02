@@ -4,6 +4,7 @@ import { io, type Socket } from 'socket.io-client';
 import { create } from 'zustand';
 import { Platform } from 'react-native';
 import { queryClient } from '../api/queryClient';
+import { refreshAccessToken } from '../api/client';
 import { useAuthStore } from './auth';
 import type { Friend } from './friends';
 
@@ -29,27 +30,43 @@ export const usePresenceStore = create<PresenceStore>()((set, get) => ({
 
     const socket: Socket<PresenceServerEvents, PresenceClientEvents> = io(
       `${BASE_URL}${PRESENCE_NAMESPACE}`,
-      { transports: ['websocket'], auth: { token } },
+      {
+        transports: ['websocket'],
+        // 재연결마다 스토어의 최신 accessToken을 읽는다 — 만료된 토큰 재사용 방지
+        auth: (cb) => cb({ token: useAuthStore.getState().accessToken ?? '' }),
+      },
     );
 
+    // accessToken 만료로 인증 실패 시 1회 갱신 후 재연결.
+    // connect 성공 시 초기화되어 다음 만료에도 다시 동작한다.
+    let didRefreshAuth = false;
+
     socket.on('connect', () => {
+      didRefreshAuth = false;
       const { pendingFriendIds } = get();
       if (pendingFriendIds.length > 0) {
         socket.emit('presence:subscribe', { friendIds: pendingFriendIds });
       }
     });
 
-    socket.on('presence:update', ({ userId, status }) => {
+    socket.on('presence:update', ({ userId, status, room }) => {
       console.log('[presence] received update:', userId, '→', status);
+      // room은 서버가 broadcast 시점에 직접 계산해 함께 보낸다 — REST refetch에 의존하지 않으므로
+      // 구독자마다 반영 속도가 갈리는 레이스(일부 친구에게만 "같이하기"가 안 뜨는 문제)가 없다.
       queryClient.setQueryData<Friend[]>(['friends'], (old) =>
-        old?.map((f) => (f.userId === userId ? { ...f, presenceStatus: status, room: undefined } : f)) ?? old,
+        old?.map((f) => (f.userId === userId ? { ...f, presenceStatus: status, room } : f)) ?? old,
       );
-      void queryClient.invalidateQueries({ queryKey: ['friends'] });
     });
 
-    socket.on('connect_error', (err) =>
-      console.error('[presence] connect_error', err.message),
-    );
+    socket.on('connect_error', (err) => {
+      console.error('[presence] connect_error', err.message);
+      const isAuthError = err.message === 'INVALID_TOKEN' || err.message === 'UNAUTHORIZED';
+      if (!isAuthError || didRefreshAuth) return;
+      didRefreshAuth = true;
+      void refreshAccessToken().then((newToken) => {
+        if (newToken) socket.connect();
+      });
+    });
 
     set({ socket });
   },

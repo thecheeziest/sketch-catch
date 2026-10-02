@@ -111,6 +111,44 @@ function getRoomPresenceStatus(status: RoomStatus): PresenceStatus | null {
   return 'IN_GAME';
 }
 
+// presence:update(소켓 broadcast/snapshot)와 GET /friends가 동일 로직을 공유 — 두 지점에서 따로 계산하면
+// 응답 속도 차이로 인해 구독자마다 room 정보가 어긋나는 레이스가 생긴다(A 방 생성 시 일부 친구만 "같이하기" 노출).
+export async function getFriendRoomView(
+  friendId: string,
+  fallbackStatus: PresenceStatus
+): Promise<{ presenceStatus: PresenceStatus; room?: FriendRoom }> {
+  let presenceStatus = fallbackStatus;
+  let room: FriendRoom | undefined;
+
+  const roomCode = await getUserRoom(friendId);
+  if (roomCode) {
+    const roomState = await getRoomState(roomCode);
+    const player = roomState?.players.find((p) => p.id === friendId);
+    if (roomState && player?.connected) {
+      presenceStatus = getRoomPresenceStatus(roomState.status) ?? presenceStatus;
+
+      if (presenceStatus === 'IN_LOBBY') {
+        const storedPw = await getRoomPassword(roomCode);
+        const hasPassword = storedPw !== null;
+        const playerCount = roomState.players.length;
+        const playerCountMax = roomState.config.playerCountMax;
+        const locked = roomState.locked ?? false;
+        room = {
+          code: roomCode,
+          title: roomState.title ?? '게임 방',
+          playerCount,
+          playerCountMax,
+          locked,
+          hasPassword,
+          joinable: playerCount < playerCountMax && (!locked || hasPassword),
+        };
+      }
+    }
+  }
+
+  return { presenceStatus, room };
+}
+
 export async function getFriends(userId: string): Promise<FriendEntry[]> {
   const friendships = await prisma.friendship.findMany({
     where: { OR: [{ userAId: userId }, { userBId: userId }] },
@@ -120,34 +158,8 @@ export async function getFriends(userId: string): Promise<FriendEntry[]> {
   return Promise.all(
     friendships.map(async (f) => {
       const friend = f.userAId === userId ? f.userB : f.userA;
-      let presenceStatus = await getPresence(friend.id);
-
-      let room: FriendRoom | undefined;
-      const roomCode = await getUserRoom(friend.id);
-      if (roomCode) {
-        const roomState = await getRoomState(roomCode);
-        const player = roomState?.players.find((p) => p.id === friend.id);
-        if (roomState && player?.connected) {
-          presenceStatus = getRoomPresenceStatus(roomState.status) ?? presenceStatus;
-
-          if (presenceStatus === 'IN_LOBBY') {
-            const storedPw = await getRoomPassword(roomCode);
-            const hasPassword = storedPw !== null;
-            const playerCount = roomState.players.length;
-            const playerCountMax = roomState.config.playerCountMax;
-            const locked = roomState.locked ?? false;
-            room = {
-              code: roomCode,
-              title: roomState.title ?? '게임 방',
-              playerCount,
-              playerCountMax,
-              locked,
-              hasPassword,
-              joinable: playerCount < playerCountMax && (!locked || hasPassword),
-            };
-          }
-        }
-      }
+      const baseStatus = await getPresence(friend.id);
+      const { presenceStatus, room } = await getFriendRoomView(friend.id, baseStatus);
 
       return {
         friendshipId: f.id,

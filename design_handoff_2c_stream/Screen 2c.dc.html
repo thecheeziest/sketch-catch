@@ -1,0 +1,136 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<style>
+  @font-face { font-family: 'Galmuri11'; src: url('https://cdn.jsdelivr.net/npm/galmuri@latest/dist/Galmuri11.woff2') format('woff2'); font-display: swap; }
+  @font-face { font-family: 'Galmuri14'; src: url('https://cdn.jsdelivr.net/npm/galmuri@latest/dist/Galmuri14.woff2') format('woff2'); font-display: swap; }
+  html, body { margin: 0; background: #0c0813; font-family: 'Galmuri11', monospace; }
+  a { color: #ff2e6a; text-decoration: none; }
+  a:hover { color: #ffffff; }
+  @keyframes popIn { from { transform: translateY(8px) scale(.9); opacity: 0 } to { transform: none; opacity: 1 } }
+</style>
+</helmet>
+
+<div style="padding: 40px; display: flex; justify-content: center">
+  <div style="width: 360px; height: 780px; background: #171122; box-shadow: 0 0 0 4px #2f2440; display: flex; flex-direction: column; overflow: hidden">
+    <div style="display: flex; align-items: center; gap: 14px; padding: 13px 16px; background: #241b34">
+      <div style="font-family: 'Galmuri14', monospace; font-size: 18px; color: #f4ecff">❮</div>
+      <div style="font-family: 'Galmuri14', monospace; font-size: 15px; color: #f4ecff; letter-spacing: 1px">ROUND 2 (2/10)</div>
+      <div style="margin-left: auto; font-size: 12px; color: #b9aed2">12/12</div>
+    </div>
+    <div style="display: flex; align-items: baseline; justify-content: space-between; padding: 8px 16px 8px; background: #241b34">
+      <div style="font-family: 'Galmuri14', monospace; font-size: 25px; color: #ff2e6a">장갑</div>
+      <div style="font-family: 'Galmuri14', monospace; font-size: 23px; color: #f4ecff">20</div>
+    </div>
+    <div style="display: flex; align-items: center; gap: 12px; padding: 0 16px 6px; background: #241b34">
+      <div style="display: flex; align-items: center; gap: 5px"><div style="width: 8px; height: 8px; background: #ff8ac0"></div><div style="font-size: 11px; color: #b9aed2">출제자</div></div>
+      <div style="display: flex; align-items: center; gap: 5px"><div style="width: 8px; height: 8px; background: #2ce39f"></div><div style="font-size: 11px; color: #b9aed2">정답</div></div>
+      <div style="display: flex; align-items: center; gap: 5px"><div style="width: 8px; height: 8px; background: #c0b4d8"></div><div style="font-size: 11px; color: #b9aed2">추측중</div></div>
+    </div>
+    <div style="display: grid; grid-template-columns: repeat(6, 1fr); gap: 6px; padding: 0 12px 12px; background: #241b34">
+      <sc-for list="{{ full.players }}" as="p" hint-placeholder-count="12">
+        <div style="display: flex; flex-direction: column; align-items: center; gap: 2px; padding: 4px 0; background: #1d1629; box-shadow: 0 0 0 2px {{ p.ring }}">
+          <div style="width: 30px; height: 30px; overflow: hidden">
+            <div style="transform: scale(.75); transform-origin: top left">
+              <dc-import name="PixelPet" color="{{ p.color }}" snout="{{ p.snout }}" hint-size="40px,40px"></dc-import>
+            </div>
+          </div>
+          <div style="font-size: 11px; color: #cbbfe2">{{ p.name }}</div>
+          <div style="width: 8px; height: 8px; background: {{ p.dot }}"></div>
+        </div>
+      </sc-for>
+    </div>
+
+    <div style="flex: 1; position: relative; background: #ffffff; overflow: hidden; min-height: 0">
+      <svg viewBox="0 0 300 260" style="position: absolute; inset: 0; width: 100%; height: 100%">
+        <g fill="none" stroke="#14101c" stroke-width="14" stroke-linecap="round">
+          <path d="M62 70 C56 128 66 150 106 152 C150 155 190 153 214 148"></path>
+          <path d="M124 76 C130 106 148 120 172 124"></path>
+          <path d="M226 138 C228 168 240 178 258 172"></path>
+        </g>
+      </svg>
+      <div style="position: absolute; right: 10px; top: 10px; display: flex; flex-direction: column; align-items: flex-end; gap: 6px">
+        <sc-for list="{{ full.stream }}" as="m" hint-placeholder-count="5">
+          <div style="display: flex; align-items: center; gap: 7px; padding: 7px 10px; background: {{ m.bg }}; box-shadow: 0 0 0 3px #0f0a19; animation: popIn .18s steps(3)">
+            <div style="width: 11px; height: 11px; flex: none; background: {{ m.color }}; box-shadow: 0 0 0 2px #0f0a19"></div>
+            <div style="font-size: 11px; color: {{ m.nameFg }}">{{ m.name }}</div>
+            <div style="font-size: 13px; color: {{ m.fg }}">{{ m.text }}</div>
+            <div style="font-family: 'Galmuri14', monospace; font-size: 11px; color: {{ m.badgeFg }}">{{ m.badge }}</div>
+          </div>
+        </sc-for>
+      </div>
+    </div>
+
+    <dc-import name="DrawToolbar" hint-size="100%,140px"></dc-import>
+  </div>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props="{&quot;$preview&quot;:{&quot;width&quot;:440,&quot;height&quot;:860}}">
+const PETS = [
+  ['조아', '#f2a0bc', '#d97d9d'], ['브리', '#a9734a', '#8a5a37'], ['토리', '#8ad7f5', '#5fb4d6'],
+  ['모카', '#c9a27e', '#a67f5c'], ['달이', '#f5e07a', '#d6bd4f'], ['코코', '#b189f0', '#8f65d1'],
+  ['하늘', '#7fe0b0', '#4fbb8b'], ['방울', '#ff9f6e', '#e07a4a'], ['루비', '#ff6b8f', '#e0476c'],
+  ['구름', '#d8d3e8', '#b0aac4'], ['별이', '#9fb4ff', '#7089e0'], ['쿠키', '#e8c58a', '#c8a065']
+];
+const GUESSES = ['양말', '벙어리', '손싸개', '털모자?', '목도리', '스키장갑', '장갑!'];
+const AGE = ['#6a5c86', '#5b4e75', '#4c4064', '#3d3252', '#2f2440'];
+
+class Component extends DCLogic {
+  state = { i: 0 };
+
+  componentDidMount() {
+    ['Galmuri11', 'Galmuri14'].forEach(fam => {
+      if (document.fonts.size && document.fonts.check('12px ' + fam)) return;
+      const ff = new FontFace(fam, "url('https://cdn.jsdelivr.net/npm/galmuri@latest/dist/" + fam + ".woff2') format('woff2')");
+      ff.load().then(f => document.fonts.add(f)).catch(() => {});
+    });
+    this.timer = setInterval(() => this.setState(s => ({ i: s.i + 1 })), 1600);
+  }
+  componentWillUnmount() { clearInterval(this.timer); }
+
+  renderVals() {
+    const n = 12;
+    const pets = PETS.slice(0, n).map(([name, color, snout]) => ({ name, color, snout }));
+    const total = Math.min(this.state.i % (GUESSES.length + 2) + 1, GUESSES.length);
+
+    const msgs = GUESSES.slice(0, total).map((t, k) => {
+      const who = 1 + k % (n - 1);
+      const ok = k === GUESSES.length - 1;
+      return {
+        id: k, who, name: pets[who].name, color: pets[who].color, text: t, ok,
+        bg: ok ? '#14c98a' : '#2f2440',
+        fg: ok ? '#08251a' : '#e8dff5',
+        nameFg: ok ? '#08251a' : '#f4ecff',
+        badge: ok ? '+100' : '',
+        badgeFg: ok ? '#08251a' : '#c0b4d8'
+      };
+    });
+    const latest = w => { const h = msgs.filter(m => m.who === w); return h[h.length - 1]; };
+
+    const players = pets.map((p, w) => {
+      const m = latest(w);
+      const solved = m && m.ok;
+      const drawer = w === 0;
+      return {
+        ...p,
+        ring: drawer ? '#ff2e6a' : (solved ? '#14c98a' : '#4a3a5c'),
+        dot: drawer ? '#ff8ac0' : (solved ? '#2ce39f' : (m ? '#c0b4d8' : '#4a3a5c'))
+      };
+    });
+
+    const tail = msgs.slice(-5);
+    const stream = tail.map((m, k) => ({ ...m, bg: m.ok ? m.bg : AGE[AGE.length - tail.length + k] }));
+
+    return { full: { players, stream } };
+  }
+}
+</script>
+</body>
+</html>

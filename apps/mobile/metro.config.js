@@ -16,11 +16,7 @@ config.resolver.nodeModulesPaths = [
   path.resolve(monorepoRoot, 'node_modules'),
 ];
 
-// 3. 심볼릭 링크 해소 (pnpm은 심볼릭 링크 기반)
-config.resolver.unstable_enableSymlinks = true;
-config.resolver.unstable_enablePackageExports = true;
-
-// 4. TypeScript ESM 패키지 대응: './foo.js' import가 실패하면 './foo.ts'로 재시도
+// 3. TypeScript ESM 패키지 대응: './foo.js' import가 실패하면 './foo.ts'로 재시도
 // (packages/shared처럼 .js 확장자를 명시하는 TypeScript ESM 소스를 Metro가 직접 읽을 때 필요)
 config.resolver.resolveRequest = (context, moduleName, platform) => {
   if (moduleName.endsWith('.js')) {

@@ -259,8 +259,8 @@ export default function Mode2ReviewScreen() {
               return (
                 <SparkleBadge key={sheet.sheetId}>
                   <View sx={{ width: 96, height: 96 }}>
-                    <PixelFrame borderColor={colors.PRIMARY_400} style={StyleSheet.absoluteFillObject}>
-                      <View style={[StyleSheet.absoluteFillObject, { backgroundColor: colors.DARK_100 }]} />
+                    <PixelFrame borderColor={colors.PRIMARY_400} style={StyleSheet.absoluteFill}>
+                      <View style={[StyleSheet.absoluteFill, { backgroundColor: colors.DARK_100 }]} />
                     </PixelFrame>
                     <View sx={{ flex: 1, alignItems: 'center', justifyContent: 'center' }}>
                       {source !== null ? (

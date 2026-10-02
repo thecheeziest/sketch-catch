@@ -20,8 +20,10 @@ type GameStore = {
   round: { roundIndex: number; drawerId: string; durationSec: number } | null;
   promptForDrawer: string | null;
   promptHint: string | null;
-  currentPrompt: string | null;
   needsCustomPrompt: boolean;
+  // 이번 라운드가 출제자가 직접 제시어를 입력하는 커스텀 라운드인지 여부
+  // (프리셋 제시어 라운드에선 '정답 인정' 수동 버튼을 노출하지 않는다)
+  isCustomRound: boolean;
   remoteStrokes: RemoteStroke[];
   chatMessages: ChatMessage[];
   correct: { userId: string; messageId: string } | null;
@@ -32,6 +34,10 @@ type GameStore = {
   color: string;
   width: number;
   eraser: boolean;
+  // 출제자 본인은 stroke:remote를 받지 않으므로(서버가 sender 제외 broadcast), 지우기/되돌리기
+  // 신호를 스토어 nonce로 전달해 DrawingCanvas의 로컬 stroke도 함께 정리한다.
+  drawerClearNonce: number;
+  drawerUndoNonce: number;
   // actions
   registerGameListeners: () => void;
   applyRemoteStroke: (e: StrokeEvent) => void;
@@ -39,6 +45,8 @@ type GameStore = {
   setWidth: (w: number) => void;
   setEraser: (on: boolean) => void;
   clearRemote: () => void;
+  requestDrawerClear: () => void;
+  requestDrawerUndo: () => void;
   reset: () => void;
 };
 
@@ -47,17 +55,20 @@ export const useGameStore = create<GameStore>()(
     round: null,
     promptForDrawer: null,
     promptHint: null,
-    currentPrompt: null,
     needsCustomPrompt: false,
+    isCustomRound: false,
     remoteStrokes: [],
     chatMessages: [],
     correct: null,
     wrongAnswer: null,
     result: null,
     roundResult: null,
-    color: colors.DARK_500,
+    // 드로잉 팔레트(2c) 기본 선택색 = 팔레트 잉크. 팔레트에 없는 값이면 ColorPicker가 미선택으로 보인다.
+    color: '#14101C',
     width: 8,
     eraser: false,
+    drawerClearNonce: 0,
+    drawerUndoNonce: 0,
 
     applyRemoteStroke: (e: StrokeEvent) => {
       set((st) => {
@@ -98,12 +109,22 @@ export const useGameStore = create<GameStore>()(
       // 이벤트명 리터럴 직접 사용 — D-04-04
       socket.on('game:round:start', (payload: RoundStart) => {
         set((st) => {
+          // 커스텀 라운드는 제시어 입력 전/후 두 번의 round:start를 같은 roundIndex로 보낸다.
+          // 새 라운드 진입 시점에만 커스텀 여부를 확정하고, 후속 재전송에선 유지한다.
+          const isNewRound = st.round?.roundIndex !== payload.roundIndex;
           st.round = {
             roundIndex: payload.roundIndex,
             drawerId: payload.drawerId,
             durationSec: payload.durationSec,
           };
-          st.currentPrompt = payload.promptForDrawer ?? null;
+          if (isNewRound) {
+            st.isCustomRound = payload.needsCustomPrompt === true;
+            // 새 라운드 진입 — 직전 라운드의 정답/오답/결과 오버레이 데이터를 정리한다
+            // (결과 오버레이·정답 공개·입력창 상태는 이 값들을 기준으로 삼는다).
+            st.correct = null;
+            st.wrongAnswer = null;
+            st.roundResult = null;
+          }
           if (payload.drawerId === myId) {
             st.promptForDrawer = payload.promptForDrawer ?? null;
             // 커스텀 모드: 제시어 입력 전 첫 game:round:start 이벤트
@@ -153,8 +174,11 @@ export const useGameStore = create<GameStore>()(
         });
       });
 
-      socket.on('answer:wrong', (payload: { messageId: string }) => {
+      socket.on('answer:wrong', (payload: { messageId: string; roundIndex: number }) => {
         set((st) => {
+          // 네트워크 지연으로 응답이 라운드 종료 후 도착하면 다음 라운드 시작 화면에서
+          // 엉뚱하게 "오답입니다" 피드백이 뜬다 — 이미 지난 라운드의 응답이면 무시한다.
+          if (st.round !== null && payload.roundIndex !== st.round.roundIndex) return;
           st.wrongAnswer = payload;
         });
       });
@@ -181,22 +205,34 @@ export const useGameStore = create<GameStore>()(
         st.remoteStrokes = [];
       }),
 
+    requestDrawerClear: () =>
+      set((st) => {
+        st.drawerClearNonce += 1;
+      }),
+
+    requestDrawerUndo: () =>
+      set((st) => {
+        st.drawerUndoNonce += 1;
+      }),
+
     reset: () =>
       set((st) => {
         st.round = null;
         st.promptForDrawer = null;
         st.promptHint = null;
-        st.currentPrompt = null;
         st.needsCustomPrompt = false;
+        st.isCustomRound = false;
         st.remoteStrokes = [];
         st.chatMessages = [];
         st.correct = null;
         st.wrongAnswer = null;
         st.result = null;
         st.roundResult = null;
-        st.color = colors.DARK_500;
+        st.color = '#14101C';
         st.width = 8;
         st.eraser = false;
+        st.drawerClearNonce = 0;
+        st.drawerUndoNonce = 0;
       }),
   }))
 );

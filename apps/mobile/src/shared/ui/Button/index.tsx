@@ -109,8 +109,8 @@ export function Button({
     >
       {({ pressed }) => (
         <>
-          <PixelFrame borderColor={getBorderColor(pressed)} style={StyleSheet.absoluteFillObject}>
-            <View style={[StyleSheet.absoluteFillObject, { backgroundColor: getBg(pressed) }]} />
+          <PixelFrame borderColor={getBorderColor(pressed)} style={StyleSheet.absoluteFill}>
+            <View style={[StyleSheet.absoluteFill, { backgroundColor: getBg(pressed) }]} />
           </PixelFrame>
           <View style={iconOnly ? styles.centerContent : styles.rowContent}>
             {icon && (

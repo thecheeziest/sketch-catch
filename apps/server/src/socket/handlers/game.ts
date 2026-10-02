@@ -197,6 +197,7 @@ export async function endRound(
     roundIndex,
     correctUserId,
     scoreDelta,
+    answer: current.prompt,
   });
 
   const totalTurns = state.turnSchedule?.length ?? 0;

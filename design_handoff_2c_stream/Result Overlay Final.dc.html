@@ -1,0 +1,325 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<style>
+  @font-face { font-family: 'Galmuri11'; src: url('https://cdn.jsdelivr.net/npm/galmuri@latest/dist/Galmuri11.woff2') format('woff2'); font-display: swap; }
+  @font-face { font-family: 'Galmuri14'; src: url('https://cdn.jsdelivr.net/npm/galmuri@latest/dist/Galmuri14.woff2') format('woff2'); font-display: swap; }
+  html, body { margin: 0; background: #0c0813; font-family: 'Galmuri11', monospace; }
+  a { color: #ff2e6a; text-decoration: none; }
+  a:hover { color: #ffffff; }
+
+  /* 2.0s 예산 = fade in .2s + hold 1.5s + fade out .3s. 미리보기는 3s 루프(뒤 1s는 출제 화면 복귀) */
+  @keyframes cycleFade { 0% { opacity: 0 } 6.7% { opacity: 1 } 56.7% { opacity: 1 } 66.7% { opacity: 0 } 100% { opacity: 0 } }
+  @keyframes cyclePop { 0% { opacity: 0; transform: scale(.7) } 6.7% { opacity: 1; transform: scale(1.06) } 13% { transform: scale(1) } 56.7% { opacity: 1; transform: scale(1) } 66.7% { opacity: 0; transform: scale(.94) } 100% { opacity: 0; transform: scale(.7) } }
+  @keyframes cycleBurst { 0% { opacity: 0; transform: translate(0,0) scale(.6) } 8% { opacity: 1 } 50% { opacity: 1 } 60% { opacity: 0; transform: translate(var(--dx), var(--dy)) scale(1) } 100% { opacity: 0; transform: translate(var(--dx), var(--dy)) scale(1) } }
+  @keyframes hop { 0%,100% { transform: translateY(0) } 40% { transform: translateY(-7px) } }
+  @keyframes shiver { 0%,100% { transform: translateX(0) } 30% { transform: translateX(-2px) } 70% { transform: translateX(2px) } }
+  @keyframes playhead { 0% { left: 0 } 66.7% { left: 100% } 100% { left: 100% } }
+</style>
+</helmet>
+
+<div style="padding: 40px; display: flex; flex-direction: column; gap: 22px">
+
+  <div style="display: flex; flex-direction: column; gap: 8px">
+    <div style="font-family: 'Galmuri14', monospace; font-size: 18px; color: #f4ecff">8b 중앙 폭죽 팝 — 확정안</div>
+    <div style="font-size: 13px; line-height: 1.7; color: #b9aed2; max-width: 880px">출제 화면 위에 2.0초간 얹히는 결과 오버레이. 점수는 <b style="color: #f4ecff">score 값을 그대로 대입</b>합니다(계산은 앱에서). 오답은 기회 카운트 없이 "오답입니다!"만 알리고 라운드는 계속됩니다.</div>
+  </div>
+
+  <div style="display: flex; align-items: center; gap: 12px; padding: 10px 12px; background: #1d1629; box-shadow: 0 0 0 3px #2f2440; width: max-content">
+    <div style="font-family: 'Galmuri14', monospace; font-size: 11px; color: #b9aed2">2.0s</div>
+    <div style="position: relative; width: 300px; height: 18px; display: flex; overflow: hidden">
+      <div style="width: 10%; background: #2ce39f"></div>
+      <div style="width: 75%; background: #ffd21f"></div>
+      <div style="width: 15%; background: #ff2e6a"></div>
+      <div style="position: absolute; top: 0; bottom: 0; width: 3px; background: #f4ecff; animation: playhead 3s linear infinite"></div>
+    </div>
+    <div style="display: flex; gap: 10px">
+      <div style="font-size: 11px; color: #2ce39f">in .2s</div>
+      <div style="font-size: 11px; color: #ffd21f">hold 1.5s</div>
+      <div style="font-size: 11px; color: #ff2e6a">out .3s</div>
+    </div>
+  </div>
+
+  <div style="display: flex; gap: 18px; flex-wrap: wrap">
+
+    <div style="display: flex; flex-direction: column; gap: 8px">
+      <div style="font-size: 12px; color: #9d90bb">① 출제 화면</div>
+      <div style="position: relative; width: 290px; height: 600px; background: #171122; box-shadow: 0 0 0 4px #2f2440; display: flex; flex-direction: column; overflow: hidden">
+        <div style="display: flex; align-items: center; gap: 9px; padding: 10px 12px; background: #241b34; flex: none">
+          <div style="font-family: 'Galmuri14', monospace; font-size: 15px; color: #f4ecff">&#10094;</div>
+          <div style="font-family: 'Galmuri14', monospace; font-size: 12px; color: #f4ecff; letter-spacing: 1px">ROUND 3 (3/10)</div>
+          <div style="margin-left: auto; font-size: 11px; color: #b9aed2">0/6</div>
+        </div>
+        <div style="display: flex; align-items: baseline; justify-content: space-between; padding: 5px 12px 8px; background: #241b34; flex: none">
+          <div style="font-family: 'Galmuri14', monospace; font-size: 20px; color: #ff2e6a">{{ answer }}</div>
+          <div style="font-family: 'Galmuri14', monospace; font-size: 19px; color: #f4ecff">9</div>
+        </div>
+        <div style="display: flex; gap: 7px; padding: 0 12px 10px; background: #241b34; flex: none">
+          <sc-for list="{{ playRoster }}" as="p" hint-placeholder-count="3">
+            <div style="width: 62px; padding: 4px 0; background: #1d1629; box-shadow: 0 0 0 2px {{ p.ring }}; display: flex; flex-direction: column; align-items: center; gap: 2px">
+              <div style="width: 26px; height: 26px; overflow: hidden">
+                <div style="transform: scale(.65); transform-origin: top left">
+                  <dc-import name="PixelPet" color="{{ p.color }}" snout="{{ p.snout }}" hint-size="40px,40px"></dc-import>
+                </div>
+              </div>
+              <div style="font-size: 11px; color: #cbbfe2">{{ p.name }}</div>
+              <div style="width: 7px; height: 7px; background: {{ p.dot }}"></div>
+            </div>
+          </sc-for>
+        </div>
+
+        <div style="position: relative; flex: 1; min-height: 0; background: #ffffff; overflow: hidden">
+          <svg viewBox="0 0 300 300" style="position: absolute; inset: 0; width: 100%; height: 100%">
+            <g fill="none" stroke="#14101c" stroke-width="14" stroke-linecap="round">
+              <path d="M62 70 C56 128 66 150 106 152 C150 155 190 153 214 148"></path>
+              <path d="M124 76 C130 106 148 120 172 124"></path>
+              <path d="M226 138 C228 168 240 178 258 172"></path>
+            </g>
+          </svg>
+          <div style="position: absolute; right: 8px; top: 8px; display: flex; flex-direction: column; align-items: flex-end; gap: 5px">
+            <sc-for list="{{ baseStream }}" as="m" hint-placeholder-count="3">
+              <div style="display: flex; align-items: center; gap: 6px; padding: 6px 9px; background: {{ m.bg }}; box-shadow: 0 0 0 3px #0f0a19">
+                <div style="width: 9px; height: 9px; background: {{ m.color }}; box-shadow: 0 0 0 2px #0f0a19"></div>
+                <div style="font-size: 11px; color: #f4ecff">{{ m.name }}</div>
+                <div style="font-size: 12px; color: #e8dff5">{{ m.text }}</div>
+              </div>
+            </sc-for>
+          </div>
+        </div>
+
+        <div style="padding: 8px 10px; background: #171122; flex: none; display: flex; flex-direction: column; gap: 6px">
+          <div style="display: grid; grid-template-columns: repeat(8, 1fr); gap: 4px">
+            <sc-for list="{{ palette }}" as="c" hint-placeholder-count="16">
+              <div style="height: 22px; background: {{ c.hex }}; box-shadow: {{ c.ring }}"></div>
+            </sc-for>
+          </div>
+          <div style="height: 40px; display: flex; align-items: center; justify-content: center; background: #241b34; box-shadow: inset 0 0 0 3px #3a2d52">
+            <div style="font-size: 12px; color: #b9aed2">정답을 입력하세요</div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <sc-for list="{{ states }}" as="s" hint-placeholder-count="3">
+      <div style="display: flex; flex-direction: column; gap: 8px">
+        <div style="font-size: 12px; color: #9d90bb">{{ s.step }}</div>
+        <div style="position: relative; width: 290px; height: 600px; background: #171122; box-shadow: 0 0 0 4px #2f2440; display: flex; flex-direction: column; overflow: hidden">
+          <div style="display: flex; align-items: center; gap: 9px; padding: 10px 12px; background: #241b34; flex: none">
+            <div style="font-family: 'Galmuri14', monospace; font-size: 15px; color: #f4ecff">&#10094;</div>
+            <div style="font-family: 'Galmuri14', monospace; font-size: 12px; color: #f4ecff; letter-spacing: 1px">ROUND 3 (3/10)</div>
+            <div style="margin-left: auto; font-size: 11px; color: #b9aed2">{{ s.solved }}</div>
+          </div>
+          <div style="display: flex; align-items: baseline; justify-content: space-between; padding: 5px 12px 8px; background: #241b34; flex: none">
+            <div style="font-family: 'Galmuri14', monospace; font-size: 20px; color: {{ s.wordFg }}">{{ s.word }}</div>
+            <div style="font-family: 'Galmuri14', monospace; font-size: 19px; color: {{ s.timerFg }}">{{ s.timer }}</div>
+          </div>
+          <div style="display: flex; gap: 7px; padding: 0 12px 10px; background: #241b34; flex: none">
+            <sc-for list="{{ s.roster }}" as="p" hint-placeholder-count="3">
+              <div style="width: 62px; padding: 4px 0; background: #1d1629; box-shadow: 0 0 0 2px {{ p.ring }}; display: flex; flex-direction: column; align-items: center; gap: 2px">
+                <div style="width: 26px; height: 26px; overflow: hidden">
+                  <div style="transform: scale(.65); transform-origin: top left">
+                    <dc-import name="PixelPet" color="{{ p.color }}" snout="{{ p.snout }}" hint-size="40px,40px"></dc-import>
+                  </div>
+                </div>
+                <div style="font-size: 11px; color: #cbbfe2">{{ p.name }}</div>
+                <div style="width: 7px; height: 7px; background: {{ p.dot }}"></div>
+              </div>
+            </sc-for>
+          </div>
+
+          <div style="position: relative; flex: 1; min-height: 0; background: #ffffff; overflow: hidden">
+            <svg viewBox="0 0 300 300" style="position: absolute; inset: 0; width: 100%; height: 100%">
+              <g fill="none" stroke="#14101c" stroke-width="14" stroke-linecap="round">
+                <path d="M62 70 C56 128 66 150 106 152 C150 155 190 153 214 148"></path>
+                <path d="M124 76 C130 106 148 120 172 124"></path>
+                <path d="M226 138 C228 168 240 178 258 172"></path>
+              </g>
+            </svg>
+            <div style="position: absolute; right: 8px; top: 8px; display: flex; flex-direction: column; align-items: flex-end; gap: 5px">
+              <sc-for list="{{ s.stream }}" as="m" hint-placeholder-count="3">
+                <div style="display: flex; align-items: center; gap: 6px; padding: 6px 9px; background: {{ m.bg }}; box-shadow: 0 0 0 3px #0f0a19">
+                  <div style="width: 9px; height: 9px; background: {{ m.color }}; box-shadow: 0 0 0 2px #0f0a19"></div>
+                  <div style="font-size: 11px; color: {{ m.nameFg }}">{{ m.name }}</div>
+                  <div style="font-size: 12px; color: {{ m.fg }}">{{ m.text }}</div>
+                </div>
+              </sc-for>
+            </div>
+
+            <div style="position: absolute; inset: 0; background: {{ s.scrim }}; animation: cycleFade 3s linear infinite"></div>
+
+            <div style="position: absolute; left: 50%; top: 42%; pointer-events: none">
+              <sc-for list="{{ s.pieces }}" as="c" hint-placeholder-count="12">
+                <div style="position: absolute; width: {{ c.size }}; height: {{ c.size }}; background: {{ c.blockBg }}; box-shadow: {{ c.blockRing }}; --dx: {{ c.dx }}; --dy: {{ c.dy }}; animation: cycleBurst 3s steps(9) infinite; animation-delay: {{ c.delay }}">
+                  <sc-if value="{{ c.isX }}" hint-placeholder-val="{{ false }}">
+                    <div style="position: absolute; left: 35%; top: 0; width: 30%; height: 100%; background: {{ c.color }}; transform: rotate(45deg)"></div>
+                    <div style="position: absolute; left: 35%; top: 0; width: 30%; height: 100%; background: {{ c.color }}; transform: rotate(-45deg)"></div>
+                  </sc-if>
+                </div>
+              </sc-for>
+            </div>
+
+            <div style="position: absolute; left: 0; right: 0; top: 30%; display: flex; flex-direction: column; align-items: center; gap: 11px; animation: cyclePop 3s steps(7) infinite">
+              <div style="padding: 11px 18px; background: {{ s.accent }}; box-shadow: 0 0 0 4px #0f0a19, 0 6px 0 4px {{ s.accentDark }}">
+                <div style="font-family: 'Galmuri14', monospace; font-size: 21px; color: {{ s.onAccent }}">{{ s.title }}</div>
+              </div>
+              <sc-if value="{{ s.showScore }}" hint-placeholder-val="{{ true }}">
+                <div style="padding: 6px 12px; background: #ffd21f; box-shadow: 0 0 0 3px #0f0a19">
+                  <div style="font-family: 'Galmuri14', monospace; font-size: 16px; color: #14101c">{{ scoreLabel }}</div>
+                </div>
+              </sc-if>
+              <div style="padding: 5px 10px; background: {{ s.chipBg }}; box-shadow: 0 0 0 3px #0f0a19">
+                <div style="font-size: 12px; color: {{ s.chipFg }}">{{ s.meta }}</div>
+              </div>
+              <sc-if value="{{ s.showAnswer }}" hint-placeholder-val="{{ true }}">
+                <div style="padding: 8px 14px; background: #ffd21f; box-shadow: 0 0 0 4px #0f0a19, 0 5px 0 4px #7a4a24">
+                  <div style="font-family: 'Galmuri14', monospace; font-size: 16px; color: #14101c">{{ answerLabel }}</div>
+                </div>
+              </sc-if>
+              <div style="width: 40px; height: 40px; overflow: hidden; animation: {{ s.petAnim }}">
+                <dc-import name="PixelPet" color="{{ s.petColor }}" snout="{{ s.petSnout }}" hint-size="40px,40px"></dc-import>
+              </div>
+            </div>
+          </div>
+
+          <div style="padding: 8px 10px; background: #171122; flex: none; display: flex; flex-direction: column; gap: 6px">
+            <div style="display: grid; grid-template-columns: repeat(8, 1fr); gap: 4px">
+              <sc-for list="{{ palette }}" as="c" hint-placeholder-count="16">
+                <div style="height: 22px; background: {{ c.hex }}; box-shadow: {{ c.ring }}"></div>
+              </sc-for>
+            </div>
+            <div style="height: 40px; display: flex; align-items: center; justify-content: center; background: #241b34; box-shadow: inset 0 0 0 3px {{ s.inputRing }}">
+              <div style="font-size: 12px; color: {{ s.inputFg }}">{{ s.inputText }}</div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </sc-for>
+  </div>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props="{&quot;score&quot;:{&quot;editor&quot;:&quot;int&quot;,&quot;default&quot;:100,&quot;min&quot;:0,&quot;max&quot;:1000,&quot;step&quot;:10,&quot;tsType&quot;:&quot;number&quot;,&quot;section&quot;:&quot;결과 데이터&quot;},&quot;answer&quot;:{&quot;editor&quot;:&quot;text&quot;,&quot;default&quot;:&quot;카멜레온&quot;,&quot;tsType&quot;:&quot;string&quot;,&quot;section&quot;:&quot;결과 데이터&quot;},&quot;winnerName&quot;:{&quot;editor&quot;:&quot;text&quot;,&quot;default&quot;:&quot;조아&quot;,&quot;tsType&quot;:&quot;string&quot;,&quot;section&quot;:&quot;결과 데이터&quot;},&quot;solveSeconds&quot;:{&quot;editor&quot;:&quot;int&quot;,&quot;default&quot;:6,&quot;min&quot;:1,&quot;max&quot;:60,&quot;tsType&quot;:&quot;number&quot;,&quot;section&quot;:&quot;결과 데이터&quot;}}">
+const CONF = ['#ff2e6a', '#ffd21f', '#2ce39f', '#6fd3f0', '#c4a3f5', '#ff8ac0'];
+const PALETTE = ['#ff7a6e','#d61f24','#ffc79c','#ff8a1f','#7a4a24','#ffd21f','#a8e05a','#17a86b','#6fd3f0','#1f5bd6','#c4a3f5','#7a2ee0','#ff8ac0','#ffffff','#9a9aa6','#14101c'];
+
+function shape(isX, color) {
+  return isX
+    ? { isX: true, blockBg: 'transparent', blockRing: 'none' }
+    : { isX: false, blockBg: color, blockRing: '0 0 0 2px #0f0a19' };
+}
+function radial(n, radius, colors, size, isX) {
+  const out = [];
+  for (let k = 0; k < n; k++) {
+    const a = (k / n) * Math.PI * 2;
+    const color = colors[k % colors.length];
+    out.push({
+      id: k,
+      size: (isX ? (k % 3 === 0 ? size + 6 : size + 3) : (k % 3 === 0 ? size + 4 : size)) + 'px',
+      color, ...shape(isX, color),
+      dx: Math.round(Math.cos(a) * radius) + 'px',
+      dy: Math.round(Math.sin(a) * radius) + 'px',
+      delay: ((k % 4) * 0.05).toFixed(2) + 's'
+    });
+  }
+  return out;
+}
+
+class Component extends DCLogic {
+  componentDidMount() {
+    ['Galmuri11', 'Galmuri14'].forEach(fam => {
+      if (document.fonts.size && document.fonts.check('12px ' + fam)) return;
+      const ff = new FontFace(fam, "url('https://cdn.jsdelivr.net/npm/galmuri@latest/dist/" + fam + ".woff2') format('woff2')");
+      ff.load().then(f => document.fonts.add(f)).catch(() => {});
+    });
+  }
+
+  renderVals() {
+    // 점수는 앱이 계산한 값을 그대로 대입한다 (여기서는 프롭으로 주입)
+    const score = this.props.score ?? 100;
+    const answer = this.props.answer ?? '카멜레온';
+    const winner = this.props.winnerName ?? '조아';
+    const solveSeconds = this.props.solveSeconds ?? 6;
+
+    const pets = [
+      { name: winner, color: '#f2a0bc', snout: '#d97d9d' },
+      { name: '자돌', color: '#9a9aa6', snout: '#6d6d78' },
+      { name: '브리', color: '#a9734a', snout: '#8a5a37' }
+    ];
+    const rosterFor = key => pets.map((p, k) => ({
+      ...p,
+      ring: k === 0 ? (key === 'correct' ? '#14c98a' : '#ff2e6a') : '#4a3a5c',
+      dot: k === 0
+        ? (key === 'correct' ? '#2ce39f' : '#ff8ac0')
+        : (key === 'over' ? '#4a3a5c' : '#c0b4d8')
+    }));
+
+    const baseStream = [
+      { id: 0, name: '브리', color: '#a9734a', text: '도마뱀', bg: '#4c4064', nameFg: '#f4ecff', fg: '#e8dff5' },
+      { id: 1, name: '자돌', color: '#9a9aa6', text: '이구아나', bg: '#3d3252', nameFg: '#f4ecff', fg: '#e8dff5' },
+      { id: 2, name: '브리', color: '#a9734a', text: '도롱뇽?', bg: '#2f2440', nameFg: '#f4ecff', fg: '#e8dff5' }
+    ];
+
+    const states = [
+      {
+        step: '② 정답', key: 'correct',
+        word: answer, wordFg: '#2ce39f', timer: '6', timerFg: '#f4ecff', solved: '1/6',
+        accent: '#2ce39f', accentDark: '#0b6b4c', onAccent: '#06251a',
+        scrim: 'rgba(6,37,26,.34)',
+        title: '정답입니다!', meta: winner + ' · ' + solveSeconds + '초',
+        chipBg: '#0b6b4c', chipFg: '#eafff6',
+        petColor: '#f2a0bc', petSnout: '#d97d9d', petAnim: 'hop .9s ease-in-out infinite',
+        showAnswer: false, showScore: true,
+        inputRing: '#2ce39f', inputFg: '#2ce39f', inputText: '정답! 다음 라운드 준비중',
+        stream: baseStream.slice(-2).concat([{ id: 9, name: winner, color: '#f2a0bc', text: answer, bg: '#14c98a', nameFg: '#08251a', fg: '#08251a' }]),
+        pieces: radial(12, 118, CONF, 8, false),
+        roster: rosterFor('correct')
+      },
+      {
+        step: '③ 오답 (라운드 계속)', key: 'wrong',
+        word: '□ □ □ □', wordFg: '#4a3a5c', timer: '8', timerFg: '#ff2e6a', solved: '0/6',
+        accent: '#ff2e6a', accentDark: '#7a0a26', onAccent: '#2b0410',
+        scrim: 'rgba(42,13,22,.3)',
+        title: '오답입니다!', meta: '자돌 · 도마뱀',
+        chipBg: '#4c1020', chipFg: '#ffc4d5',
+        petColor: '#9a9aa6', petSnout: '#6d6d78', petAnim: 'shiver .24s steps(2) infinite',
+        showAnswer: false, showScore: false,
+        inputRing: '#ff2e6a', inputFg: '#ffc4d5', inputText: '다시 입력하세요',
+        stream: baseStream,
+        pieces: radial(10, 112, ['#ff2e6a', '#ff8ac0'], 8, true),
+        roster: rosterFor('wrong')
+      },
+      {
+        step: '④ 게임 오버', key: 'over',
+        word: '□ □ □ □', wordFg: '#4a3a5c', timer: '0', timerFg: '#ff2020', solved: '0/6',
+        accent: '#ff2020', accentDark: '#5a0a14', onAccent: '#2b0410',
+        scrim: 'rgba(26,16,48,.5)',
+        title: 'GAME OVER', meta: '아무도 못 맞혔어요',
+        chipBg: '#2f2440', chipFg: '#e8dff5',
+        petColor: '#9a9aa6', petSnout: '#6d6d78', petAnim: 'shiver .28s steps(2) infinite',
+        showAnswer: true, showScore: false,
+        inputRing: '#3a2d52', inputFg: '#9d90bb', inputText: '라운드 종료',
+        stream: baseStream,
+        pieces: radial(12, 116, ['#c4a3f5', '#c0b4d8'], 8, true),
+        roster: rosterFor('over')
+      }
+    ];
+
+    return {
+      states, answer,
+      scoreLabel: '+' + score + ' POINT',
+      answerLabel: '정답은 ' + answer + '!',
+      playRoster: rosterFor('play'),
+      baseStream,
+      palette: PALETTE.map((hex, k) => ({ id: k, hex, ring: k === 15 ? '0 0 0 3px #ff2e6a' : '0 0 0 2px #0f0a19' }))
+    };
+  }
+}
+</script>
+</body>
+</html>

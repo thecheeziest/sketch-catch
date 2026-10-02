@@ -1,4 +1,4 @@
-import { colors, getCharacterImageSource, spacing } from '@/shared/config';
+import { colors, getCharacterImageSource, spacing, textSizes } from '@/shared/config';
 import { Badge } from '@/shared/ui/Badge';
 import { Icon } from '@/shared/ui/Icon';
 import { PixelFrame } from '@/shared/ui/PixelFrame';
@@ -70,15 +70,17 @@ export function SlotCard({ player, isMe, cardWidth, isLeft = false }: Props) {
           : colors.GRAY;
   const borderWidth = isMe ? 3 : 2;
   const imageSource = getCharacterImageSource(player.characterId);
+  // 좁은 그리드(4열 등)에서 캐릭터 이미지가 카드 높이를 넘겨 닉네임과 겹치지 않도록 카드 폭에 비례
+  const charSize = Math.max(28, Math.min(44, Math.round(cardWidth * 0.5)));
 
   return (
     <View sx={{ aspectRatio: 0.85, margin: spacing.XS, width: cardWidth }}>
       <PixelFrame
         borderColor={borderColor}
         borderWidth={borderWidth}
-        style={StyleSheet.absoluteFillObject}
+        style={StyleSheet.absoluteFill}
       >
-        <View style={[StyleSheet.absoluteFillObject, { backgroundColor }]} />
+        <View style={[StyleSheet.absoluteFill, { backgroundColor }]} />
         {isHost && !isLeft && (
           <View style={styles.badgeContainer}>
             <Badge label="방장" color={colors.PRIMARY_400} />
@@ -89,31 +91,32 @@ export function SlotCard({ player, isMe, cardWidth, isLeft = false }: Props) {
             <Icon name="CLOSE" size={14} color={colors.LIGHT_100} />
           </View>
         )}
-        <View sx={{ flex: 1, alignItems: 'center', justifyContent: 'center', paddingTop: spacing.SM }}>
+        <View sx={{ flex: 1, alignItems: 'center', justifyContent: 'center', paddingTop: spacing.XS }}>
           {imageSource !== null ? (
             <Image
               source={imageSource}
-              sx={{ width: 48, height: 48 }}
+              sx={{ width: charSize, height: charSize }}
               resizeMode="contain"
               style={isLeft ? styles.dimmedImage : undefined}
             />
           ) : (
             <View
-              sx={{ width: 48, height: 48, backgroundColor: colors.SECONDARY_400 }}
+              sx={{ width: charSize, height: charSize, backgroundColor: colors.SECONDARY_400 }}
               style={isLeft ? styles.dimmedImage : undefined}
             />
           )}
         </View>
-        <View sx={{ paddingHorizontal: spacing.XS, paddingBottom: spacing.SM, gap: spacing.XS }}>
+        <View sx={{ paddingHorizontal: spacing.XS, paddingBottom: spacing.XS }}>
           <Text
-            sx={{ color: isLeft ? colors.GRAY : player.isReady ? colors.LIGHT_100 : colors.SECONDARY_500, textAlign: 'center' }}
+            sx={{ ...textSizes.B3, color: isLeft ? colors.GRAY : player.isReady ? colors.LIGHT_100 : colors.SECONDARY_500, textAlign: 'center' }}
             style={isLeft ? styles.strikethrough : undefined}
             numberOfLines={1}
+            ellipsizeMode="tail"
           >
             {player.nickname}
           </Text>
           {!isHost && (
-            <Text variant="B4" sx={{ color: isLeft ? colors.GRAY : player.isReady ? colors.LIGHT_100 : colors.DARK_100, textAlign: 'center' }}>
+            <Text variant="B4" sx={{ color: isLeft ? colors.GRAY : player.isReady ? colors.LIGHT_100 : colors.DARK_100, textAlign: 'center' }} numberOfLines={1}>
               {isLeft ? '나감' : player.isReady ? '준비 완료' : '대기 중'}
             </Text>
           )}

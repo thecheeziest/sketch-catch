@@ -39,8 +39,8 @@ export function CharacterGrid({ selectedId, onSelect }: Props) {
             onPress={() => onSelect(item)}
             style={({ pressed }) => [styles.cell, { width: cellSize, height: cellSize }, pressed && { opacity: 0.7 }]}
           >
-            <PixelFrame borderColor={borderColor} style={StyleSheet.absoluteFillObject}>
-              <View style={[StyleSheet.absoluteFillObject, { backgroundColor }]} />
+            <PixelFrame borderColor={borderColor} style={StyleSheet.absoluteFill}>
+              <View style={[StyleSheet.absoluteFill, { backgroundColor }]} />
               <View style={styles.cellContent}>
                 {source && (
                   <Image

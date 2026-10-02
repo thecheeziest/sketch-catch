@@ -4,7 +4,7 @@ import { useAuthStore, useRoomStore, useToastStore } from '@/shared/model';
 import { copyToClipboard } from '@/shared/lib';
 import { Button, FlatList, Icon } from '@/shared/ui';
 import type { Player } from '@sketch-catch/shared';
-import { CLIENT_EVENT } from '@sketch-catch/shared';
+import { CLIENT_EVENT, MODE2_PLAYER_MIN } from '@sketch-catch/shared';
 import { Text, View } from 'dripsy';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { useEffect, useRef, useState } from 'react';
@@ -76,6 +76,15 @@ export default function LobbyScreen() {
   const me = roomState?.players.find((p) => p.id === myId);
   const isHost = me?.isHost ?? false;
   const allReady = roomState?.allReady ?? false;
+  const connectedPlayerCount = roomState?.players.filter((p) => p.connected).length ?? 0;
+  const hasEnoughMode2Players = roomState?.mode !== 2 || connectedPlayerCount >= MODE2_PLAYER_MIN;
+  const canStartGame = allReady && hasEnoughMode2Players;
+  const startButtonLabel = (() => {
+    if (roomState?.mode === 2 && !hasEnoughMode2Players) {
+      return `최소 ${MODE2_PLAYER_MIN}명 필요`;
+    }
+    return '게임 시작';
+  })();
 
   const handleCopyCode = (): Promise<void> => copyToClipboard(code ?? '', '코드가 복사되었습니다');
 
@@ -160,9 +169,9 @@ export default function LobbyScreen() {
       >
         {isHost ? (
           <Button
-            label="게임 시작"
-            color={allReady ? 'primary' : 'light'}
-            disabled={!allReady}
+            label={startButtonLabel}
+            color={canStartGame ? 'primary' : 'light'}
+            disabled={!canStartGame}
             onPress={() => socket?.emit(CLIENT_EVENT.ROOM_START)}
           />
         ) : me?.isReady ? (

@@ -3,28 +3,20 @@ import { z } from 'zod';
 import { authenticate } from '../middleware/authenticate.js';
 import { enqueueMatch, dequeueMatch } from '../services/match.service.js';
 import { logger } from '../lib/logger.js';
-import { broadcastPresenceUpdate } from '../socket/presence.namespace.js';
 
-// D-08: 6/8/10명만
 const matchBodySchema = z.object({
-  playerCount: z.union([z.literal(6), z.literal(8), z.literal(10)]),
+  mode: z.union([z.literal(1), z.literal(2)]),
 });
 
 export const matchRoutes: FastifyPluginAsync = async (app) => {
-  // POST /match — 큐 진입 (인원 충족 시 즉시 방 생성)
+  // POST /match — 매칭 로비 진입. 실제 방 배정은 카운트다운 종료 후 소켓(match:found)으로 push되므로 여기선 큐 등록만 한다.
   app.post('/match', { preHandler: authenticate }, async (req, reply) => {
     const parsed = matchBodySchema.safeParse(req.body);
     if (!parsed.success) return reply.status(400).send({ error: 'INVALID_INPUT' });
 
     try {
-      const result = await enqueueMatch(req.userId!, parsed.data.playerCount);
-      if (result) {
-        result.userIds.forEach((userId) => broadcastPresenceUpdate(userId, 'IN_LOBBY'));
-        // 즉시 매칭됨 — 방 코드 반환
-        return reply.send({ matched: true, code: result.code });
-      }
-      // 인원 미충족 — 대기 중
-      return reply.send({ matched: false });
+      await enqueueMatch(req.userId!, parsed.data.mode);
+      return reply.status(204).send();
     } catch (err) {
       logger.error({ err }, 'POST /match failed — 매칭에 실패했습니다.');
       return reply.status(500).send({ error: 'INTERNAL' });

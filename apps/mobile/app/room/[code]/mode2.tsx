@@ -19,6 +19,7 @@ export default function Mode2Screen() {
   const socket = useRoomStore((s) => s.socket);
   const roomState = useRoomStore((s) => s.roomState);
   const step = useMode2Store((s) => s.step);
+  const myStrokesLength = useMode2Store((s) => s.myStrokes.length);
   const { submitPrompt, submitDraw, submitAnswer } = useMode2Sender();
 
   const [text, setText] = useState('');
@@ -29,13 +30,14 @@ export default function Mode2Screen() {
 
     useMode2Store.getState().reset();
 
+    // ROOM_JOIN 응답으로 서버가 현재 스텝을 재전송하므로, 리스너를 먼저 등록한 뒤 join한다.
+    useMode2Store.getState().registerMode2Listeners();
+
     const handleConnect = (): void => {
       socket.emit(CLIENT_EVENT.ROOM_JOIN, { code });
     };
     socket.on('connect', handleConnect);
     if (socket.connected) handleConnect();
-
-    useMode2Store.getState().registerMode2Listeners();
 
     return () => {
       socket.off('connect', handleConnect);
@@ -51,10 +53,12 @@ export default function Mode2Screen() {
     }
   }, [roomState?.status, code, router]);
 
-  // 단계 전환 시 로컬 입력/제출 상태 초기화
+  // 단계 전환 시 로컬 입력/제출 상태 초기화 — myStrokes도 비워 이전 DRAW 단계의 stroke가
+  // 제출되는 것을 막는다 (DrawingCanvas는 key로 remount되지만 store는 유지되므로)
   useEffect(() => {
     setText('');
     setSubmitted(false);
+    useMode2Store.getState().setMyStrokes([]);
   }, [step?.stepIndex]);
 
   const handleExitAttempt = useCallback((): void => {
@@ -107,7 +111,11 @@ export default function Mode2Screen() {
   };
 
   const isTextPhase = step.phase === 'PROMPT' || step.phase === 'ANSWER';
-  const submitDisabled = isTextPhase && text.trim().length === 0;
+  const submitDisabled = (() => {
+    if (isTextPhase) return text.trim().length === 0;
+    if (step.phase === 'DRAW') return myStrokesLength === 0;
+    return false;
+  })();
 
   const renderContent = () => {
     if (showWaiting) {

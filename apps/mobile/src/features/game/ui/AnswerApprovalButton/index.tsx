@@ -2,8 +2,7 @@ import { useState } from 'react';
 import { Text, View, ScrollView } from 'dripsy';
 import { Pressable, StyleSheet } from 'react-native';
 import type { ChatMessage } from '@sketch-catch/shared';
-import { colors, spacing, textSizes } from '@/shared/config';
-import { Button } from '@/shared/ui/Button';
+import { colors, fontFamily, spacing, textSizes } from '@/shared/config';
 import { Dialog } from '@/shared/ui/Dialog';
 import { PixelFrame } from '@/shared/ui/PixelFrame';
 
@@ -47,15 +46,20 @@ export function AnswerApprovalButton({ selectedUserId, selectedNickname, chatMes
 
   return (
     <>
-      <View style={{ opacity: isActive ? 1 : 0.3 }}>
-        <Button
-          label="정답 인정"
-          color="secondary"
-          height={40}
-          onPress={handleOpenPanel}
-          disabled={!isActive}
-        />
-      </View>
+      {/* 선택된 답안자가 없으면 버튼 자체를 렌더하지 않는다 — 숨김과 비활성(클릭 불가)을 항상 일치시킨다.
+          범례 라인 오른쪽 끝에 들어가므로 컴팩트한 인라인 버튼으로 렌더한다. */}
+      {isActive && (
+        <Pressable onPress={handleOpenPanel} accessibilityLabel={`${selectedNickname} 정답 인정`} style={styles.trigger}>
+          <PixelFrame borderColor={colors.SECONDARY_200} borderWidth={2} style={StyleSheet.absoluteFill}>
+            <View style={[StyleSheet.absoluteFill, { backgroundColor: colors.SECONDARY_300 }]} />
+          </PixelFrame>
+          <View style={styles.triggerContent}>
+            <Text sx={{ fontFamily: fontFamily.REGULAR, fontSize: 11, lineHeight: 13, color: colors.WHITE }}>
+              정답 인정
+            </Text>
+          </View>
+        </Pressable>
+      )}
 
       <Dialog
         visible={panelVisible}
@@ -88,11 +92,11 @@ export function AnswerApprovalButton({ selectedUserId, selectedNickname, chatMes
                       <PixelFrame
                         borderColor={isSelected ? colors.PRIMARY_400 : colors.DARK_200}
                         borderWidth={2}
-                        style={StyleSheet.absoluteFillObject}
+                        style={StyleSheet.absoluteFill}
                       >
                         <View
                           style={[
-                            StyleSheet.absoluteFillObject,
+                            StyleSheet.absoluteFill,
                             { backgroundColor: isSelected ? colors.PRIMARY_100 : colors.DARK_100 },
                           ]}
                         />
@@ -120,4 +124,11 @@ const sxStyles = {
 
 const styles = StyleSheet.create({
   bubbleWrapper: { position: 'relative' },
+  trigger: {
+    alignSelf: 'center',
+  },
+  triggerContent: {
+    paddingHorizontal: 10,
+    paddingVertical: 4,
+  },
 });

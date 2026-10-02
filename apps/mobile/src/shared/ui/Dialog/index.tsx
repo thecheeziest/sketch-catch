@@ -104,8 +104,8 @@ export function Dialog({ visible, onClose, title, children, buttons, dismissible
           onStartShouldSetResponder={() => true}
         >
           {/* absoluteFill: 패널 높이 결정 후 배경을 pixel corner로 clip */}
-          <PixelFrame borderColor={colors.SECONDARY_200} style={StyleSheet.absoluteFillObject}>
-            <View style={[StyleSheet.absoluteFillObject, { backgroundColor: colors.DARK_300 }]} />
+          <PixelFrame borderColor={colors.SECONDARY_200} style={StyleSheet.absoluteFill}>
+            <View style={[StyleSheet.absoluteFill, { backgroundColor: colors.DARK_300 }]} />
           </PixelFrame>
           {/* normal flow: 패널 높이 결정, z-order상 PixelFrame 위에 렌더링됨 */}
           <View sx={{ padding: spacing.LG, gap: spacing.MD }}>
@@ -136,7 +136,7 @@ export function Dialog({ visible, onClose, title, children, buttons, dismissible
 const styles = StyleSheet.create({
   overlay: { backgroundColor: 'rgba(0,0,0,0.55)' },
   center: {
-    ...StyleSheet.absoluteFillObject,
+    ...StyleSheet.absoluteFill,
     justifyContent: 'center',
     paddingHorizontal: spacing.MD,
   },

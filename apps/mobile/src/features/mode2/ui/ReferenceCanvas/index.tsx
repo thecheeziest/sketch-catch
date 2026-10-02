@@ -23,9 +23,9 @@ export function ReferenceCanvas({ strokes }: Props) {
 
   return (
     <View sx={{ height: screenHeight * 0.4 }}>
-      {/* 고정 높이 컨테이너 — 테두리는 absoluteFillObject, 실제 콘텐츠는 형제 노드(normal flow)로 배치 */}
-      <PixelFrame borderColor={colors.SECONDARY_300} style={StyleSheet.absoluteFillObject}>
-        <View style={StyleSheet.absoluteFillObject} />
+      {/* 고정 높이 컨테이너 — 테두리는 absoluteFill, 실제 콘텐츠는 형제 노드(normal flow)로 배치 */}
+      <PixelFrame borderColor={colors.SECONDARY_300} style={StyleSheet.absoluteFill}>
+        <View style={StyleSheet.absoluteFill} />
       </PixelFrame>
       <View style={styles.body} onLayout={handleLayout}>
         <Canvas style={styles.canvas}>

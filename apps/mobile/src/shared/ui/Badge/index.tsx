@@ -15,8 +15,8 @@ export function Badge({ label, animatedColorStyle, color = colors.PRIMARY_100 }:
 
   return (
     <View>
-      <PixelFrame borderColor={colors.DARK_100} borderWidth={1} notchSize={3} style={StyleSheet.absoluteFillObject}>
-        <Animated.View style={[StyleSheet.absoluteFillObject, bgStyle]} />
+      <PixelFrame borderColor={colors.DARK_100} borderWidth={1} notchSize={3} style={StyleSheet.absoluteFill}>
+        <Animated.View style={[StyleSheet.absoluteFill, bgStyle]} />
       </PixelFrame>
       <View style={styles.content}>
         <Text sx={{ fontSize: 9, lineHeight: 13, color: colors.DARK_100 }}>{label}</Text>

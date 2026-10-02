@@ -15,12 +15,9 @@ import { useFonts } from 'expo-font';
 import { Stack } from 'expo-router';
 import * as SplashScreen from 'expo-splash-screen';
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { Animated, Dimensions, LogBox, StyleSheet } from 'react-native';
+import { Animated, LogBox, StyleSheet, useWindowDimensions } from 'react-native';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
-
-const SCREEN_WIDTH = Dimensions.get('window').width;
-const LOGO_WIDTH = SCREEN_WIDTH * 0.7;
 
 function createWobble(logoRotate: Animated.Value): Animated.CompositeAnimation {
   return Animated.sequence([
@@ -40,9 +37,10 @@ function SplashOverlay({
   onDone: () => void;
 }) {
   const { isLoading: userIsLoading } = useMe();
+  const { width: screenWidth } = useWindowDimensions();
 
   const splashOpacity = useRef(new Animated.Value(1)).current;
-  const logoX = useRef(new Animated.Value(-SCREEN_WIDTH)).current;
+  const logoX = useRef(new Animated.Value(-screenWidth)).current;
   const logoRotate = useRef(new Animated.Value(0)).current;
   const wobbleLoopRef = useRef<Animated.CompositeAnimation | null>(null);
   const userIsLoadingRef = useRef(userIsLoading);
@@ -100,7 +98,11 @@ function SplashOverlay({
   return (
     <Animated.View style={[styles.splash, { opacity: splashOpacity }]}>
       <Animated.View style={{ transform: [{ translateX: logoX }, { rotate }] }}>
-        <Image source={icons.LOGO} sx={{ width: LOGO_WIDTH }} resizeMode="contain" />
+        <Image
+          source={icons.LOGO_SPLASH}
+          sx={{ width: screenWidth, height: screenWidth / 3 }}
+          resizeMode="contain"
+        />
       </Animated.View>
       {isWaiting && (
         <Text
@@ -186,6 +188,8 @@ export default function RootLayout() {
               <Stack.Screen name="index" />
               <Stack.Screen name="(auth)" redirect={isAuthenticated && !needsOnboarding} />
               <Stack.Screen name="(tabs)" redirect={!isAuthenticated || needsOnboarding} />
+              <Stack.Screen name="settings" redirect={!isAuthenticated || needsOnboarding} />
+              <Stack.Screen name="room" redirect={!isAuthenticated || needsOnboarding} />
             </Stack>
             <ToastHost />
             <NotificationGate />
@@ -201,10 +205,11 @@ export default function RootLayout() {
 
 const styles = StyleSheet.create({
   splash: {
-    ...StyleSheet.absoluteFillObject,
+    ...StyleSheet.absoluteFill,
     backgroundColor: colors.DARK_200,
     alignItems: 'center',
     justifyContent: 'center',
     zIndex: 999,
+    overflow: 'hidden',
   },
 });

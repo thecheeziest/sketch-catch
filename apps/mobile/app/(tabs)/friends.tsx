@@ -35,7 +35,7 @@ export default function FriendsScreen() {
   useFocusEffect(
     useCallback(() => {
       void queryClient.invalidateQueries({ queryKey: ['friends'] });
-    }, [queryClient])
+    }, [queryClient]),
   );
 
   const { data: friends = [] } = useFriends();
@@ -44,10 +44,10 @@ export default function FriendsScreen() {
 
   // 친구 목록이 갱신될 때마다 presence 구독 대상 동기화
   useEffect(() => {
-    const ids = friends.map((f) => f.userId);
+    const ids = friends.map(f => f.userId);
     if (ids.length > 0) usePresenceStore.getState().subscribe(ids);
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [friends.map((f) => f.userId).join(',')]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [friends.map(f => f.userId).join(',')]);
   const respondRequest = useRespondRequest();
   const joinRoom = useJoinRoom();
 
@@ -58,14 +58,15 @@ export default function FriendsScreen() {
       joinRoom.mutate(
         { code: room.code },
         {
-          onError: (err) => handleApiError(err, {
-            fallbackType: 'toast',
-            fallbackMessage: '방 입장에 실패했습니다.',
-            overrides: {
-              ROOM_FULL: { type: 'toast', message: '방이 꽉 찼어요 T.T' },
-              ROOM_LOCKED: { type: 'toast', message: '비밀번호가 필요한 방이에요.' },
-            },
-          }),
+          onError: err =>
+            handleApiError(err, {
+              fallbackType: 'toast',
+              fallbackMessage: '방 입장에 실패했습니다.',
+              overrides: {
+                ROOM_FULL: { type: 'toast', message: '방이 꽉 찼어요 T.T' },
+                ROOM_LOCKED: { type: 'toast', message: '비밀번호가 필요한 방이에요.' },
+              },
+            }),
         },
       );
     }
@@ -73,7 +74,7 @@ export default function FriendsScreen() {
 
   return (
     <ImageBackground source={mainBackground} style={{ flex: 1 }} resizeMode="cover">
-      <SafeAreaView style={{ flex: 1 }} edges={['bottom', 'left', 'right']}>
+      <SafeAreaView style={{ flex: 1 }} edges={['left', 'right']}>
         <ProfileHeader
           rightSlot={
             <Pressable
@@ -97,7 +98,7 @@ export default function FriendsScreen() {
 
         {activeTab === 0 && (
           <View style={{ flex: 1 }}>
-            <BlurView intensity={50} tint="light" style={StyleSheet.absoluteFillObject} />
+            <BlurView intensity={50} tint="light" style={StyleSheet.absoluteFill} />
             <FlatList
               data={friends}
               keyExtractor={item => item.friendshipId}
@@ -114,6 +115,7 @@ export default function FriendsScreen() {
                     })
                   }
                   onJoin={item.room?.joinable ? () => handleJoinPress(item.room!) : undefined}
+                  isJoining={joinRoom.isPending}
                 />
               )}
               ListEmptyComponent={
@@ -129,14 +131,15 @@ export default function FriendsScreen() {
 
         {activeTab === 1 && (
           <View style={{ flex: 1 }}>
-            <BlurView intensity={50} tint="dark" style={StyleSheet.absoluteFillObject} />
+            <BlurView intensity={50} tint="light" style={StyleSheet.absoluteFill} />
             <FlatList
               data={requests}
               keyExtractor={item => `recv-${item.id}`}
               contentContainerStyle={{ paddingBottom: 56 }}
-              renderItem={({ item }) => (
+              renderItem={({ item, index }) => (
                 <RequestItem
                   request={item}
+                  index={index}
                   onAccept={() =>
                     respondRequest.mutate(
                       { requestId: item.id, action: 'ACCEPT' },
@@ -205,11 +208,7 @@ export default function FriendsScreen() {
         )}
 
         {joinTarget !== null && (
-          <FriendPasswordModal
-            visible={true}
-            onClose={() => setJoinTarget(null)}
-            roomCode={joinTarget.room.code}
-          />
+          <FriendPasswordModal visible={true} onClose={() => setJoinTarget(null)} roomCode={joinTarget.room.code} />
         )}
       </SafeAreaView>
     </ImageBackground>

@@ -1,81 +1,96 @@
 import { Image, Text, View } from 'dripsy';
 import { StyleSheet } from 'react-native';
-import type { Player, ChatMessage } from '@sketch-catch/shared';
-import { getCharacterImageSource, colors, spacing, textSizes } from '@/shared/config';
+import type { Player } from '@sketch-catch/shared';
+import { fontFamily, getCharacterImageSource } from '@/shared/config';
 import { PixelFrame } from '@/shared/ui/PixelFrame';
-import { ChatBubble } from '../ChatBubble';
+import { gameSurface, gameText, playerDot, playerRing } from '@/features/game/config';
 
 type Props = {
   player: Player | null;
   isMe: boolean;
   isDrawer: boolean;
+  isSolved: boolean;
+  hasGuessed: boolean;
   isSelected: boolean;
   isLeft: boolean;
   cellWidth: number;
-  activeBubble?: ChatMessage | null;
-  isCorrectBubble?: boolean;
-  onBubbleExpire?: () => void;
 };
 
-function getBorderColor(isDrawer: boolean, isSelected: boolean, isMe: boolean): string {
-  if (isDrawer) return colors.PRIMARY_400;
-  if (isSelected) return colors.SECONDARY_400;
-  if (isMe) return colors.LIGHT_100;
-  return colors.DARK_100;
+function getRingColor(isDrawer: boolean, isSolved: boolean, isSelected: boolean): string {
+  if (isDrawer) return playerRing.DRAWER;
+  if (isSolved) return playerRing.SOLVED;
+  if (isSelected) return playerRing.SELECTED;
+  return playerRing.IDLE;
 }
 
-export function PlayerCell({ player, isMe, isDrawer, isSelected, isLeft, cellWidth, activeBubble, isCorrectBubble = false, onBubbleExpire }: Props) {
+function getDotColor(isDrawer: boolean, isSolved: boolean, hasGuessed: boolean): string {
+  if (isDrawer) return playerDot.DRAWER;
+  if (isSolved) return playerDot.SOLVED;
+  if (hasGuessed) return playerDot.GUESSING;
+  return playerDot.SILENT;
+}
+
+function getNameColor(isLeft: boolean, isMe: boolean): string {
+  if (isLeft) return playerRing.IDLE;
+  if (isMe) return gameText.PRIMARY;
+  return gameText.SECONDARY;
+}
+
+export function PlayerCell({ player, isMe, isDrawer, isSolved, hasGuessed, isSelected, isLeft, cellWidth }: Props) {
   if (player === null) {
-    return <View style={{ width: cellWidth, aspectRatio: 0.85, margin: spacing.XS }} />;
+    return <View style={{ width: cellWidth, aspectRatio: 0.85, margin: 3 }} />;
   }
 
-  const borderColor = getBorderColor(isDrawer, isSelected, isMe);
+  const ringColor = getRingColor(isDrawer, isSolved, isSelected);
+  const dotColor = getDotColor(isDrawer, isSolved, hasGuessed);
   const imageSource = getCharacterImageSource(player.characterId);
 
   return (
-    <View style={{ width: cellWidth, aspectRatio: 0.85, margin: spacing.XS }}>
-      <PixelFrame
-        borderColor={borderColor}
-        borderWidth={isSelected ? 3 : 2}
-        style={StyleSheet.absoluteFillObject}
-      >
-        <View style={[StyleSheet.absoluteFillObject, { backgroundColor: colors.DARK_200 }]} />
-
-        {activeBubble != null && onBubbleExpire != null && (
-          <ChatBubble
-            text={activeBubble.text}
-            isCorrect={isCorrectBubble}
-            onExpire={onBubbleExpire}
-          />
-        )}
-
-        <View sx={{ flex: 1, alignItems: 'center', justifyContent: 'center', paddingTop: spacing.SM }}>
-          {imageSource !== null ? (
-            <Image source={imageSource} sx={{ width: 40, height: 40 }} resizeMode="contain" style={isLeft ? styles.dimmedImage : undefined} />
-          ) : (
-            <View sx={{ width: 40, height: 40, backgroundColor: colors.SECONDARY_400 }} style={isLeft ? styles.dimmedImage : undefined} />
-          )}
-        </View>
-
-        <View sx={{ paddingHorizontal: spacing.XS, paddingBottom: spacing.XS }}>
-          <Text
-            sx={{ ...textSizes.B3, color: isLeft ? colors.DARK_100 : colors.LIGHT_100, textAlign: 'center', textDecorationLine: isLeft ? 'line-through' : 'none' }}
-            numberOfLines={1}
-          >
-            {player.nickname}
-          </Text>
-        </View>
+    <View style={{ width: cellWidth, aspectRatio: 0.85, margin: 3 }}>
+      <PixelFrame borderColor={ringColor} borderWidth={isSelected ? 3 : 2} style={StyleSheet.absoluteFill}>
+        <View style={[StyleSheet.absoluteFill, { backgroundColor: gameSurface.SUBPANEL }]} />
       </PixelFrame>
 
-      {/* 퇴장 플레이어 반투명 오버레이 */}
-      {isLeft && <View style={[StyleSheet.absoluteFillObject, styles.leftOverlay]} pointerEvents="none" />}
+      <View sx={{ flex: 1, alignItems: 'center', justifyContent: 'center', gap: 2, paddingVertical: 4 }}>
+        {imageSource !== null ? (
+          <Image
+            source={imageSource}
+            sx={{ width: 28, height: 28 }}
+            resizeMode="contain"
+            style={isLeft ? styles.dimmed : undefined}
+          />
+        ) : (
+          <View sx={{ width: 28, height: 28, backgroundColor: playerRing.SELECTED }} style={isLeft ? styles.dimmed : undefined} />
+        )}
+
+        <Text
+          sx={{
+            fontFamily: fontFamily.REGULAR,
+            fontSize: 11,
+            lineHeight: 14,
+            color: getNameColor(isLeft, isMe),
+            textDecorationLine: isLeft ? 'line-through' : 'none',
+          }}
+          numberOfLines={1}
+        >
+          {player.nickname}
+        </Text>
+
+        <View style={[styles.dot, { backgroundColor: dotColor }]} />
+      </View>
+
+      {isLeft && <View style={[StyleSheet.absoluteFill, styles.leftOverlay]} pointerEvents="none" />}
     </View>
   );
 }
 
 const styles = StyleSheet.create({
-  dimmedImage: { opacity: 0.35 },
+  dimmed: { opacity: 0.35 },
+  dot: {
+    width: 8,
+    height: 8,
+  },
   leftOverlay: {
-    backgroundColor: 'rgba(12, 10, 22, 0.55)',
+    backgroundColor: 'rgba(12, 8, 19, 0.55)',
   },
 });

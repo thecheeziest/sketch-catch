@@ -6,7 +6,7 @@ import { SocialButton } from '@/shared/ui'
 import { useKakaoLogin, useAppleLogin } from '@/features/auth/lib'
 import { useToastStore } from '@/shared/model'
 import { colors, spacing } from '@/shared/config'
-import LOGO from '@assets/sketchcatch-logo.png'
+import LOGO from '@assets/logo.png'
 
 export default function LoginScreen() {
   const router = useRouter()
@@ -29,7 +29,7 @@ export default function LoginScreen() {
   return (
     <SafeAreaView style={{ flex: 1, backgroundColor: colors.DARK_200, paddingHorizontal: spacing.XL }}>
       <View sx={{ flex: 6, alignItems: 'center', justifyContent: 'center' }}>
-        <Image source={LOGO} sx={{ width: '70%', height: 120 }} resizeMode="contain" />
+        <Image source={LOGO} sx={{ width: '55%', aspectRatio: 1 }} resizeMode="contain" />
       </View>
       <View sx={{ flex: 4, gap: spacing.SM, justifyContent: 'center' }}>
         <SocialButton

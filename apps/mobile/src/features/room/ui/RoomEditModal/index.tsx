@@ -1,7 +1,7 @@
 import { ScrollView, Text, View } from 'dripsy'
 import { useEffect, useState } from 'react'
 import { Switch } from 'react-native'
-import type { Category } from '@sketch-catch/shared'
+import { MODE2_PLAYER_MIN, ROOM_PLAYER_MIN, type Category } from '@sketch-catch/shared'
 import { useRoomStore, useToastStore } from '@/shared/model'
 import { Dialog, Button, AppInput, Icon } from '@/shared/ui'
 import { StepperField } from '@/features/room/ui/StepperField'
@@ -25,6 +25,7 @@ export function RoomEditModal({ visible, onClose, roomCode }: Props) {
   const [drawTimer, setDrawTimer] = useState(30)
   const [categories, setCategories] = useState<Category[]>(['CUSTOM', ...ALL_CATEGORIES])
   const [locked, setLocked] = useState(false)
+  const playerMin = roomState?.mode === 2 ? MODE2_PLAYER_MIN : ROOM_PLAYER_MIN
 
   useEffect(() => {
     if (visible && roomState) {
@@ -51,7 +52,7 @@ export function RoomEditModal({ visible, onClose, roomCode }: Props) {
     <Dialog visible={visible} onClose={onClose} title="방 설정">
       <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={{ gap: spacing.MD, paddingBottom: spacing.MD }}>
         <AppInput label="방 제목" placeholder={roomState?.title ?? '방 제목'} value={title} onChangeText={setTitle} maxLength={20} showCounter />
-        <StepperField label="인원" value={playerCountMax} min={3} max={12} onChange={setPlayerCountMax} />
+        <StepperField label="인원" value={playerCountMax} min={playerMin} max={12} onChange={setPlayerCountMax} />
         <StepperField label="턴" value={roundCount} min={1} max={10} onChange={setRoundCount} />
         <StepperField label="타이머" value={drawTimer} min={10} max={60} step={5} onChange={setDrawTimer} />
         <View sx={{ gap: spacing.SM }}>

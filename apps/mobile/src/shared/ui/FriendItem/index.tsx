@@ -4,7 +4,13 @@ import type { Friend } from '@/shared/model';
 import { Button } from '../Button';
 import { Pressable, StyleSheet } from 'react-native';
 
-type Props = { friend: Friend; onLongPress: () => void; onJoin?: () => void; index?: number };
+type Props = {
+  friend: Friend;
+  onLongPress: () => void;
+  onJoin?: () => void;
+  isJoining?: boolean;
+  index?: number;
+};
 
 const PRESENCE_COLOR: Record<Friend['presenceStatus'], string> = {
   ONLINE: colors.SUCCESS_400,
@@ -22,7 +28,7 @@ const PRESENCE_LABEL: Record<Friend['presenceStatus'], string> = {
 
 const ROW_BG = [`${colors.WHITE}70`, `${colors.PRIMARY_300}70`] as const;
 
-export function FriendItem({ friend, onLongPress, onJoin, index }: Props) {
+export function FriendItem({ friend, onLongPress, onJoin, isJoining, index }: Props) {
   const imageSource = getCharacterImageSource(friend.characterId);
   const bgColor = index !== undefined ? ROW_BG[index % 2] : 'transparent';
 
@@ -59,7 +65,7 @@ export function FriendItem({ friend, onLongPress, onJoin, index }: Props) {
         </Text>
       </View>
       {friend.room?.joinable && onJoin ? (
-        <Button label="같이하기" color="secondary" height={32} onPress={onJoin} />
+        <Button label="같이하기" color="secondary" height={32} onPress={onJoin} disabled={isJoining} />
       ) : null}
     </Pressable>
   );

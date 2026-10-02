@@ -22,7 +22,27 @@ export async function handleChatSend(
   const code = roomName.replace('room:', '');
 
   const state = await getRoomState(code);
-  if (!state || state.status !== 'MODE1_ROUND_START') return;
+  if (!state) return;
+
+  // 게임 종료(시상) 화면 — 정답 판정 없는 자유 채팅. 발신자 포함 브로드캐스트만 수행한다.
+  if (state.status === 'AWARD') {
+    const trimmed = payload.text.trim().slice(0, 30);
+    if (trimmed.length === 0) return;
+    const { masked } = profanityFilter(trimmed);
+    const player = state.players.find((p) => p.id === socket.data.userId);
+    const msg: ChatMessage = {
+      id: randomUUID(),
+      userId: socket.data.userId,
+      nickname: player?.nickname ?? '',
+      text: masked,
+      masked: masked !== trimmed,
+      createdAt: Date.now(),
+    };
+    game.to(`room:${code}`).emit(SERVER_EVENT.CHAT_MESSAGE, msg);
+    return;
+  }
+
+  if (state.status !== 'MODE1_ROUND_START') return;
 
   const current = state.current as Mode1RoundCurrent;
 
@@ -60,7 +80,8 @@ export async function handleChatSend(
     await endRound(game, code, current.roundIndex, socket.data.userId, Date.now() - current.startedAt);
   } else {
     // 오답 피드백은 제출자 본인에게만 전달 (다른 플레이어의 채팅 로그는 chat:message로 충분)
-    socket.emit(SERVER_EVENT.ANSWER_WRONG, { messageId: msg.id });
+    // roundIndex를 함께 보내 클라이언트가 라운드 전환 후 도착한 응답(이전 라운드 오답)을 구분하게 한다.
+    socket.emit(SERVER_EVENT.ANSWER_WRONG, { messageId: msg.id, roundIndex: current.roundIndex });
   }
 }
 

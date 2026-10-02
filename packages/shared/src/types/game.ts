@@ -22,6 +22,8 @@ export type RoundEnd = {
   roundIndex: number;
   correctUserId: string | null;
   scoreDelta: Record<string, number>;
+  // 라운드 종료 시점엔 더 이상 비밀이 아니므로 전원에게 공개 (결과 오버레이의 정답 표시용)
+  answer: string;
 };
 
 export type GameResult = {

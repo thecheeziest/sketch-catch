@@ -9,15 +9,21 @@ function formatMMSS(sec: number): string {
 
 type Props = {
   count: number;
-  seconds: number;
+  min: number;
+  seconds: number; // 카운트다운 중일 때만 의미 있음 — isCountingDown이 false면 표시 안 함
+  isCountingDown: boolean;
   onCancel: () => void;
 };
 
-export function MatchingStatus({ count, seconds, onCancel }: Props) {
+export function MatchingStatus({ count, min, seconds, isCountingDown, onCancel }: Props) {
+  const label = isCountingDown
+    ? `${count}명 모임 · ${formatMMSS(seconds)} 후 시작`
+    : `${count}/${min}명 모으는 중..`;
+
   return (
     <View sx={{ gap: spacing.MD }}>
-      <Button label={`${count}인 랜덤 매칭 중.. ${formatMMSS(seconds)}`} color="light" disabled />
-      <Button label={`${count}인 랜덤 매칭 취소`} color="dark" onPress={onCancel} />
+      <Button label={label} color="light" disabled />
+      <Button label="랜덤 매칭 취소" color="dark" onPress={onCancel} />
     </View>
   );
 }

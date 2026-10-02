@@ -17,13 +17,46 @@ export class ApiError extends Error {
 }
 
 /**
+ * refreshToken으로 accessToken을 재발급받아 저장한다.
+ * REST 요청(401 재시도)과 실시간 소켓(presence 등)이 공유한다.
+ * @returns 새 accessToken. 재발급 불가(리프레시 토큰 없음/만료/세션 교체) 시 clearAuth 후 null.
+ */
+export async function refreshAccessToken(): Promise<string | null> {
+  const { refreshToken, setTokens, clearAuth } = useAuthStore.getState();
+
+  if (refreshToken) {
+    const refreshRes = await fetch(`${BASE_URL}/auth/refresh`, {
+      method: 'POST',
+      body: JSON.stringify({ refreshToken }),
+      headers: { 'Content-Type': 'application/json' },
+    });
+
+    if (refreshRes.ok) {
+      const data = (await refreshRes.json()) as { accessToken: string };
+      await setTokens({ accessToken: data.accessToken });
+      return data.accessToken;
+    }
+
+    // refresh 실패 — 에러 코드 확인
+    const errorBody = await refreshRes.json().catch(() => ({}));
+    if ((errorBody as { error?: string }).error === 'SESSION_REPLACED') {
+      // D-06: 다른 기기 로그인 토스트
+      useToastStore.getState().show('다른 기기에서 로그인되었습니다');
+    }
+  }
+
+  await clearAuth();
+  return null;
+}
+
+/**
  * 내부 fetch wrapper.
  * - Authorization Bearer 헤더 자동 부착
  * - 401 수신 시 refresh 토큰으로 재시도 (1회)
  * - SESSION_REPLACED 오류면 D-06 토스트 + clearAuth
  */
 async function request<T>(url: string, init?: RequestInit, retryAttempt = 0): Promise<T> {
-  const { accessToken, refreshToken, setTokens, clearAuth } = useAuthStore.getState();
+  const { accessToken } = useAuthStore.getState();
 
   const res = await fetch(`${BASE_URL}${url}`, {
     ...init,
@@ -35,29 +68,11 @@ async function request<T>(url: string, init?: RequestInit, retryAttempt = 0): Pr
   });
 
   if (res.status === 401 && retryAttempt === 0) {
-    if (refreshToken) {
-      const refreshRes = await fetch(`${BASE_URL}/auth/refresh`, {
-        method: 'POST',
-        body: JSON.stringify({ refreshToken }),
-        headers: { 'Content-Type': 'application/json' },
-      });
-
-      if (refreshRes.ok) {
-        const data = (await refreshRes.json()) as { accessToken: string };
-        await setTokens({ accessToken: data.accessToken });
-        // 재시도 (1회 한도 — retryAttempt=1)
-        return request<T>(url, init, 1);
-      }
-
-      // refresh 실패 — 에러 코드 확인
-      const errorBody = await refreshRes.json().catch(() => ({}));
-      if ((errorBody as { error?: string }).error === 'SESSION_REPLACED') {
-        // D-06: 다른 기기 로그인 토스트
-        useToastStore.getState().show('다른 기기에서 로그인되었습니다');
-      }
+    const newAccessToken = await refreshAccessToken();
+    if (newAccessToken) {
+      // 재시도 (1회 한도 — retryAttempt=1)
+      return request<T>(url, init, 1);
     }
-
-    await clearAuth();
     throw new ApiError(401, 'SESSION_EXPIRED');
   }
 

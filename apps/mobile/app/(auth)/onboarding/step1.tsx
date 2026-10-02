@@ -6,15 +6,20 @@ import { AppInput, Button } from '@/shared/ui'
 import { useOnboardingStore, generateRandomFriendCode } from '@/features/auth/model'
 import { nicknameSchema, friendCodeInputSchema } from '@sketch-catch/shared'
 import { colors, spacing } from '@/shared/config'
+import { useNavGuard } from '@/shared/lib'
 
 export default function OnboardingStep1() {
   const router = useRouter()
+  const guardNav = useNavGuard()
 
   const [nickname, setNickname] = useState('')
-  const [friendCode, setFriendCode] = useState(() => generateRandomFriendCode())
+  const [friendCode, setFriendCode] = useState('')
+  const [placeholderCode] = useState(() => generateRandomFriendCode())
   const [nicknameError, setNicknameError] = useState('')
   const [friendCodeError, setFriendCodeError] = useState('')
-  const [friendCodeFaded, setFriendCodeFaded] = useState(true)
+
+  // 미입력 시 placeholder 코드가 그대로 친구코드가 된다
+  const effectiveFriendCode = friendCode || placeholderCode
 
   const handleNicknameBlur = (): void => {
     const result = nicknameSchema.safeParse(nickname)
@@ -26,7 +31,7 @@ export default function OnboardingStep1() {
   }
 
   const handleFriendCodeBlur = (): void => {
-    const result = friendCodeInputSchema.safeParse(friendCode)
+    const result = friendCodeInputSchema.safeParse(effectiveFriendCode)
     if (!result.success) {
       setFriendCodeError('친구코드는 3~5자리 영문/숫자만 입력할 수 있어요.')
     } else {
@@ -36,7 +41,7 @@ export default function OnboardingStep1() {
 
   const handleNext = (): void => {
     const nicknameResult = nicknameSchema.safeParse(nickname)
-    const friendCodeResult = friendCodeInputSchema.safeParse(friendCode)
+    const friendCodeResult = friendCodeInputSchema.safeParse(effectiveFriendCode)
 
     const newNicknameError = nicknameResult.success
       ? ''
@@ -50,8 +55,8 @@ export default function OnboardingStep1() {
 
     if (!nicknameResult.success || !friendCodeResult.success) return
 
-    useOnboardingStore.getState().setStep1(nickname, friendCode.toUpperCase())
-    router.push('/(auth)/onboarding/step2')
+    useOnboardingStore.getState().setStep1(nickname, effectiveFriendCode.toUpperCase())
+    guardNav(() => router.push('/(auth)/onboarding/step2'))
   }
 
   return (
@@ -70,6 +75,7 @@ export default function OnboardingStep1() {
           }}
           maxLength={10}
           showCounter
+          autoFocus
           onBlur={handleNicknameBlur}
         />
         <AppInput
@@ -77,14 +83,13 @@ export default function OnboardingStep1() {
           hint="3~5자리 영문/숫자 (영문 대소문자 구분 없음)"
           error={friendCodeError}
           value={friendCode}
+          placeholder={placeholderCode}
           onChangeText={(text) => {
             setFriendCode(text)
-            setFriendCodeFaded(false)
             if (friendCodeError) setFriendCodeError('')
           }}
           maxLength={5}
           autoCapitalize="characters"
-          fadedValue={friendCodeFaded}
           onBlur={handleFriendCodeBlur}
         />
       </View>

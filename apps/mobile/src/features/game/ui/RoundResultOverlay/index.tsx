@@ -92,7 +92,7 @@ export function RoundResultOverlay({ result, players, scoreboard, prompt, onDism
 
 const styles = StyleSheet.create({
   overlay: {
-    ...StyleSheet.absoluteFillObject,
+    ...StyleSheet.absoluteFill,
     // DARK_400(#0C0A16)에 opacity 0.9 → rgba(12, 10, 22, 0.92)
     backgroundColor: 'rgba(12, 10, 22, 0.92)',
     zIndex: 100,

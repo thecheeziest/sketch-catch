@@ -8,13 +8,18 @@ type Props = {
   onAccept: () => void
   onReject: () => void
   isLoading?: boolean
+  index?: number
 }
 
-export function RequestItem({ request, onAccept, onReject, isLoading = false }: Props) {
+// FriendItem과 동일한 교차 배경 — light tint 위에서 행 구분이 보이도록
+const ROW_BG = [`${colors.WHITE}70`, `${colors.PRIMARY_300}70`] as const
+
+export function RequestItem({ request, onAccept, onReject, isLoading = false, index }: Props) {
   const { sender } = request
+  const bgColor = index !== undefined ? ROW_BG[index % 2] : 'transparent'
 
   return (
-    <View sx={sxStyles.row}>
+    <View sx={sxStyles.row} style={{ backgroundColor: bgColor }}>
       <View sx={{ width: 40, height: 40, backgroundColor: colors.SECONDARY_400 }} />
       <View sx={{ flex: 1 }}>
         <Text sx={{ color: colors.LIGHT_100 }}>{sender.nickname}</Text>
@@ -39,5 +44,5 @@ const styles = StyleSheet.create({
 })
 
 const sxStyles = {
-  row: { height: 64, paddingHorizontal: 16, flexDirection: 'row' as const, alignItems: 'center' as const, gap: 16, borderBottomWidth: 1, borderBottomColor: colors.LIGHT_400 },
+  row: { height: 64, paddingHorizontal: 16, flexDirection: 'row' as const, alignItems: 'center' as const, gap: 16, borderBottomWidth: 1, borderBottomColor: colors.BLACK },
 }

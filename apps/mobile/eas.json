@@ -13,6 +13,19 @@
       "android": {
         "buildType": "apk"
       }
+    },
+    "preview": {
+      "distribution": "internal",
+      "env": {
+        "EXPO_PUBLIC_API_URL": "https://server-production-166c.up.railway.app",
+        "EXPO_PUBLIC_SOCKET_URL": "https://server-production-166c.up.railway.app"
+      },
+      "ios": {
+        "distribution": "store"
+      },
+      "android": {
+        "buildType": "apk"
+      }
     }
   }
 }

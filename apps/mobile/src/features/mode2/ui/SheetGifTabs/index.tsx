@@ -39,9 +39,9 @@ export function SheetGifTabs({ sheets, selectedId, onSelect }: Props) {
               <PixelFrame
                 borderColor={selected ? colors.PRIMARY_400 : colors.SECONDARY_300}
                 borderWidth={selected ? 3 : 2}
-                style={StyleSheet.absoluteFillObject}
+                style={StyleSheet.absoluteFill}
               >
-                <View style={[StyleSheet.absoluteFillObject, { backgroundColor: colors.DARK_100 }]} />
+                <View style={[StyleSheet.absoluteFill, { backgroundColor: colors.DARK_100 }]} />
                 <View sx={{ flex: 1, alignItems: 'center', justifyContent: 'center', gap: spacing.XS }}>
                   {imageSource !== null ? (
                     <Image source={imageSource} sx={{ width: 40, height: 40 }} resizeMode="contain" />

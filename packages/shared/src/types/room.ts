@@ -29,7 +29,7 @@ export type RoomConfig = {
   drawTimer: number; // seconds
   answerTimer: number; // seconds (mode 2)
   categories: Category[];
-  playerCountMax: number; // 3~12
+  playerCountMax: number; // mode1=3~12, mode2=4~12
 };
 
 export type RoomState = {

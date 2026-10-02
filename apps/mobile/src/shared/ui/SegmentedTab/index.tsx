@@ -35,7 +35,7 @@ export function SegmentedTab({ tabs, activeIndex, onTabPress, badges }: Props) {
 
   return (
     <View style={styles.container}>
-      <BlurView intensity={20} tint="light" style={StyleSheet.absoluteFillObject} />
+      <BlurView intensity={20} tint="light" style={StyleSheet.absoluteFill} />
       {tabs.map((tab, index) => {
         const isActive = index === activeIndex;
         const badgeCount = badges?.[index] ?? 0;

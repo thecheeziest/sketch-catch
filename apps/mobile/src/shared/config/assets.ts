@@ -1,4 +1,6 @@
-import LOGO from '@assets/sketchcatch-logo.png';
+import LOGO from '@assets/logo.png';
+import LOGO_SPLASH from '@assets/logo-splash-v2.png';
+import LOGO_HOME from '@assets/logo-home-v2.png';
 
 import apple from '@assets/characters/apple.png';
 import banana from '@assets/characters/banana.png';
@@ -23,6 +25,8 @@ import chicken from '@assets/characters/chicken.png';
 
 export const icons = {
   LOGO,
+  LOGO_SPLASH,
+  LOGO_HOME,
 } as const;
 
 export const characters = {

@@ -2,7 +2,7 @@ import { useMe } from '@/features/auth/api';
 import { useLogout } from '@/features/auth/lib';
 import { DeleteAccountModal } from '@/features/profile/ui';
 import { colors, spacing, textSizes } from '@/shared/config';
-import { Button, Icon } from '@/shared/ui';
+import { Button, Icon, PlatformBadge } from '@/shared/ui';
 import { Text, View } from 'dripsy';
 import * as Notifications from 'expo-notifications';
 import { useRouter } from 'expo-router';
@@ -55,6 +55,7 @@ export default function SettingsScreen() {
       <View sx={{ marginTop: spacing.XL, paddingHorizontal: spacing.XL, gap: spacing.SM }}>
         {user ? (
           <>
+            <PlatformBadge provider={user.provider} account={`${user.nickname}#${user.friendCode}`} />
             <Button
               label="로그아웃"
               color="primary"

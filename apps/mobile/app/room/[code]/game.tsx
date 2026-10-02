@@ -1,11 +1,14 @@
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import { Alert, BackHandler, KeyboardAvoidingView, StyleSheet } from 'react-native';
+import { View } from 'dripsy';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Stack, useLocalSearchParams, useRouter } from 'expo-router';
-import type { ChatMessage, RoundEnd } from '@sketch-catch/shared';
 import { CLIENT_EVENT } from '@sketch-catch/shared';
+import { colors } from '@/shared/config';
 import { useAuthStore, useRoomStore } from '@/shared/model';
+import { gameSurface, playerDot, resultOverlay, toolbar } from '@/features/game/config';
 import { useGameStore } from '@/features/game/model/useGameStore';
+import type { GameResultOverlayData } from '@/features/game/model/resultOverlay';
 import { useChatSender } from '@/features/game/api/useChatSender';
 import {
   DrawingCanvas,
@@ -13,15 +16,62 @@ import {
   PlayerGrid,
   ToolbarRow,
   ChatInputBar,
+  ChatStream,
   AnswerApprovalButton,
-  ScoreFeedback,
-  TurnEndOverlay,
   CustomPromptModal,
 } from '@/features/game/ui';
-import { PixelFireworks } from '@/features/game/ui/PixelFireworks';
-import { WrongAnswerFeedback } from '@/features/game/ui/WrongAnswerFeedback';
+import { ResultOverlay } from '@/features/game/ui/ResultOverlay';
+
+type InputBarState = {
+  disabled: boolean;
+  placeholder: string;
+  ringColor: string;
+  placeholderColor: string;
+};
+
+// 결과 오버레이(overlay)와 라운드 종료 상태(roundResult)에 맞춰 채팅 입력창의 테두리·문구를 정한다.
+// README-result-overlay.md "부수 상태 변화" 표를 그대로 반영.
+function getInputBarState(overlay: GameResultOverlayData | null, roundEnded: boolean, isCorrectEnd: boolean): InputBarState {
+  if (roundEnded) {
+    if (isCorrectEnd) {
+      return {
+        disabled: true,
+        placeholder: '정답! 다음 라운드 준비중',
+        ringColor: playerDot.SOLVED,
+        placeholderColor: playerDot.SOLVED,
+      };
+    }
+    return {
+      disabled: true,
+      placeholder: '라운드 종료',
+      ringColor: toolbar.ERASER_RING,
+      placeholderColor: resultOverlay.INPUT_ENDED_FG,
+    };
+  }
+  if (overlay?.kind === 'wrong') {
+    return {
+      disabled: false,
+      placeholder: '다시 입력하세요',
+      ringColor: resultOverlay.WRONG.ACCENT,
+      placeholderColor: resultOverlay.WRONG.CHIP_FG,
+    };
+  }
+  return {
+    disabled: false,
+    placeholder: '정답을 입력하세요',
+    ringColor: toolbar.ERASER_RING,
+    placeholderColor: colors.GRAY,
+  };
+}
 
 export default function GameScreen() {
+  // useGameStore는 앱 전역 싱글턴 — 직전 게임의 roundResult/result 등이 남아 있으면
+  // 입장 직후 라운드 종료 오버레이가 잠깐 뜬다. 첫 페인트 전에 초기화한다.
+  // (렌더 중 store.set()은 "Cannot update a component while rendering" 경고를 유발)
+  useLayoutEffect(() => {
+    useGameStore.getState().reset();
+  }, []);
+
   const router = useRouter();
   const { code } = useLocalSearchParams<{ code: string }>();
   const myId = useAuthStore.getState().user?.id ?? '';
@@ -34,19 +84,16 @@ export default function GameScreen() {
   const correct = useGameStore((s) => s.correct);
   const wrongAnswer = useGameStore((s) => s.wrongAnswer);
   const roundResult = useGameStore((s) => s.roundResult);
-  const currentPrompt = useGameStore((s) => s.currentPrompt);
   const needsCustomPrompt = useGameStore((s) => s.needsCustomPrompt);
+  const isCustomRound = useGameStore((s) => s.isCustomRound);
 
   const { sendChat, acceptAnswer, submitCustomPrompt } = useChatSender();
 
-  const [activeBubbles, setActiveBubbles] = useState<Record<string, ChatMessage | null>>({});
   const [selectedUserId, setSelectedUserId] = useState<string | null>(null);
-  const [scoreFeedback, setScoreFeedback] = useState<{ score: number; visible: boolean }>({
-    score: 0,
-    visible: false,
-  });
-  const [turnEndInfo, setTurnEndInfo] = useState<{ result: RoundEnd; prompt: string | null } | null>(null);
-  const [wrongFeedbackVisible, setWrongFeedbackVisible] = useState(false);
+  const [overlay, setOverlay] = useState<GameResultOverlayData | null>(null);
+
+  const players = roomState?.players ?? [];
+  const drawerId = round?.drawerId ?? '';
 
   useEffect(() => {
     if (!socket || !code) return;
@@ -72,46 +119,68 @@ export default function GameScreen() {
     }
   }, [roomState?.status, code, router]);
 
-  const prevChatLengthRef = useRef(0);
+  // 라운드 시작 시각(클라이언트 기준) — 정답 결과 오버레이의 solveSeconds 계산용
+  const roundStartRef = useRef<number>(Date.now());
+  const prevRoundIndexRef = useRef<number | null>(null);
   useEffect(() => {
-    if (chatMessages.length > prevChatLengthRef.current) {
-      const newMessages = chatMessages.slice(prevChatLengthRef.current);
-      prevChatLengthRef.current = chatMessages.length;
-
-      setActiveBubbles((prev) => {
-        const next = { ...prev };
-        for (const msg of newMessages) {
-          next[msg.userId] = msg;
-        }
-        return next;
-      });
+    if (round?.roundIndex !== prevRoundIndexRef.current) {
+      prevRoundIndexRef.current = round?.roundIndex ?? null;
+      roundStartRef.current = Date.now();
     }
-  }, [chatMessages]);
+  }, [round?.roundIndex]);
 
-  const prevCorrectRef = useRef<typeof correct>(null);
-  useEffect(() => {
-    if (correct !== null && correct !== prevCorrectRef.current) {
-      prevCorrectRef.current = correct;
-      const delta = roundResult?.scoreDelta[correct.userId] ?? 0;
-      if (delta > 0) {
-        setScoreFeedback({ score: delta, visible: true });
-        setTimeout(() => setScoreFeedback((s) => ({ ...s, visible: false })), 900);
-      }
-    }
-  }, [correct, roundResult]);
+  const overlaySeqRef = useRef(0);
 
+  // 오답 결과 오버레이 — 오답 판정은 제출자 본인에게만 전달되므로 항상 나 자신의 추측
   const prevWrongAnswerRef = useRef<typeof wrongAnswer>(null);
   useEffect(() => {
-    if (wrongAnswer !== null && wrongAnswer !== prevWrongAnswerRef.current) {
-      prevWrongAnswerRef.current = wrongAnswer;
-      setWrongFeedbackVisible(true);
-      setTimeout(() => setWrongFeedbackVisible(false), 800);
-    }
+    if (wrongAnswer === null || wrongAnswer === prevWrongAnswerRef.current) return;
+    prevWrongAnswerRef.current = wrongAnswer;
+    const msg = chatMessages.find((m) => m.id === wrongAnswer.messageId);
+    if (msg === undefined) return;
+    overlaySeqRef.current += 1;
+    setOverlay({
+      kind: 'wrong',
+      id: `wrong-${overlaySeqRef.current}`,
+      guesserName: msg.nickname,
+      guess: msg.text,
+      characterId: players.find((p) => p.id === msg.userId)?.characterId ?? '',
+    });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [wrongAnswer]);
 
-  const handleBubbleExpire = useCallback((userId: string) => {
-    setActiveBubbles((prev) => ({ ...prev, [userId]: null }));
-  }, []);
+  // 정답 / 게임오버 결과 오버레이 — 라운드 종료(game:round:end) 시점에 판정
+  const prevRoundResultRef = useRef<typeof roundResult>(null);
+  useEffect(() => {
+    if (roundResult === null || roundResult === prevRoundResultRef.current) return;
+    prevRoundResultRef.current = roundResult;
+    overlaySeqRef.current += 1;
+
+    if (roundResult.correctUserId != null) {
+      const winner = players.find((p) => p.id === roundResult.correctUserId);
+      const solveSeconds = Math.max(1, Math.round((Date.now() - roundStartRef.current) / 1000));
+      setOverlay({
+        kind: 'correct',
+        id: `correct-${overlaySeqRef.current}`,
+        winnerName: winner?.nickname ?? '',
+        answer: roundResult.answer,
+        score: roundResult.scoreDelta[roundResult.correctUserId] ?? 0,
+        solveSeconds,
+        characterId: winner?.characterId ?? '',
+      });
+    } else {
+      const drawer = players.find((p) => p.id === drawerId);
+      setOverlay({
+        kind: 'gameover',
+        id: `gameover-${overlaySeqRef.current}`,
+        answer: roundResult.answer,
+        characterId: drawer?.characterId ?? '',
+      });
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [roundResult]);
+
+  const handleDismissOverlay = useCallback((): void => setOverlay(null), []);
 
   const handleApprove = (messageId: string): void => {
     acceptAnswer(messageId);
@@ -121,19 +190,6 @@ export default function GameScreen() {
   const handleCustomPromptSubmit = (text: string): void => {
     submitCustomPrompt(text);
     useGameStore.setState({ needsCustomPrompt: false });
-  };
-
-  // roundResult가 새로 도착하면 그 시점의 prompt를 캡처 (다음 라운드 시작 시 currentPrompt가 덮어씌워지기 전에)
-  useEffect(() => {
-    if (roundResult != null) {
-      setTurnEndInfo({ result: roundResult, prompt: currentPrompt });
-    }
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [roundResult]);
-
-  const handleDismissRoundResult = (): void => {
-    useGameStore.setState({ roundResult: null });
-    setTurnEndInfo(null);
   };
 
   const handleExitAttempt = useCallback((): void => {
@@ -163,13 +219,34 @@ export default function GameScreen() {
     return () => subscription.remove();
   }, [handleExitAttempt]);
 
-  const players = roomState?.players ?? [];
-  const drawerId = round?.drawerId ?? '';
   const isDrawer = drawerId === myId;
   const totalTurns = roomState?.turnSchedule?.length ?? roomState?.config.roundCount ?? 1;
   const roundIndex = round?.roundIndex ?? 0;
 
   const selectedNickname = players.find((p) => p.id === selectedUserId)?.nickname ?? '';
+
+  // 수동 '정답 인정'(+ 캐릭터 선택 테두리)은 커스텀 제시어 라운드의 출제자에게만
+  const canManualApprove = isDrawer && isCustomRound;
+  const maxPlayers = roomState?.config.playerCountMax ?? 12;
+  const solvedUserId = correct?.userId ?? null;
+  const guessedUserIds = useMemo(() => new Set(chatMessages.map((m) => m.userId)), [chatMessages]);
+  const streamItems = useMemo(
+    () =>
+      chatMessages.slice(-5).map((m) => ({
+        id: m.id,
+        nickname: m.nickname,
+        text: m.text,
+        characterId: players.find((p) => p.id === m.userId)?.characterId ?? '',
+        isCorrect: m.id === correct?.messageId,
+        createdAt: m.createdAt,
+        score: m.id === correct?.messageId ? roundResult?.scoreDelta[m.userId] : undefined,
+      })),
+    [chatMessages, players, correct?.messageId, roundResult],
+  );
+
+  const roundEnded = roundResult != null;
+  const isCorrectEnd = roundResult?.correctUserId != null;
+  const inputBarState = getInputBarState(overlay, roundEnded, isCorrectEnd);
 
   return (
     <SafeAreaView style={styles.container} edges={['top', 'bottom', 'left', 'right']}>
@@ -183,6 +260,20 @@ export default function GameScreen() {
         word={promptForDrawer}
         promptHint={promptHint}
         durationSec={round?.durationSec ?? 0}
+        playerCount={players.length}
+        maxPlayers={maxPlayers}
+        revealedWord={isCorrectEnd ? roundResult?.answer ?? null : null}
+        legendAction={
+          canManualApprove ? (
+            <AnswerApprovalButton
+              selectedUserId={selectedUserId}
+              selectedNickname={selectedNickname}
+              chatMessages={chatMessages}
+              onApprove={handleApprove}
+              onDeselect={() => setSelectedUserId(null)}
+            />
+          ) : undefined
+        }
         onBack={handleExitAttempt}
       />
 
@@ -190,46 +281,34 @@ export default function GameScreen() {
         players={players}
         myId={myId}
         drawerId={drawerId}
-        isDrawerView={isDrawer}
+        solvedUserId={solvedUserId}
+        guessedUserIds={guessedUserIds}
+        isDrawerView={canManualApprove}
         selectedUserId={selectedUserId}
         onSelectPlayer={setSelectedUserId}
-        activeBubbles={activeBubbles}
-        correctUserId={correct?.userId ?? null}
-        onBubbleExpire={handleBubbleExpire}
       />
 
-      {isDrawer && (
-        <AnswerApprovalButton
-          selectedUserId={selectedUserId}
-          selectedNickname={selectedNickname}
-          chatMessages={chatMessages}
-          onApprove={handleApprove}
-          onDeselect={() => setSelectedUserId(null)}
-        />
-      )}
-
-      {/* key를 roundIndex로 고정해 턴 전환 시 캔버스 초기화 */}
-      <DrawingCanvas isDrawer={isDrawer} key={`canvas-${roundIndex}`} />
-
-      {scoreFeedback.visible && <PixelFireworks />}
-      <ScoreFeedback score={scoreFeedback.score} visible={scoreFeedback.visible} />
-      <WrongAnswerFeedback visible={wrongFeedbackVisible} />
+      {/* 캔버스 + 추측 스트림 + 결과 오버레이 (모두 캔버스 영역에 겹쳐 쌓인다) */}
+      <View sx={{ flex: 1, position: 'relative' }}>
+        {/* key를 roundIndex로 고정해 턴 전환 시 캔버스 초기화 */}
+        <DrawingCanvas isDrawer={isDrawer} key={`canvas-${roundIndex}`} />
+        <ChatStream items={streamItems} />
+        {overlay != null && <ResultOverlay key={overlay.id} data={overlay} onDismiss={handleDismissOverlay} />}
+      </View>
 
       {isDrawer && <ToolbarRow />}
 
       {!isDrawer && (
         <KeyboardAvoidingView behavior="padding">
-          <ChatInputBar isDrawer={false} onSend={sendChat} />
+          <ChatInputBar
+            isDrawer={false}
+            onSend={sendChat}
+            placeholder={inputBarState.placeholder}
+            disabled={inputBarState.disabled}
+            ringColor={inputBarState.ringColor}
+            placeholderColor={inputBarState.placeholderColor}
+          />
         </KeyboardAvoidingView>
-      )}
-
-      {turnEndInfo != null && (
-        <TurnEndOverlay
-          result={turnEndInfo.result}
-          players={players}
-          prompt={turnEndInfo.prompt}
-          onDismiss={handleDismissRoundResult}
-        />
       )}
 
       <CustomPromptModal
@@ -243,6 +322,6 @@ export default function GameScreen() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#1E1C2C',
+    backgroundColor: gameSurface.FRAME,
   },
 });

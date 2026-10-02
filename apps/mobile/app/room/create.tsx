@@ -8,7 +8,7 @@ import { StepperField, CategorySelector, CategoryChip, ALL_CATEGORIES } from '@/
 import { useCreateRoom } from '@/features/room/api'
 import { useToastStore, useAuthStore } from '@/shared/model'
 import { colors, spacing } from '@/shared/config'
-import type { Category } from '@sketch-catch/shared'
+import { MODE2_PLAYER_MIN, ROOM_PLAYER_MIN, type Category } from '@sketch-catch/shared'
 
 export default function RoomCreateScreen() {
   const router = useRouter()
@@ -19,17 +19,25 @@ export default function RoomCreateScreen() {
   const [title, setTitle] = useState('')
   const [mode, setMode] = useState<1 | 2>(1)
   const [playerCountMax, setPlayerCountMax] = useState(6)
-  const [roundCount, setRoundCount] = useState(5)
+  const [roundCount, setRoundCount] = useState(3)
   const [drawTimer, setDrawTimer] = useState(30)
   const [categories, setCategories] = useState<Category[]>(['CUSTOM', ...ALL_CATEGORIES])
   const [locked, setLocked] = useState(false)
   const [password, setPassword] = useState('')
+  const playerMin = mode === 2 ? MODE2_PLAYER_MIN : ROOM_PLAYER_MIN
 
   const handleCreate = (): void => {
     mutate(
       { mode, playerCountMax, roundCount, drawTimer, categories, title: title.trim() || undefined, locked, password: locked && password.trim() ? password.trim() : undefined },
       { onError: (err) => { console.error('[createRoom]', err); showToast('방 만들기에 실패했습니다. 다시 시도해주세요.') } }
     )
+  }
+
+  const handleSelectMode = (nextMode: 1 | 2): void => {
+    setMode(nextMode)
+    if (nextMode === 2) {
+      setPlayerCountMax((current) => Math.max(current, MODE2_PLAYER_MIN))
+    }
   }
 
   return (
@@ -44,23 +52,23 @@ export default function RoomCreateScreen() {
 
       <ScrollView style={{ flex: 1 }} contentContainerStyle={{ paddingHorizontal: spacing.MD, paddingTop: spacing.MD, paddingBottom: spacing.LG, gap: spacing.LG }} keyboardShouldPersistTaps="handled">
         <AppInput label="방 제목" placeholder={nickname ? `${nickname}님의 방` : '방 제목을 입력하세요'} value={title} onChangeText={setTitle} maxLength={20} showCounter />
-        <StepperField label="인원" value={playerCountMax} min={2} max={12} onChange={setPlayerCountMax} />
         <View sx={{ gap: spacing.SM }}>
           <Text sx={{ color: colors.LIGHT_500 }}>모드</Text>
           <View sx={{ flexDirection: 'row', gap: spacing.SM }}>
-            <CategoryChip label="모드 1 — 클래식" active={mode === 1} onPress={() => setMode(1)} />
-            <CategoryChip label="모드 2 — 전언게임" active={mode === 2} onPress={() => setMode(2)} />
+            <CategoryChip label="맞혀 볼래?" active={mode === 1} onPress={() => handleSelectMode(1)} />
+            <CategoryChip label="이어 그리자!" active={mode === 2} onPress={() => handleSelectMode(2)} />
           </View>
         </View>
         {mode === 1 && (
           <>
-            <StepperField label="턴" value={roundCount} min={1} max={10} onChange={setRoundCount} />
+            <StepperField label="턴" value={roundCount} min={1} max={5} onChange={setRoundCount} />
             <View sx={{ gap: spacing.SM }}>
               <Text sx={{ color: colors.LIGHT_500 }}>카테고리</Text>
               <CategorySelector value={categories} onChange={setCategories} />
             </View>
           </>
         )}
+        <StepperField label="인원" value={playerCountMax} min={playerMin} max={12} onChange={setPlayerCountMax} />
         <StepperField label="타이머" value={drawTimer} min={10} max={60} step={5} onChange={setDrawTimer} />
         <View sx={{ flexDirection: 'row', alignItems: 'center', gap: spacing.SM }}>
           <Text sx={{ flex: 1, color: colors.LIGHT_500 }}>잠금</Text>

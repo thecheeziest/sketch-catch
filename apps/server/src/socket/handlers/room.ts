@@ -1,12 +1,12 @@
 import type { Namespace, Socket } from 'socket.io';
 import type { ClientEvents, ServerEvents, RoomState } from '@sketch-catch/shared';
-import { SERVER_EVENT } from '@sketch-catch/shared';
+import { MODE2_PLAYER_MIN, SERVER_EVENT } from '@sketch-catch/shared';
 import { getRoomState, saveRoomState, withRoomLock } from '../../services/rooms.service.js';
 import { redis, setPresence, setUserRoom, clearUserRoom } from '../../db/redis.js';
 import { broadcastPresenceUpdate } from '../presence.namespace.js';
 import { prisma } from '../../db/prisma.js';
 import { startRound, initTurnSchedule, handlePlayerLeft } from './game.js';
-import { startMode2, handleMode2PlayerLeft } from './mode2.js';
+import { startMode2, handleMode2PlayerLeft, isMode2Active, resendCurrentStep } from './mode2.js';
 
 type GameNamespace = Namespace<ClientEvents, ServerEvents>;
 type GameSocket = Socket<ClientEvents, ServerEvents, Record<string, never>, { userId: string }>;
@@ -115,6 +115,12 @@ export async function handleRoomJoin(
   const player = state.players.find((p) => p.id === userId)!;
   game.to(roomName).emit(SERVER_EVENT.ROOM_PLAYER_JOIN, { player });
 
+  // 진행 중인 모드2 방에 (재)입장 시 현재 스텝을 이 소켓에만 재전송 — 화면 전환 레이스로
+  // 첫 mode2:step을 놓쳐 까만 화면이 지속되는 문제 방지
+  if (isMode2Active(state.status)) {
+    resendCurrentStep(socket, state);
+  }
+
   const presenceStatus = state.status === 'LOBBY' ? 'IN_LOBBY' : 'IN_GAME';
   await setPresence(userId, presenceStatus);
   broadcastPresenceUpdate(userId, presenceStatus);
@@ -179,6 +185,11 @@ export async function handleRoomStart(
 
   // Pitfall 4: 모드 2는 시트 로테이션 상태 머신(startMode2)으로 분기 — initTurnSchedule(모드1 전용) 미호출
   if (state.mode === 2) {
+    if (state.players.filter((p) => p.connected).length < MODE2_PLAYER_MIN) {
+      socket.emit(SERVER_EVENT.ERROR, { code: 'INSUFFICIENT_PLAYERS', message: '모드 2는 최소 4명이 필요합니다.' });
+      return;
+    }
+
     state.startedAt = Date.now();
     await saveRoomState(state);
     const active = state.players.filter((p) => p.connected);

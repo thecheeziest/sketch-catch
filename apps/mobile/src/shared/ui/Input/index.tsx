@@ -16,6 +16,7 @@ type Props = {
   showCounter?: boolean;
   placeholder?: string;
   fadedValue?: boolean;
+  autoFocus?: boolean;
   autoCapitalize?: TextInputProps['autoCapitalize'];
   secureTextEntry?: boolean;
   onBlur?: () => void;
@@ -69,6 +70,7 @@ export function AppInput(props: Props) {
           maxLength={props.maxLength}
           placeholder={props.placeholder}
           placeholderTextColor={colors.GRAY}
+          autoFocus={props.autoFocus}
           autoCapitalize={props.autoCapitalize ?? 'none'}
           secureTextEntry={props.secureTextEntry}
           onFocus={() => setFocused(true)}

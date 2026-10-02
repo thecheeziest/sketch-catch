@@ -1,0 +1,25 @@
+{
+  "tool": "image_gen.imagegen",
+  "reference": "apps/mobile/assets/logo-home-v2.png",
+  "palette": ["#FF3388", "#FF88BB", "#FFD0E8", "#8833FF", "#BB77FF", "#E8CCFF", "#3B0099", "#1E1C2C"],
+  "outputs": [
+    {
+      "file": "01-deep-space.png",
+      "prompt": "Square opaque pixel-art app icon. Preserve referenced two-line Korean logo: 스케치 above 캐치, pink-purple lettering, joined white/lavender/violet outlines and tiny white highlights inside letters. Large central logo with safe margins. Deep plum and violet space background, sparse square stars, stepped diagonal pink-lavender shooting star, pixel-dithered galaxy bands at edges. No mockup or baked-in rounded corners."
+    },
+    {
+      "file": "02-lavender-nebula.png",
+      "prompt": "Square opaque pixel-art app icon. Preserve referenced two-line Korean logo and internal highlights. Large central logo with safe margins. Light signature lavender cosmos, pastel pixel-dithered nebula clouds, pink-white shooting-star streak at upper left, sparse purple and white square stars, quiet middle and darker lavender corners. No mockup or baked-in rounded corners."
+    },
+    {
+      "file": "03-pink-meteors.png",
+      "prompt": "Square opaque pixel-art app icon. Preserve referenced two-line Korean logo and internal highlights. Large central logo with safe margins. Saturated violet and pink meteor-shower background, angular magenta nebula ribbons around edges, parallel stepped-square shooting-star streaks at corners, quiet purple middle and sparse white square stars. No mockup or baked-in rounded corners."
+    },
+    {
+      "file": "04-shooting-star-symbol.png",
+      "reference": null,
+      "prompt": "Square opaque minimalist pixel-art app icon with one shooting diamond star symbol and no text. Four-point sparkle combines diamond and plus geometry, stepped pixel edges, tiny white core, pink-lavender facets, violet contour and attached diagonal three-band pink/violet/lavender comet tail. Quiet deep plum background with subtle dark violet pixel bands. Strong readable silhouette, safe margins, no extra stars, no mockup or baked-in rounded corners."
+    }
+  ],
+  "note": "Prompts normalized for reuse. Original generated PNGs are 1254 x 1254 RGB."
+}

@@ -2,7 +2,7 @@ import { Image, Text, View } from 'dripsy'
 import { useMe } from '@/features/auth/api';
 import { CharacterModal, FriendCodeModal, NicknameModal } from '@/features/profile/ui';
 import { colors, getCharacterImageSource, spacing } from '@/shared/config';
-import { copyToClipboard } from '@/shared/lib';
+import { copyToClipboard, useNavGuard } from '@/shared/lib';
 import { useAuthStore } from '@/shared/model';
 import { BlurView } from 'expo-blur';
 import { useRouter } from 'expo-router';
@@ -18,6 +18,7 @@ type Props = {
 export function ProfileHeader({ rightSlot }: Props) {
   const { top } = useSafeAreaInsets();
   const router = useRouter();
+  const guardNav = useNavGuard();
   const { data: user } = useMe();
   const clearAuth = useAuthStore((s) => s.clearAuth);
   const [characterOpen, setCharacterOpen] = useState(false);
@@ -29,7 +30,7 @@ export function ProfileHeader({ rightSlot }: Props) {
   if (!user) {
     return (
       <BlurView intensity={20} tint="light" style={containerStyle}>
-        <View style={[StyleSheet.absoluteFillObject, { backgroundColor: 'rgba(10, 10, 16, 0.82)' }]} />
+        <View style={[StyleSheet.absoluteFill, { backgroundColor: 'rgba(10, 10, 16, 0.82)' }]} />
         <Pressable
           onPress={async () => {
             await clearAuth();
@@ -43,7 +44,7 @@ export function ProfileHeader({ rightSlot }: Props) {
         <View sx={{ flexDirection: 'row', alignItems: 'center', gap: spacing.XS }}>
           {rightSlot}
           <Pressable
-            onPress={() => router.push('/settings')}
+            onPress={() => guardNav(() => router.push('/settings'))}
             style={({ pressed }) => [styles.iconBtn, pressed && { opacity: 0.7 }]}
           >
             <Icon name="SETTINGS" size={22} />
@@ -61,7 +62,7 @@ export function ProfileHeader({ rightSlot }: Props) {
     <>
       <BlurView intensity={20} tint="light" style={containerStyle}>
         <View
-          style={[StyleSheet.absoluteFillObject, { backgroundColor: 'rgba(10, 10, 16, 0.82)' }]}
+          style={[StyleSheet.absoluteFill, { backgroundColor: 'rgba(10, 10, 16, 0.82)' }]}
         />
         <View sx={sxStyles.left}>
           <Pressable
@@ -99,7 +100,7 @@ export function ProfileHeader({ rightSlot }: Props) {
         <View sx={{ flexDirection: 'row', alignItems: 'center', gap: spacing.XS }}>
           {rightSlot}
           <Pressable
-            onPress={() => router.push('/settings')}
+            onPress={() => guardNav(() => router.push('/settings'))}
             style={({ pressed }) => [styles.iconBtn, pressed && { opacity: 0.7 }]}
           >
             <Icon name="SETTINGS" size={22} />
