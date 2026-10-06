@@ -10,13 +10,13 @@ export const nicknameSchema = z
 // 친구코드: 3~5자리 영문/숫자 (저장은 대문자로 정규화)
 export const friendCodeSchema = z
   .string()
-  .regex(/^[A-Z0-9]{3,5}$/, '친구코드는 영문 대문자/숫자 3~5자리여야 합니다')
+  .regex(/^[A-Z0-9]{3,5}$/, '해시태그는 영문 대문자/숫자 3~5자리여야 합니다')
   .transform((s) => s.toUpperCase());
 
 // 친구코드 입력 — 사용자가 소문자로 입력해도 받아주기 위한 입력용 스키마
 export const friendCodeInputSchema = z
   .string()
-  .regex(/^[A-Za-z0-9]{3,5}$/, '친구코드는 영문/숫자 3~5자리여야 합니다')
+  .regex(/^[A-Za-z0-9]{3,5}$/, '해시태그는 영문/숫자 3~5자리여야 합니다')
   .transform((s) => s.toUpperCase());
 
 // 캐릭터 ID — 동물 10종 + 과일 10종 (CHARACTER_IDS 풀로 검증)

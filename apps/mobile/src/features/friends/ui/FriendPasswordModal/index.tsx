@@ -39,7 +39,8 @@ export function FriendPasswordModal({ visible, onClose, roomCode }: Props) {
         <Button
           label="입장"
           color="primary"
-          disabled={password.length === 0 || isPending}
+          disabled={password.length === 0}
+          loading={isPending}
           onPress={handleJoin}
         />
       </View>

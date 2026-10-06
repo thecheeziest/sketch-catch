@@ -1,9 +1,10 @@
 import { useCallback, useEffect, useState } from 'react';
-import { Alert, BackHandler, StyleSheet } from 'react-native';
+import { Alert, StyleSheet } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { Stack, useLocalSearchParams, useRouter } from 'expo-router';
+import { useLocalSearchParams, useRouter } from 'expo-router';
 import { CLIENT_EVENT } from '@sketch-catch/shared';
 import { Text, View } from 'dripsy';
+import { useHardwareBack } from '@/shared/lib';
 import { useAuthStore, useRoomStore } from '@/shared/model';
 import { colors, spacing, textSizes } from '@/shared/config';
 import { PixelInput } from '@/shared/ui/PixelInput';
@@ -25,25 +26,7 @@ export default function Mode2Screen() {
   const [text, setText] = useState('');
   const [submitted, setSubmitted] = useState(false);
 
-  useEffect(() => {
-    if (!socket || !code) return;
-
-    useMode2Store.getState().reset();
-
-    // ROOM_JOIN 응답으로 서버가 현재 스텝을 재전송하므로, 리스너를 먼저 등록한 뒤 join한다.
-    useMode2Store.getState().registerMode2Listeners();
-
-    const handleConnect = (): void => {
-      socket.emit(CLIENT_EVENT.ROOM_JOIN, { code });
-    };
-    socket.on('connect', handleConnect);
-    if (socket.connected) handleConnect();
-
-    return () => {
-      socket.off('connect', handleConnect);
-    };
-  }, [socket, code]);
-
+  // 모드2 이벤트 리스너·스토어 초기화는 room/[code]/_layout과 gameId 변경 시점에 처리된다
   useEffect(() => {
     if (roomState?.status === 'MODE2_REVIEW') {
       router.replace(`/room/${code}/mode2-review` as never);
@@ -79,19 +62,12 @@ export default function Mode2Screen() {
     );
   }, [socket, router]);
 
-  // Android 하드웨어 뒤로가기 차단
-  useEffect(() => {
-    const subscription = BackHandler.addEventListener('hardwareBackPress', () => {
-      handleExitAttempt();
-      return true;
-    });
-    return () => subscription.remove();
-  }, [handleExitAttempt]);
+  // Android 하드웨어 뒤로가기 — 나가기 확인 (iOS 스와이프는 레이아웃에서 차단)
+  useHardwareBack(handleExitAttempt);
 
   if (!step) {
     return (
       <SafeAreaView style={styles.container} edges={['top', 'bottom', 'left', 'right']}>
-        <Stack.Screen options={{ gestureEnabled: false }} />
       </SafeAreaView>
     );
   }
@@ -177,8 +153,6 @@ export default function Mode2Screen() {
 
   return (
     <SafeAreaView style={styles.container} edges={['top', 'bottom', 'left', 'right']}>
-      <Stack.Screen options={{ gestureEnabled: false }} />
-
       <SheetRotationHeader
         stepIndex={step.stepIndex}
         totalSteps={step.totalSteps}

@@ -18,6 +18,11 @@ const envSchema = z.object({
     .min(16, 'JWT_SECRET must be at least 16 chars')
     .default('dev-secret-replace-me-with-strong-key'),
   EXPO_ACCESS_TOKEN: z.string().optional(),
+  // 카카오/애플 인증 없이 테스트 계정으로 로그인하는 개발 전용 라우트 — production에서는 값과 무관하게 비활성
+  ENABLE_DEV_LOGIN: z
+    .enum(['true', 'false'])
+    .default('false')
+    .transform(v => v === 'true'),
 });
 
 const parsed = envSchema.safeParse(process.env);

@@ -1,14 +1,14 @@
-import { InviteModal, RoomEditModal, SlotCard } from '@/features/room/ui';
-import { colors, spacing } from '@/shared/config';
+import { InviteModal, PlayerProfileDialog, RoomEditModal, SlotCard } from '@/features/room/ui';
+import { colors, spacing, textSizes } from '@/shared/config';
 import { useAuthStore, useRoomStore, useToastStore } from '@/shared/model';
-import { copyToClipboard } from '@/shared/lib';
-import { Button, FlatList, Icon } from '@/shared/ui';
+import { copyToClipboard, useHardwareBack } from '@/shared/lib';
+import { Button, FlatList, Icon, SketchbookLoadingSpinner } from '@/shared/ui';
 import type { Player } from '@sketch-catch/shared';
 import { CLIENT_EVENT, MODE2_PLAYER_MIN } from '@sketch-catch/shared';
 import { Text, View } from 'dripsy';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { useEffect, useRef, useState } from 'react';
-import { type ListRenderItem, ImageBackground, Pressable, StyleSheet, useWindowDimensions } from 'react-native';
+import { type ListRenderItem, Alert, ImageBackground, Pressable, StyleSheet, useWindowDimensions } from 'react-native';
 import roomBackground from '@assets/room-background.png';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
@@ -25,10 +25,35 @@ export default function LobbyScreen() {
   const { code } = useLocalSearchParams<{ code: string }>();
   const socket = useRoomStore((s) => s.socket);
   const roomState = useRoomStore((s) => s.roomState);
+  const joinError = useRoomStore((s) => s.joinError);
   const myId = useAuthStore.getState().user?.id;
   const wasHostRef = useRef(false);
+  const rejoinedRef = useRef(false);
   const [editVisible, setEditVisible] = useState(false);
   const [inviteOpen, setInviteOpen] = useState(false);
+  const [profileTarget, setProfileTarget] = useState<Player | null>(null);
+
+  const goHome = (): void => {
+    if (router.canGoBack()) router.back();
+    else router.replace('/(tabs)' as never);
+  };
+
+  // 대기실 이탈(헤더 뒤로가기·Android 하드웨어 뒤로가기)은 확인 후 퇴장 — 방 만들기 화면이 아니라 홈으로 간다
+  // (iOS 스와이프는 레이아웃에서 차단)
+  const handleExitAttempt = (): void => {
+    Alert.alert('대기실 나가기', '대기실에서 나가시겠어요?', [
+      { text: '취소', style: 'cancel' },
+      {
+        text: '나가기',
+        style: 'destructive',
+        onPress: () => {
+          socket?.emit(CLIENT_EVENT.ROOM_LEAVE);
+          goHome();
+        },
+      },
+    ]);
+  };
+  useHardwareBack(handleExitAttempt);
 
   // MODE1_ROUND_START 시 게임 화면으로, MODE2_PROMPT_PHASE 시 모드2 화면으로 전환
   useEffect(() => {
@@ -39,17 +64,20 @@ export default function LobbyScreen() {
     }
   }, [roomState?.status, roomState?.mode, code, router]);
 
+  // 입장이 거절되면(진행 중인 방·없는 방 등) 안내 토스트(소켓 에러)와 함께 홈으로
   useEffect(() => {
-    if (!socket || !code) return;
-    const handleConnect = (): void => {
-      socket.emit(CLIENT_EVENT.ROOM_JOIN, { code });
-    };
-    socket.on('connect', handleConnect);
-    if (socket.connected) handleConnect();
-    return () => {
-      socket.off('connect', handleConnect);
-    };
-  }, [socket, code]);
+    if (!joinError) return;
+    if (router.canGoBack()) router.back();
+    else router.replace('/(tabs)' as never);
+  }, [joinError, router]);
+
+  // 시상식 만료 직후 [한번 더!]로 들어온 경우 등 대기실 명단에 내가 없으면 1회 재입장
+  const isMember = roomState?.players.some((p) => p.id === myId) ?? false;
+  useEffect(() => {
+    if (!roomState || isMember || rejoinedRef.current || roomState.status !== 'LOBBY') return;
+    rejoinedRef.current = true;
+    socket?.emit(CLIENT_EVENT.ROOM_JOIN, { code });
+  }, [roomState, isMember, socket, code]);
 
   useEffect(() => {
     const isHost = roomState?.hostId === myId;
@@ -76,10 +104,13 @@ export default function LobbyScreen() {
   const me = roomState?.players.find((p) => p.id === myId);
   const isHost = me?.isHost ?? false;
   const allReady = roomState?.allReady ?? false;
+  // 다른 참가자가 아직 시상식에 있는 동안(status=AWARD)은 준비·시작 불가
+  const isAwardInProgress = roomState?.status === 'AWARD';
   const connectedPlayerCount = roomState?.players.filter((p) => p.connected).length ?? 0;
   const hasEnoughMode2Players = roomState?.mode !== 2 || connectedPlayerCount >= MODE2_PLAYER_MIN;
-  const canStartGame = allReady && hasEnoughMode2Players;
+  const canStartGame = allReady && hasEnoughMode2Players && !isAwardInProgress;
   const startButtonLabel = (() => {
+    if (isAwardInProgress) return '시상 진행 중..';
     if (roomState?.mode === 2 && !hasEnoughMode2Players) {
       return `최소 ${MODE2_PLAYER_MIN}명 필요`;
     }
@@ -88,11 +119,31 @@ export default function LobbyScreen() {
 
   const handleCopyCode = (): Promise<void> => copyToClipboard(code ?? '', '코드가 복사되었습니다');
 
-  const renderItem: ListRenderItem<SlotItem> = ({ item }) => (
-    <SlotCard player={item} isMe={item?.id === myId} cardWidth={cardWidth} />
-  );
+  const renderItem: ListRenderItem<SlotItem> = ({ item }) => {
+    const isMe = item?.id === myId;
+    return (
+      <SlotCard
+        player={item}
+        isMe={isMe}
+        cardWidth={cardWidth}
+        onPress={item && !isMe ? () => setProfileTarget(item) : undefined}
+      />
+    );
+  };
 
   const keyExtractor = (item: SlotItem, index: number): string => item?.id ?? `empty-${index}`;
+
+  // 내가 포함된 room:state를 받기 전까지는 빈 대기실 대신 입장 중 안내
+  if (!roomState || !isMember) {
+    return (
+      <ImageBackground source={roomBackground} style={{ flex: 1 }} resizeMode="cover">
+        <View sx={{ flex: 1, alignItems: 'center', justifyContent: 'center', gap: spacing.MD }}>
+          <SketchbookLoadingSpinner size={200} accessibilityLabel="대기실 입장 중" />
+          <Text sx={{ ...textSizes.B2, color: colors.LIGHT_100 }}>대기실에 입장하고 있어요...</Text>
+        </View>
+      </ImageBackground>
+    );
+  }
 
   return (
     <ImageBackground source={roomBackground} style={{ flex: 1 }} resizeMode="cover">
@@ -111,14 +162,7 @@ export default function LobbyScreen() {
               marginRight: spacing.SM,
             }}
           >
-            <Pressable
-              onPress={() => {
-                socket?.emit(CLIENT_EVENT.ROOM_LEAVE);
-                router.back();
-              }}
-              hitSlop={8}
-              style={styles.backBtn}
-            >
+            <Pressable onPress={handleExitAttempt} hitSlop={8} style={styles.backBtn}>
               <Icon name="BACK" size={24} />
             </Pressable>
             <Text
@@ -178,12 +222,14 @@ export default function LobbyScreen() {
           <Button
             label="준비 취소"
             color="light"
+            disabled={isAwardInProgress}
             onPress={() => socket?.emit(CLIENT_EVENT.ROOM_READY, { ready: false })}
           />
         ) : (
           <Button
-            label="준비 완료"
+            label={isAwardInProgress ? '시상 진행 중..' : '준비 완료'}
             color="primary"
+            disabled={isAwardInProgress}
             onPress={() => socket?.emit(CLIENT_EVENT.ROOM_READY, { ready: true })}
           />
         )}
@@ -200,6 +246,8 @@ export default function LobbyScreen() {
         onClose={() => setInviteOpen(false)}
         code={code ?? ''}
       />
+
+      <PlayerProfileDialog player={profileTarget} onClose={() => setProfileTarget(null)} />
     </SafeAreaView>
     </ImageBackground>
   );

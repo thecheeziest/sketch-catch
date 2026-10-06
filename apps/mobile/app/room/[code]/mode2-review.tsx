@@ -1,10 +1,11 @@
-import { useCallback, useEffect, useState } from 'react';
-import { BackHandler, StyleSheet, useWindowDimensions } from 'react-native';
+import { useEffect, useState } from 'react';
+import { StyleSheet, useWindowDimensions } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Image, ScrollView, Text, View } from 'dripsy';
-import { Stack, useLocalSearchParams, useRouter } from 'expo-router';
-import type { Mode2ReviewSheet, Mode2ReviewState, Mode2StepContent } from '@sketch-catch/shared';
+import { useLocalSearchParams, useRouter } from 'expo-router';
+import type { Mode2ReviewSheet, Mode2StepContent } from '@sketch-catch/shared';
 import { CLIENT_EVENT } from '@sketch-catch/shared';
+import { useHardwareBack } from '@/shared/lib';
 import { useAuthStore, useRoomStore } from '@/shared/model';
 import { useMode2Store } from '@/features/mode2/model/useMode2Store';
 import { useMode2Sender } from '@/features/mode2/api/useMode2Sender';
@@ -36,25 +37,7 @@ export default function Mode2ReviewScreen() {
   const [hasJudged, setHasJudged] = useState(false);
   const [exitDialogVisible, setExitDialogVisible] = useState(false);
 
-  // 소켓 연결 후 방 재입장 + 화면 독립 진입 대비 mode2:review 안전장치 구독
-  // (reset 없이 review만 구독 — mode2.tsx의 registerMode2Listeners를 다시 호출하지 않는다)
-  useEffect(() => {
-    if (!socket || !code) return;
-    const handleConnect = (): void => {
-      socket.emit(CLIENT_EVENT.ROOM_JOIN, { code });
-    };
-    const handleReview = (payload: Mode2ReviewState): void => {
-      useMode2Store.setState({ review: payload });
-    };
-    socket.on('connect', handleConnect);
-    socket.on('mode2:review', handleReview);
-    if (socket.connected) handleConnect();
-    return () => {
-      socket.off('connect', handleConnect);
-      socket.off('mode2:review', handleReview);
-    };
-  }, [socket, code]);
-
+  // 방 재입장·mode2:review 구독은 room/[code]/_layout이 처리한다.
   // 게임 종료(리뷰+투표 종료) → 종료 화면 라우팅
   useEffect(() => {
     if (roomState?.status === 'AWARD') {
@@ -62,17 +45,8 @@ export default function Mode2ReviewScreen() {
     }
   }, [roomState?.status, code, router]);
 
-  const handleExitAttempt = useCallback((): void => {
-    setExitDialogVisible(true);
-  }, []);
-
-  useEffect(() => {
-    const subscription = BackHandler.addEventListener('hardwareBackPress', () => {
-      handleExitAttempt();
-      return true;
-    });
-    return () => subscription.remove();
-  }, [handleExitAttempt]);
+  // Android 하드웨어 뒤로가기 — 나가기 확인 Dialog (iOS 스와이프는 레이아웃에서 차단)
+  useHardwareBack(() => setExitDialogVisible(true));
 
   const handleConfirmExit = (): void => {
     socket?.emit(CLIENT_EVENT.ROOM_LEAVE);
@@ -181,8 +155,6 @@ export default function Mode2ReviewScreen() {
 
   return (
     <SafeAreaView style={styles.container} edges={['top', 'bottom']}>
-      <Stack.Screen options={{ gestureEnabled: false }} />
-
       <ReviewProgressHeader key={`${review?.subPhase}-${review?.currentSheetIndex}`} text={headerText} timerSec={headerTimer} />
 
       {review?.subPhase === 'FINAL_JUDGE' && currentSheet && (

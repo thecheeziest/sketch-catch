@@ -1,12 +1,15 @@
 import type { Namespace, Socket } from 'socket.io';
 import type { ClientEvents, ServerEvents, RoomState } from '@sketch-catch/shared';
+import { randomUUID } from 'node:crypto';
 import { MODE2_PLAYER_MIN, SERVER_EVENT } from '@sketch-catch/shared';
 import { getRoomState, saveRoomState, withRoomLock } from '../../services/rooms.service.js';
-import { redis, setPresence, setUserRoom, clearUserRoom } from '../../db/redis.js';
+import { computeAllReady, ensureHost } from '../../services/roomRules.js';
+import { setPresence, setUserRoom, clearUserRoom } from '../../db/redis.js';
 import { broadcastPresenceUpdate } from '../presence.namespace.js';
 import { prisma } from '../../db/prisma.js';
-import { startRound, initTurnSchedule, handlePlayerLeft } from './game.js';
+import { startRound, initTurnSchedule, handlePlayerLeft, resendCurrentRound } from './game.js';
 import { startMode2, handleMode2PlayerLeft, isMode2Active, resendCurrentStep } from './mode2.js';
+import { destroyRoom, finishAward } from './award.js';
 
 type GameNamespace = Namespace<ClientEvents, ServerEvents>;
 type GameSocket = Socket<ClientEvents, ServerEvents, Record<string, never>, { userId: string }>;
@@ -45,7 +48,7 @@ async function hasActiveUserSocketInRoom(
 
 type JoinResult =
   | { ok: true; state: RoomState }
-  | { ok: false; code: 'ROOM_NOT_FOUND' | 'ALREADY_LEFT' | 'ROOM_FULL'; message: string };
+  | { ok: false; code: 'ROOM_NOT_FOUND' | 'ALREADY_LEFT' | 'ROOM_FULL' | 'GAME_IN_PROGRESS'; message: string };
 
 export async function handleRoomJoin(
   game: GameNamespace,
@@ -70,6 +73,10 @@ export async function handleRoomJoin(
       // 재접속: connected 복원
       existingPlayer.connected = true;
     } else {
+      // 신규 유저는 대기실에서만 입장 가능 — 진행 중·시상식 중인 게임에 끼어들면 출제 순서에 없는 유저가 생겨 게임이 멈춘다
+      if (state.status !== 'LOBBY') {
+        return { ok: false, code: 'GAME_IN_PROGRESS', message: '이미 게임이 진행 중인 방이에요.' };
+      }
       // 인원 초과 검사
       if (state.players.length >= state.config.playerCountMax) {
         return { ok: false, code: 'ROOM_FULL', message: '방이 가득 찼습니다.' };
@@ -97,6 +104,8 @@ export async function handleRoomJoin(
       });
     }
 
+    // 미준비 유저가 들어오면 allReady가 풀려야 한다
+    state.allReady = computeAllReady(state);
     await saveRoomState(state);
     return { ok: true, state };
   });
@@ -120,8 +129,12 @@ export async function handleRoomJoin(
   if (isMode2Active(state.status)) {
     resendCurrentStep(socket, state);
   }
+  // 모드1도 동일 — 진행 중 라운드를 이 소켓에만 재전송 (첫 round:start 유실로 화면이 멈추던 문제)
+  resendCurrentRound(socket, state, userId);
 
-  const presenceStatus = state.status === 'LOBBY' ? 'IN_LOBBY' : 'IN_GAME';
+  // 시상식에서 [한번 더!]를 눌러 대기실로 온 유저는 대기실 상태로 표시
+  const isInLobby = state.status === 'LOBBY' || (state.status === 'AWARD' && !player.inAward);
+  const presenceStatus = isInLobby ? 'IN_LOBBY' : 'IN_GAME';
   await setPresence(userId, presenceStatus);
   broadcastPresenceUpdate(userId, presenceStatus);
   await setUserRoom(userId, code);
@@ -141,19 +154,15 @@ export async function handleRoomReady(
 
   const code = roomName.replace('room:', '');
   const state = await getRoomState(code);
-  if (!state) return;
+  // 준비 상태는 대기실에서만 의미가 있다 (시상식 중 복귀한 유저는 대기실 전환 후 준비)
+  if (!state || state.status !== 'LOBBY') return;
 
   const player = state.players.find((p) => p.id === userId);
   if (!player) return;
 
   player.isReady = ready;
   // allReady는 서버에서만 계산 — 클라이언트 단독 계산 금지 (보안 원칙)
-  // 방장은 준비 버튼이 없으므로 allReady 계산에서 제외 (LBBY-02)
-  const nonHostPlayers = state.players.filter((p) => !p.isHost);
-  state.allReady = nonHostPlayers.length > 0 && nonHostPlayers.every((p) => p.isReady);
-  console.log('[ready] players:', state.players.map(p => ({ id: p.id, isHost: p.isHost, isReady: p.isReady })));
-  console.log('[ready] nonHostPlayers:', nonHostPlayers.map(p => ({ id: p.id, isReady: p.isReady })));
-  console.log('[ready] allReady:', state.allReady);
+  state.allReady = computeAllReady(state);
 
   await saveRoomState(state);
   game.to(roomName).emit(SERVER_EVENT.ROOM_STATE, state);
@@ -178,38 +187,48 @@ export async function handleRoomStart(
     return;
   }
 
-  if (!state.allReady) {
+  // 대기실에서만 시작 가능 — 진행 중·시상식 중 재시작으로 끝난 게임이 이어지던 문제 방지
+  if (state.status !== 'LOBBY') {
+    socket.emit(SERVER_EVENT.ERROR, { code: 'GAME_IN_PROGRESS', message: '이미 게임이 진행 중입니다.' });
+    return;
+  }
+
+  // 저장된 값이 아니라 현재 참가자 기준으로 다시 계산 — 미준비 유저 입장 직후 시작 방지
+  if (!computeAllReady(state)) {
     socket.emit(SERVER_EVENT.ERROR, { code: 'NOT_ALL_READY', message: '모두 준비 완료 후 시작 가능합니다.' });
     return;
   }
 
   // Pitfall 4: 모드 2는 시트 로테이션 상태 머신(startMode2)으로 분기 — initTurnSchedule(모드1 전용) 미호출
-  if (state.mode === 2) {
-    if (state.players.filter((p) => p.connected).length < MODE2_PLAYER_MIN) {
-      socket.emit(SERVER_EVENT.ERROR, { code: 'INSUFFICIENT_PLAYERS', message: '모드 2는 최소 4명이 필요합니다.' });
-      return;
-    }
+  if (state.mode === 2 && state.players.filter((p) => p.connected).length < MODE2_PLAYER_MIN) {
+    socket.emit(SERVER_EVENT.ERROR, { code: 'INSUFFICIENT_PLAYERS', message: '모드 2는 최소 4명이 필요합니다.' });
+    return;
+  }
 
-    state.startedAt = Date.now();
+  // 게임 1판의 식별자 발급 — 이후 타이머·이벤트는 이 값으로 지난 게임과 구분된다
+  state.gameId = randomUUID();
+  state.startedAt = Date.now();
+  state.scoreboard = {};
+  state.allReady = false;
+  const activePlayers = state.players.filter((p) => p.connected);
+
+  if (state.mode === 2) {
     await saveRoomState(state);
-    const active = state.players.filter((p) => p.connected);
-    await Promise.all(active.map((p) => setPresence(p.id, 'IN_GAME')));
-    active.forEach((p) => broadcastPresenceUpdate(p.id, 'IN_GAME'));
+    await Promise.all(activePlayers.map((p) => setPresence(p.id, 'IN_GAME')));
+    activePlayers.forEach((p) => broadcastPresenceUpdate(p.id, 'IN_GAME'));
     await startMode2(game, code);
     return;
   }
 
-  state.startedAt = Date.now();
-  state.status = 'MODE1_ROUND_START';
+  // status는 LOBBY로 둔 채 저장 — startRound가 status와 current를 한 번에 바꾸고 room:state를 보낸다
   initTurnSchedule(state);
   await saveRoomState(state);
-  game.to(roomName).emit(SERVER_EVENT.ROOM_STATE, state);
 
-  const activePlayers = state.players.filter((p) => p.connected);
+  const started = await startRound(game, code, 0);
+  if (!started) return;
+
   await Promise.all(activePlayers.map((p) => setPresence(p.id, 'IN_GAME')));
   activePlayers.forEach((p) => broadcastPresenceUpdate(p.id, 'IN_GAME'));
-
-  await startRound(game, code, 0);
 }
 
 export async function handleRoomLeave(
@@ -240,26 +259,30 @@ export async function handleRoomLeave(
       } else {
         await handlePlayerLeft(game, code, userId);
       }
-    } else {
-      // 로비/시상식: 기존 퇴장 처리
-      state.players = state.players.filter((p) => p.id !== userId);
-
-      if (state.players.length === 0) {
-        await redis.del(`room:${code}:state`);
-        continue;
-      }
-
-      // LBBY-03: 방장이 나간 경우 slot 최소 참가자 승계
-      if (state.hostId === userId) {
-        const next = state.players.sort((a, b) => a.slot - b.slot)[0]!;
-        state.hostId = next.id;
-        next.isHost = true;
-      }
-
-      await saveRoomState(state);
-      game.to(roomName).emit(SERVER_EVENT.ROOM_STATE, state);
-      game.to(roomName).emit(SERVER_EVENT.ROOM_PLAYER_LEAVE, { userId });
+      continue;
     }
+
+    // 로비/시상식: 즉시 제거
+    const departed = state.players.filter((p) => p.id === userId);
+    state.players = state.players.filter((p) => p.id !== userId);
+
+    if (state.players.every((p) => p.left)) {
+      await destroyRoom(code);
+      continue;
+    }
+
+    ensureHost(state, departed);
+    state.allReady = computeAllReady(state);
+    await saveRoomState(state);
+
+    // 시상식에 남은 유저가 더 없으면 만료를 기다리지 않고 대기실로 전환 (finishAward가 room:state 전송)
+    if (state.status === 'AWARD' && !state.players.some((p) => p.inAward)) {
+      game.to(roomName).emit(SERVER_EVENT.ROOM_PLAYER_LEAVE, { userId });
+      await finishAward(game, code);
+      continue;
+    }
+    game.to(roomName).emit(SERVER_EVENT.ROOM_STATE, state);
+    game.to(roomName).emit(SERVER_EVENT.ROOM_PLAYER_LEAVE, { userId });
   }
 
   if (hasActiveRoomSocket) return;

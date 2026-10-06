@@ -3,7 +3,7 @@ import type { RoomState, Mode1RoundCurrent } from '@sketch-catch/shared';
 
 // word.service mock
 vi.mock('../services/word.service.js', () => ({
-  pickWord: vi.fn().mockResolvedValue({ word: '강아지', category: 'ANIMAL' }),
+  pickRoundWord: vi.fn().mockResolvedValue({ word: '강아지', category: 'ANIMAL' }),
 }));
 
 // rooms.service mock
@@ -13,13 +13,13 @@ vi.mock('../services/rooms.service.js', () => ({
 }));
 
 import { getRoomState, saveRoomState } from '../services/rooms.service.js';
-import { pickWord } from '../services/word.service.js';
+import { pickRoundWord } from '../services/word.service.js';
 import { startRound, endRound, calcScore, handlePlayerLeft } from '../socket/handlers/game.js';
 import { handleStrokeStart, handleStrokeClear } from '../socket/handlers/stroke.js';
 import { handleChatSend, handleAnswerAccept } from '../socket/handlers/chat.js';
 
 const mockGetRoomState = vi.mocked(getRoomState);
-const mockPickWord = vi.mocked(pickWord);
+const mockPickWord = vi.mocked(pickRoundWord);
 const mockSaveRoomState = vi.mocked(saveRoomState);
 
 function makeRoomState(overrides: Partial<RoomState> = {}): RoomState {
@@ -158,7 +158,7 @@ describe('game state machine (MD1-01, MD1-05)', () => {
       randomSpy.mockRestore();
     }
 
-    expect(mockPickWord).toHaveBeenCalledWith(['ANIMAL']);
+    expect(mockPickWord).toHaveBeenCalledWith('ANIMAL', expect.any(Array));
     const savedState = mockSaveRoomState.mock.calls[0]![0]! as RoomState;
     expect((savedState.current as Mode1RoundCurrent).prompt).toBe('강아지');
     expect(game._broadcastEmit).toHaveBeenCalledWith(

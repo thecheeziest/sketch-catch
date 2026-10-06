@@ -1,8 +1,6 @@
 import { Text } from 'dripsy';
-import { CLIENT_EVENT } from '@sketch-catch/shared';
 import { router } from 'expo-router';
 import { Dialog } from '@/shared/ui';
-import { useRoomStore } from '@/shared/model';
 import { usePushStore } from '../../model/usePushStore';
 
 // D-11: 게임 초대 푸시 클릭 시 이미 다른 방에 속해 있으면 이동 여부를 확인하는 Dialog
@@ -16,10 +14,8 @@ export function NotificationGate() {
   const confirmSwitch = () => {
     const code = pendingInviteRoomCode;
     if (!code) return;
-    const socket = useRoomStore.getState().socket;
-    socket?.emit(CLIENT_EVENT.ROOM_LEAVE);
-    socket?.emit(CLIENT_EVENT.ROOM_JOIN, { code });
-    router.push(`/room/${code}` as never);
+    // 이전 방 소켓은 새 방 연결(connect) 시 끊기고, 서버는 끊김을 퇴장으로 처리한다.
+    router.replace(`/room/${code}` as never);
     clearPending();
   };
 

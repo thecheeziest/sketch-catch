@@ -10,6 +10,7 @@ export type DialogButton = {
   color?: ButtonColor;
   onPress: () => void;
   disabled?: boolean;
+  loading?: boolean;
 };
 
 type Props = {
@@ -117,7 +118,13 @@ export function Dialog({ visible, onClose, title, children, buttons, dismissible
               <View sx={{ flexDirection: 'row', gap: 8 }}>
                 {buttons.map((btn, i) => (
                   <View key={i} sx={{ flex: 1 }}>
-                    <Button label={btn.label} color={btn.color ?? 'primary'} onPress={btn.onPress} disabled={btn.disabled} />
+                    <Button
+                      label={btn.label}
+                      color={btn.color ?? 'primary'}
+                      onPress={btn.onPress}
+                      disabled={btn.disabled}
+                      loading={btn.loading}
+                    />
                   </View>
                 ))}
               </View>

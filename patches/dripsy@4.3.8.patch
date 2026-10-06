@@ -1,0 +1,25 @@
+diff --git a/build/core/components/SafeAreaView.js b/build/core/components/SafeAreaView.js
+index f65cab5aca9a6ae9ac1a0474426eed406cc0d536..0b81c53dc557ce9a45c420351a168e68fb25e0f4 100644
+--- a/build/core/components/SafeAreaView.js
++++ b/build/core/components/SafeAreaView.js
+@@ -1,4 +1,5 @@
+-import { SafeAreaView as rSafeAreaView } from 'react-native';
++import { View } from 'react-native';
+ import { createThemedComponent } from '../css/create-themed-component';
+-export const SafeAreaView = createThemedComponent(rSafeAreaView);
++// sketch-catch patch: react-native의 SafeAreaView는 deprecated(import만 해도 경고)라 View로 대체.
++export const SafeAreaView = createThemedComponent(View);
+ //# sourceMappingURL=SafeAreaView.js.map
+diff --git a/src/core/components/SafeAreaView.ts b/src/core/components/SafeAreaView.ts
+index b47867b68c33357d74e6bd9eb26f8a50edc74880..3d05af52bb5322401d6480d4a7975fccfc605802 100644
+--- a/src/core/components/SafeAreaView.ts
++++ b/src/core/components/SafeAreaView.ts
+@@ -1,4 +1,6 @@
+-import { SafeAreaView as rSafeAreaView } from 'react-native'
++import { View } from 'react-native'
+ import { createThemedComponent } from '../css/create-themed-component'
+ 
+-export const SafeAreaView = createThemedComponent(rSafeAreaView)
++// sketch-catch patch: react-native의 SafeAreaView는 deprecated(import만 해도 경고)라 View로 대체.
++// 앱은 react-native-safe-area-context를 쓰고 dripsy의 SafeAreaView는 사용하지 않는다.
++export const SafeAreaView = createThemedComponent(View)

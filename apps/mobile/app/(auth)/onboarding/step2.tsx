@@ -31,7 +31,7 @@ export default function OnboardingStep2() {
           if (err instanceof ApiError && err.code === 'NICKNAME_CODE_CONFLICT') {
             useToastStore
               .getState()
-              .show('이미 사용 중인 닉네임+코드 조합이에요. 코드를 바꿔보세요.')
+              .show('이미 사용 중인 닉네임+해시태그 조합이에요. 해시태그를 바꿔보세요.')
             router.back()
           } else {
             useToastStore.getState().show('연결에 실패했어요. 잠시 후 다시 시도해주세요.')

@@ -4,4 +4,7 @@ export { useMatchingTimer } from './useMatchingTimer';
 export { useMatchingNavigation } from './useMatchingNavigation';
 export { useModalForm } from './useModalForm';
 export { useNavGuard } from './useNavGuard';
+export { useHardwareBack } from './useHardwareBack';
+export { usePullToRefresh } from './usePullToRefresh';
+export { buildStrokePath } from './strokePath';
 export { copyToClipboard } from './useCopyToClipboard';

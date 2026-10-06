@@ -1,8 +1,12 @@
-import type { Namespace } from 'socket.io';
-import type { ClientEvents, ServerEvents, Mode1RoundCurrent, RoomState, Category } from '@sketch-catch/shared';
+import type { Namespace, Socket } from 'socket.io';
+import type { ClientEvents, ServerEvents, Mode1RoundCurrent, RoomState, Category, RoundStart } from '@sketch-catch/shared';
 import { SERVER_EVENT } from '@sketch-catch/shared';
 import { getRoomState, saveRoomState } from '../../services/rooms.service.js';
-import { pickWord } from '../../services/word.service.js';
+import { pickRoundWord } from '../../services/word.service.js';
+import { clearRoomTimer, clearRoomTimers, setRoomTimer } from '../../services/roomTimers.js';
+import { clearRoomChat } from '../../services/chatStore.js';
+import { resetToLobby } from '../../services/roomRules.js';
+import { beginAward } from './award.js';
 
 // 선택된 카테고리 중 이번 라운드에 사용할 카테고리 1개를 균등 랜덤 선택 (CUSTOM도 동일 확률의 후보)
 function pickRoundCategory(categories: Category[]): Category {
@@ -12,11 +16,8 @@ function pickRoundCategory(categories: Category[]): Category {
 
 type GameNamespace = Namespace<ClientEvents, ServerEvents>;
 
-// Pitfall 3: 타이머 레퍼런스를 모듈 레벨 Map으로 관리 — 정답/타임아웃 두 경로 모두 정리
-export const activeTimers = new Map<string, ReturnType<typeof setTimeout>>();
-
-// 커스텀 모드 제시어 입력 대기 타이머 (10초)
-const customPromptTimers = new Map<string, ReturnType<typeof setTimeout>>();
+const CUSTOM_PROMPT_TIMEOUT_MS = 10_000;
+const NEXT_ROUND_DELAY_MS = 3000;
 
 // D-01: answeredAt 누적 Map (동점자 정렬용 — score DESC, answeredAt ASC)
 const answerTimestamps = new Map<string, Map<string, number>>();
@@ -44,77 +45,106 @@ export function initTurnSchedule(state: RoomState): void {
   state.turnSchedule = schedule;
 }
 
+// 제시어를 구할 수 없어 게임을 진행할 수 없을 때 — 대기실로 되돌리고 방 전체에 안내
+async function abortGame(game: GameNamespace, state: RoomState): Promise<void> {
+  clearRoomTimers(state.code);
+  answerTimestamps.delete(state.code);
+  clearRoomChat(state.code);
+  resetToLobby(state);
+  await saveRoomState(state);
+  game.to(`room:${state.code}`).emit(SERVER_EVENT.ROOM_STATE, state);
+  game.to(`room:${state.code}`).emit(SERVER_EVENT.ERROR, {
+    code: 'WORD_POOL_EMPTY',
+    message: '제시어를 불러오지 못했어요. 잠시 후 다시 시작해 주세요.',
+  });
+}
+
+/**
+ * 라운드 시작. status와 current를 한 번에 저장한다 — 둘 사이에 이벤트가 끼어들면
+ * current가 null인 채로 채팅이 처리되어 서버가 죽던 문제(R8) 방지.
+ * @returns 라운드가 실제로 시작됐는지 (제시어를 못 구해 게임이 취소되면 false)
+ */
 export async function startRound(
   game: GameNamespace,
   code: string,
   roundIndex: number,
-): Promise<void> {
+  expectedGameId?: string,
+): Promise<boolean> {
   const state = await getRoomState(code);
-  if (!state || !state.turnSchedule) return;
+  if (!state || !state.turnSchedule) return false;
+  if (expectedGameId !== undefined && state.gameId !== expectedGameId) return false;
 
   const drawerId = state.turnSchedule[roundIndex];
-  if (!drawerId) return;
+  if (!drawerId) return false;
 
+  const gameId = state.gameId;
+  // 대기실에서 첫 라운드로 넘어갈 때만 room:state로 화면 전환을 알린다
+  const isFirstRound = state.status === 'LOBBY';
   const roundCategory = pickRoundCategory(state.config.categories);
+  const roomName = `room:${code}`;
 
   if (roundCategory === 'CUSTOM') {
     // 커스텀 모드: 제시어 없이 시작, 출제자가 10초 내 직접 입력
     state.status = 'MODE1_ROUND_START';
-    state.current = {
-      roundIndex,
-      drawerId,
-      prompt: '',
-      startedAt: Date.now(),
-    } satisfies Mode1RoundCurrent;
-
+    state.current = { roundIndex, drawerId, prompt: '', startedAt: Date.now() } satisfies Mode1RoundCurrent;
     await saveRoomState(state);
 
-    game.to(`room:${code}`).emit('game:round:start', {
+    if (isFirstRound) game.to(roomName).emit(SERVER_EVENT.ROOM_STATE, state);
+    game.to(roomName).emit('game:round:start', {
+      gameId: gameId ?? '',
       roundIndex,
       drawerId,
       durationSec: state.config.drawTimer,
       needsCustomPrompt: true,
     });
 
-    clearTimeout(customPromptTimers.get(code));
-    customPromptTimers.set(
-      code,
-      setTimeout(async () => {
-        customPromptTimers.delete(code);
-        // 10초 초과 → 출제자 점수 차감 후 다음 턴
-        const st = await getRoomState(code);
-        if (!st || (st.current as Mode1RoundCurrent)?.prompt !== '') return;
-        st.scoreboard[drawerId] = (st.scoreboard[drawerId] ?? 0) - 100;
-        await saveRoomState(st);
-        await endRound(game, code, roundIndex, null);
-      }, 10_000),
+    setRoomTimer(code, 'round', CUSTOM_PROMPT_TIMEOUT_MS, () =>
+      handleCustomPromptTimeout(game, code, gameId, roundIndex, drawerId),
     );
-  } else {
-    const { word } = await pickWord([roundCategory]);
-
-    state.status = 'MODE1_ROUND_START';
-    state.current = {
-      roundIndex,
-      drawerId,
-      prompt: word,
-      startedAt: Date.now(),
-    } satisfies Mode1RoundCurrent;
-
-    await saveRoomState(state);
-
-    game.to(`room:${code}`).emit('game:round:start', {
-      roundIndex,
-      drawerId,
-      promptForDrawer: word,
-      durationSec: state.config.drawTimer,
-    });
-
-    clearTimeout(activeTimers.get(code));
-    activeTimers.set(
-      code,
-      setTimeout(() => void endRound(game, code, roundIndex, null), state.config.drawTimer * 1000),
-    );
+    return true;
   }
+
+  const picked = await pickRoundWord(roundCategory, state.config.categories);
+  if (!picked) {
+    await abortGame(game, state);
+    return false;
+  }
+
+  state.status = 'MODE1_ROUND_START';
+  state.current = { roundIndex, drawerId, prompt: picked.word, startedAt: Date.now() } satisfies Mode1RoundCurrent;
+  await saveRoomState(state);
+
+  if (isFirstRound) game.to(roomName).emit(SERVER_EVENT.ROOM_STATE, state);
+  game.to(roomName).emit('game:round:start', {
+    gameId: gameId ?? '',
+    roundIndex,
+    drawerId,
+    promptForDrawer: picked.word,
+    durationSec: state.config.drawTimer,
+  });
+
+  setRoomTimer(code, 'round', state.config.drawTimer * 1000, () =>
+    endRound(game, code, roundIndex, null, undefined, gameId),
+  );
+  return true;
+}
+
+// 커스텀 제시어 10초 초과 → 출제자 점수 차감 후 다음 턴
+async function handleCustomPromptTimeout(
+  game: GameNamespace,
+  code: string,
+  gameId: string | undefined,
+  roundIndex: number,
+  drawerId: string,
+): Promise<void> {
+  const state = await getRoomState(code);
+  if (!state || state.gameId !== gameId || state.status !== 'MODE1_ROUND_START') return;
+  const current = state.current as Mode1RoundCurrent | null;
+  if (!current || current.roundIndex !== roundIndex || current.prompt !== '') return;
+
+  state.scoreboard[drawerId] = (state.scoreboard[drawerId] ?? 0) - 100;
+  await saveRoomState(state);
+  await endRound(game, code, roundIndex, null, undefined, gameId);
 }
 
 export async function handleCustomPromptSubmit(
@@ -129,33 +159,55 @@ export async function handleCustomPromptSubmit(
   const state = await getRoomState(code);
   if (!state || state.status !== 'MODE1_ROUND_START') return;
 
-  const current = state.current as Mode1RoundCurrent;
-  if (current.drawerId !== socket.data.userId) return;
+  const current = state.current as Mode1RoundCurrent | null;
+  if (!current || current.drawerId !== socket.data.userId) return;
   if (current.prompt !== '') return; // 이미 제시어가 설정된 경우 무시
 
   const prompt = payload.text.trim().slice(0, 20);
   if (prompt.length === 0) return;
 
-  clearTimeout(customPromptTimers.get(code));
-  customPromptTimers.delete(code);
-
   current.prompt = prompt;
   current.startedAt = Date.now();
   await saveRoomState(state);
 
+  const gameId = state.gameId;
   // 출제자에게만 실제 제시어 전달
   game.to(`room:${code}`).emit('game:round:start', {
+    gameId: gameId ?? '',
     roundIndex: current.roundIndex,
     drawerId: current.drawerId,
     promptForDrawer: prompt,
     durationSec: state.config.drawTimer,
   });
 
-  clearTimeout(activeTimers.get(code));
-  activeTimers.set(
-    code,
-    setTimeout(() => void endRound(game, code, current.roundIndex, null), state.config.drawTimer * 1000),
+  // 커스텀 제시어 대기 타이머를 그림 타이머로 교체
+  setRoomTimer(code, 'round', state.config.drawTimer * 1000, () =>
+    endRound(game, code, current.roundIndex, null, undefined, gameId),
   );
+}
+
+// 진행 중 라운드에 (재)입장한 소켓에만 현재 라운드를 다시 보낸다 — 화면 전환 중 첫 round:start를
+// 놓쳐 화면이 멈추던 문제 방지. 남은 시간 기준으로 durationSec을 보정한다.
+export function resendCurrentRound(
+  socket: Pick<Socket<ClientEvents, ServerEvents>, 'emit'>,
+  state: RoomState,
+  userId: string,
+): void {
+  if (state.status !== 'MODE1_ROUND_START') return;
+  const current = state.current as Mode1RoundCurrent | null;
+  if (!current) return;
+
+  const needsCustomPrompt = current.prompt === '';
+  const elapsedSec = Math.floor((Date.now() - current.startedAt) / 1000);
+  const payload: RoundStart = {
+    gameId: state.gameId ?? '',
+    roundIndex: current.roundIndex,
+    drawerId: current.drawerId,
+    durationSec: needsCustomPrompt ? state.config.drawTimer : Math.max(0, state.config.drawTimer - elapsedSec),
+  };
+  if (needsCustomPrompt) payload.needsCustomPrompt = true;
+  if (!needsCustomPrompt && current.drawerId === userId) payload.promptForDrawer = current.prompt;
+  socket.emit('game:round:start', payload);
 }
 
 export async function endRound(
@@ -164,16 +216,17 @@ export async function endRound(
   roundIndex: number,
   correctUserId: string | null,
   answeredAtMs?: number,
+  expectedGameId?: string,
 ): Promise<void> {
-  clearTimeout(activeTimers.get(code));
-  activeTimers.delete(code);
-
   const state = await getRoomState(code);
   if (!state) return;
-  // 이미 종료된 라운드에 대한 중복 호출 방어 (출제자 퇴장 + 타이머 동시 발생 대비)
+  if (expectedGameId !== undefined && state.gameId !== expectedGameId) return;
+  // 이미 종료된 라운드·다른 라운드에 대한 중복 호출 방어 (동시 정답, 출제자 퇴장 + 타이머 동시 발생 등)
   if (state.status !== 'MODE1_ROUND_START') return;
+  const current = state.current as Mode1RoundCurrent | null;
+  if (!current || current.roundIndex !== roundIndex) return;
 
-  const current = state.current as Mode1RoundCurrent;
+  clearRoomTimer(code, 'round');
   const scoreDelta: Record<string, number> = {};
 
   if (correctUserId) {
@@ -193,7 +246,9 @@ export async function endRound(
   state.status = 'MODE1_ROUND_END';
   await saveRoomState(state);
 
+  const gameId = state.gameId;
   game.to(`room:${code}`).emit('game:round:end', {
+    gameId: gameId ?? '',
     roundIndex,
     correctUserId,
     scoreDelta,
@@ -202,7 +257,9 @@ export async function endRound(
 
   const totalTurns = state.turnSchedule?.length ?? 0;
   if (roundIndex + 1 < totalTurns) {
-    setTimeout(() => void startRound(game, code, roundIndex + 1), 3000);
+    setRoomTimer(code, 'nextRound', NEXT_ROUND_DELAY_MS, async () => {
+      await startRound(game, code, roundIndex + 1, gameId);
+    });
   } else {
     await endGame(game, code);
   }
@@ -261,6 +318,12 @@ export async function endGame(
 ): Promise<void> {
   const state = await getRoomState(code);
   if (!state) return;
+  // 이미 시상식으로 넘어간 게임에 대한 중복 종료 방어
+  if (state.status === 'AWARD') return;
+
+  // 이 게임의 남은 타이머(라운드·다음 라운드 예약 등)를 전부 정리 — 끝난 게임이 되살아나지 않도록
+  clearRoomTimers(code);
+  clearRoomChat(code);
 
   state.status = 'AWARD';
 
@@ -283,12 +346,15 @@ export async function endGame(
       answeredAt: timestamps.get(player.id) ?? null,
     }));
 
-  await saveRoomState(state);
   answerTimestamps.delete(code);
+
+  // 시상식 시작 — inAward 표시 + 시상식 만료 타이머 등록 후 저장
+  await beginAward(game, state);
 
   // AWARD 상태를 클라이언트에 전파해 시상식 화면으로 이동하도록 함
   game.to(`room:${code}`).emit(SERVER_EVENT.ROOM_STATE, state);
   game.to(`room:${code}`).emit('game:end', {
+    gameId: state.gameId ?? '',
     finalScoreboard: state.scoreboard,
     ranking: ranked,
     endReason: reason,

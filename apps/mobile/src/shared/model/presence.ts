@@ -7,6 +7,7 @@ import { queryClient } from '../api/queryClient';
 import { refreshAccessToken } from '../api/client';
 import { useAuthStore } from './auth';
 import type { Friend } from './friends';
+import { useRoomStore } from './room';
 
 const DEV_HOST = Platform.OS === 'android' ? '10.0.2.2' : 'localhost';
 const BASE_URL = (process.env.EXPO_PUBLIC_API_URL ?? 'http://localhost:3000').replace('localhost', DEV_HOST);
@@ -58,10 +59,20 @@ export const usePresenceStore = create<PresenceStore>()((set, get) => ({
       );
     });
 
+    // 매칭 로비 — 홈(매칭 대기) 화면에는 방 소켓이 없으므로 항상 연결된 presence 소켓으로 받는다
+    socket.on('match:update', (payload) => useRoomStore.getState().setMatchLobby(payload));
+    socket.on('match:found', ({ code }) => useRoomStore.getState().setMatchFoundCode(code));
+
     socket.on('connect_error', (err) => {
-      console.error('[presence] connect_error', err.message);
       const isAuthError = err.message === 'INVALID_TOKEN' || err.message === 'UNAUTHORIZED';
-      if (!isAuthError || didRefreshAuth) return;
+      // 토큰 만료는 아래에서 갱신 후 재연결하는 정상 흐름 — 에러로 기록하지 않는다 (개발 빌드 LogBox 에러 토스트 방지)
+      if (!isAuthError) {
+        // 네트워크 끊김 등은 socket.io가 자동 재연결한다 — 재시도마다 에러 토스트가 쌓이지 않도록 경고로 기록
+        console.warn('[presence] connect_error', err.message);
+        return;
+      }
+      console.log('[presence] auth expired, refreshing token');
+      if (didRefreshAuth) return;
       didRefreshAuth = true;
       void refreshAccessToken().then((newToken) => {
         if (newToken) socket.connect();

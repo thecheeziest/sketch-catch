@@ -3,6 +3,7 @@ import { z } from 'zod';
 import { roomCodeSchema } from '@sketch-catch/shared';
 import { authenticate } from '../middleware/authenticate.js';
 import { getRoomState } from '../services/rooms.service.js';
+import { getPresence } from '../db/redis.js';
 import { sendPush, shouldSend } from '../services/push.service.js';
 import { prisma } from '../db/prisma.js';
 import { logger } from '../lib/logger.js';
@@ -24,6 +25,12 @@ export const invitesRoutes: FastifyPluginAsync = async (app) => {
       // D-12: 서버가 진실의 출처 — 발신자 측 LOBBY 상태 재검증 (클라이언트 버튼 비활성화만 신뢰하지 않음)
       if (state.status !== 'LOBBY') {
         return reply.status(403).send({ error: 'GAME_IN_PROGRESS' });
+      }
+
+      // 이미 대기실·게임에 있는 유저는 초대하지 않는다 — 초대를 받아도 반응할 수 없고 방 이동 시 기존 게임이 깨진다
+      const targetPresence = await getPresence(bodyParsed.data.target);
+      if (targetPresence === 'IN_LOBBY' || targetPresence === 'IN_GAME') {
+        return reply.status(409).send({ error: 'TARGET_BUSY' });
       }
 
       const target = await prisma.user.findUnique({

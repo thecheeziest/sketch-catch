@@ -4,9 +4,10 @@ import { SERVER_EVENT } from '@sketch-catch/shared';
 import type { RoomState } from '@sketch-catch/shared';
 
 vi.mock('../socket/handlers/game.js', () => ({
-  startRound: vi.fn(),
+  startRound: vi.fn().mockResolvedValue(true),
   initTurnSchedule: vi.fn(),
   handlePlayerLeft: vi.fn(),
+  resendCurrentRound: vi.fn(),
 }));
 
 vi.mock('../socket/handlers/mode2.js', async (importOriginal) => ({
@@ -33,7 +34,7 @@ vi.mock('../services/rooms.service.js', () => ({
 
 import { getRoomState, saveRoomState } from '../services/rooms.service.js';
 import { setPresence, redis, clearUserRoom } from '../db/redis.js';
-import { handlePlayerLeft } from '../socket/handlers/game.js';
+import { handlePlayerLeft, startRound } from '../socket/handlers/game.js';
 import { handleMode2PlayerLeft } from '../socket/handlers/mode2.js';
 
 const mockGetRoomState = vi.mocked(getRoomState);
@@ -241,7 +242,7 @@ describe('socket room handlers', () => {
       });
     });
 
-    it('LBBY-02: 방장 + allReady → startedAt 세팅 후 room:state broadcast', async () => {
+    it('LBBY-02: 방장 + allReady → gameId·startedAt 세팅 후 첫 라운드 시작 (room:state는 startRound가 전송)', async () => {
       const state = makeRoomState();
       state.allReady = true;
       state.players.forEach((p) => (p.isReady = true));
@@ -253,10 +254,10 @@ describe('socket room handlers', () => {
 
       const savedState = mockSaveRoomState.mock.calls[0]![0]!;
       expect(savedState.startedAt).toBeTypeOf('number');
-      expect(game._broadcastEmit).toHaveBeenCalledWith(
-        SERVER_EVENT.ROOM_STATE,
-        expect.objectContaining({ startedAt: expect.any(Number) }),
-      );
+      expect(savedState.gameId).toBeTypeOf('string');
+      // status와 current는 startRound가 한 번에 바꾼다 (R8)
+      expect(savedState.status).toBe('LOBBY');
+      expect(vi.mocked(startRound)).toHaveBeenCalledWith(game, 'ABC123', 0);
     });
 
     it('LBBY-02: 모드2는 4명 미만이면 시작을 거부한다', async () => {
@@ -317,7 +318,7 @@ describe('socket room handlers', () => {
 
       await handleRoomLeave(game as any, socket as any);
 
-      expect(mockRedisDel).toHaveBeenCalledWith('room:ABC123:state');
+      expect(mockRedisDel).toHaveBeenCalledWith('room:ABC123:state', 'room:ABC123:password');
       // 빈 방에는 saveRoomState 호출 안 함
       expect(mockSaveRoomState).not.toHaveBeenCalled();
     });

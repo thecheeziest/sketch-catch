@@ -24,6 +24,8 @@ export function registerPresenceNamespace(io: Server): void {
   ns.on('connection', (socket) => {
     const userId = socket.data.userId;
     console.log(`[presence] connected: ${userId}`);
+    // 유저 개인 채널 — 방에 들어가기 전(매칭 대기 등)에도 이 유저에게 push할 수 있다
+    void socket.join(`user:${userId}`);
 
     socket.on('presence:subscribe', ({ friendIds }) => {
       console.log(`[presence] ${userId} subscribing to`, friendIds);
@@ -43,6 +45,16 @@ export function registerPresenceNamespace(io: Server): void {
       console.log(`[presence] disconnected: ${userId}`);
     });
   });
+}
+
+// 특정 유저에게만 push (매칭 로비 업데이트·매칭 완료). presence 소켓은 로그인 중 항상 연결되어 있다.
+export function emitToPresenceUser<E extends keyof PresenceServerEvents>(
+  userId: string,
+  event: E,
+  ...args: Parameters<PresenceServerEvents[E]>
+): void {
+  if (!ns) return;
+  ns.to(`user:${userId}`).emit(event, ...args);
 }
 
 // 상태가 변경되는 모든 지점(인증 미들웨어, 방 소켓 핸들러, REST 라우트)에서 호출.

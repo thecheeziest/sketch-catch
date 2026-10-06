@@ -11,6 +11,7 @@ export type Mode1RoundCurrent = {
 };
 
 export type RoundStart = {
+  gameId: string;
   roundIndex: number;
   drawerId: string;
   promptForDrawer?: string; // 출제자만 받음
@@ -19,6 +20,7 @@ export type RoundStart = {
 };
 
 export type RoundEnd = {
+  gameId: string;
   roundIndex: number;
   correctUserId: string | null;
   scoreDelta: Record<string, number>;
@@ -27,6 +29,7 @@ export type RoundEnd = {
 };
 
 export type GameResult = {
+  gameId: string;
   finalScoreboard: Record<string, number>;
   ranking: Array<{ userId: string; rank: number; score: number; answeredAt: number | null }>;
   endReason?: 'NORMAL' | 'INSUFFICIENT_PLAYERS';
@@ -51,6 +54,7 @@ export type Mode2StepContent =
 
 // 서버 → 클라이언트: 현재 단계 (mode2:step)
 export type Mode2Step = {
+  gameId: string;
   sheetId: string; // = 시트 원조자 userId
   stepIndex: number; // 0-indexed. 0=PROMPT, 홀수=DRAW, 짝수(0제외)=ANSWER
   phase: Mode2Phase;
@@ -74,6 +78,7 @@ export type Mode2ReviewSheet = {
 
 // 서버 → 클라이언트: 리뷰 진행 상태 (mode2:review). 서버 타이머가 자동 전환(D-01/D-03)
 export type Mode2ReviewState = {
+  gameId: string;
   subPhase: 'FINAL_JUDGE' | 'SLIDESHOW' | 'BEST_VOTE' | 'BEST_REVEAL';
   currentSheetIndex: number; // FINAL_JUDGE/SLIDESHOW 진행 중 시트
   currentFrameIndex?: number; // SLIDESHOW 프레임 위치

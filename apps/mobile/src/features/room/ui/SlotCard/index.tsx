@@ -5,7 +5,7 @@ import { PixelFrame } from '@/shared/ui/PixelFrame';
 import type { Player } from '@sketch-catch/shared';
 import { Image, Text, View } from 'dripsy';
 import { useEffect } from 'react';
-import { StyleSheet } from 'react-native';
+import { Pressable, StyleSheet } from 'react-native';
 import Animated, {
   cancelAnimation,
   interpolate,
@@ -20,9 +20,10 @@ type Props = {
   isMe: boolean;
   cardWidth: number;
   isLeft?: boolean; // 게임 강제종료 시 중도 퇴장 플레이어 표시
+  onPress?: () => void;
 };
 
-export function SlotCard({ player, isMe, cardWidth, isLeft = false }: Props) {
+export function SlotCard({ player, isMe, cardWidth, isLeft = false, onPress }: Props) {
   const shineProgress = useSharedValue(0);
 
   useEffect(() => {
@@ -74,6 +75,7 @@ export function SlotCard({ player, isMe, cardWidth, isLeft = false }: Props) {
   const charSize = Math.max(28, Math.min(44, Math.round(cardWidth * 0.5)));
 
   return (
+    <Pressable onPress={onPress} disabled={!onPress}>
     <View sx={{ aspectRatio: 0.85, margin: spacing.XS, width: cardWidth }}>
       <PixelFrame
         borderColor={borderColor}
@@ -122,12 +124,27 @@ export function SlotCard({ player, isMe, cardWidth, isLeft = false }: Props) {
           )}
         </View>
         {isHost && !isLeft && <Animated.View style={[styles.shine, shineStyle]} pointerEvents="none" />}
+        {/* 시상식에서 아직 [한번 더!]를 누르지 않은 유저 */}
+        {player.inAward === true && (
+          <View style={styles.awardOverlay} pointerEvents="none">
+            <Text variant="B4" sx={{ color: colors.LIGHT_100, textAlign: 'center' }}>
+              시상 진행 중..
+            </Text>
+          </View>
+        )}
       </PixelFrame>
     </View>
+    </Pressable>
   );
 }
 
 const styles = StyleSheet.create({
+  awardOverlay: {
+    ...StyleSheet.absoluteFill,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: `${colors.DARK_200}B3`,
+  },
   badgeContainer: { position: 'absolute', top: 8, right: 8, zIndex: 1 },
   leftBadge: {
     width: 22,

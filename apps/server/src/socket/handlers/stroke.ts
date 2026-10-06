@@ -15,9 +15,9 @@ async function assertDrawer(socket: GameSocket): Promise<{ roomName: string; cod
   const state = await getRoomState(code);
   if (!state || state.status !== 'MODE1_ROUND_START') return null;
 
-  const current = state.current as Mode1RoundCurrent;
+  const current = state.current as Mode1RoundCurrent | null;
   // DRAW-03: 출제자가 아닌 경우 조용히 거부 (보안 원칙 — 서버가 진실의 출처)
-  if (current.drawerId !== socket.data.userId) return null;
+  if (!current || current.drawerId !== socket.data.userId) return null;
 
   return { roomName, code };
 }

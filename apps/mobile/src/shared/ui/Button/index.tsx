@@ -1,5 +1,6 @@
 import { colors, spacing, textSizes } from '@/shared/config';
 import { PixelFrame } from '@/shared/ui/PixelFrame';
+import { PixelLoadingSpinner } from '@/shared/ui/PixelLoadingSpinner';
 import { Image, Text, View } from 'dripsy';
 import { type ImageSourcePropType, Pressable, type PressableProps, StyleSheet } from 'react-native';
 
@@ -12,6 +13,8 @@ type Props = Omit<PressableProps, 'children'> & {
   color?: ButtonColor;
   height?: number;
   fontVariant?: FontVariant;
+  // 요청 처리 중 — 라벨 대신 원형 스피너를 보이고 연타를 막는다
+  loading?: boolean;
 };
 
 type ColorTokens = {
@@ -86,6 +89,7 @@ export function Button({
   fontVariant = 'BOLD',
   style,
   disabled,
+  loading = false,
   ...rest
 }: Props) {
   const tokens = COLOR_MAP[color];
@@ -100,7 +104,8 @@ export function Button({
 
   return (
     <Pressable
-      disabled={disabled}
+      disabled={disabled || loading}
+      accessibilityState={{ disabled: !!disabled || loading, busy: loading }}
       style={({ pressed }) => [
         iconOnly ? { width: height, height } : { height },
         typeof style === 'function' ? style({ pressed }) : style,
@@ -112,21 +117,27 @@ export function Button({
           <PixelFrame borderColor={getBorderColor(pressed)} style={StyleSheet.absoluteFill}>
             <View style={[StyleSheet.absoluteFill, { backgroundColor: getBg(pressed) }]} />
           </PixelFrame>
-          <View style={iconOnly ? styles.centerContent : styles.rowContent}>
-            {icon && (
-              <Image
-                source={icon}
-                sx={{ width: iconSize, height: iconSize }}
-                resizeMode="contain"
-                style={{ tintColor: textColor }}
-              />
-            )}
-            {label && (
-              <Text variants={fontVariant === 'BOLD' ? ['bold'] : undefined} sx={{ ...textSize, color: textColor }}>
-                {label}
-              </Text>
-            )}
-          </View>
+          {loading ? (
+            <View style={styles.centerContent}>
+              <PixelLoadingSpinner size={Math.round(height * 0.5)} accessibilityLabel="처리 중" />
+            </View>
+          ) : (
+            <View style={iconOnly ? styles.centerContent : styles.rowContent}>
+              {icon && (
+                <Image
+                  source={icon}
+                  sx={{ width: iconSize, height: iconSize }}
+                  resizeMode="contain"
+                  style={{ tintColor: textColor }}
+                />
+              )}
+              {label && (
+                <Text variants={fontVariant === 'BOLD' ? ['bold'] : undefined} sx={{ ...textSize, color: textColor }}>
+                  {label}
+                </Text>
+              )}
+            </View>
+          )}
         </>
       )}
     </Pressable>

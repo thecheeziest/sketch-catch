@@ -17,7 +17,7 @@ export function FriendCodeModal({ visible, onClose, currentFriendCode }: Props) 
   const handleSave = (): void => {
     const result = friendCodeInputSchema.safeParse(friendCode);
     if (!result.success) {
-      setError(result.error.errors[0]?.message ?? '친구코드를 확인해주세요');
+      setError(result.error.errors[0]?.message ?? '해시태그를 확인해주세요');
       return;
     }
 
@@ -37,10 +37,10 @@ export function FriendCodeModal({ visible, onClose, currentFriendCode }: Props) 
     <Dialog
       visible={visible}
       onClose={handleClose}
-      title="친구코드 변경"
+      title="해시태그 변경"
       buttons={[
         { label: '닫기', color: 'light', onPress: handleClose, disabled: updateMe.isPending },
-        { label: '코드 저장', color: 'primary', onPress: handleSave, disabled: updateMe.isPending },
+        { label: '해시태그 저장', color: 'primary', onPress: handleSave, disabled: updateMe.isPending },
       ]}
     >
       <AppInput

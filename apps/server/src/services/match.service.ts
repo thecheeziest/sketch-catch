@@ -1,10 +1,8 @@
 import { redis, setPresence, setUserRoom } from '../db/redis.js';
 import { createRoom } from './rooms.service.js';
 import { prisma } from '../db/prisma.js';
-import { emitToUser } from '../socket/game.namespace.js';
-import { broadcastPresenceUpdate } from '../socket/presence.namespace.js';
+import { broadcastPresenceUpdate, emitToPresenceUser } from '../socket/presence.namespace.js';
 import {
-  SERVER_EVENT,
   ROOM_PLAYER_MIN,
   MODE2_PLAYER_MIN,
   ROOM_PLAYER_MAX,
@@ -52,7 +50,7 @@ async function getMemberCount(mode: GameMode): Promise<number> {
 async function broadcastLobbyUpdate(mode: GameMode, deadline: number | null): Promise<void> {
   const members = await redis.zrange(membersKey(mode), 0, -1);
   const payload = { mode, count: members.length, min: minPlayersForMode(mode), max: ROOM_PLAYER_MAX, deadline };
-  members.forEach((userId) => emitToUser(userId, SERVER_EVENT.MATCH_UPDATE, payload));
+  members.forEach((userId) => emitToPresenceUser(userId, 'match:update', payload));
 }
 
 function clearScheduledTimer(mode: GameMode): void {
@@ -160,7 +158,7 @@ async function finalizeMatch(mode: GameMode): Promise<void> {
 
   const users = await prisma.user.findMany({ where: { id: { in: userIds } } });
   const userMeta = Object.fromEntries(
-    users.map((u) => [u.id, { nickname: u.nickname, characterId: u.characterId }])
+    users.map((u) => [u.id, { nickname: u.nickname, characterId: u.characterId, friendCode: u.friendCode }])
   );
 
   const state = await createRoom({
@@ -183,6 +181,6 @@ async function finalizeMatch(mode: GameMode): Promise<void> {
   );
   userIds.forEach((id) => {
     broadcastPresenceUpdate(id, 'IN_LOBBY');
-    emitToUser(id, SERVER_EVENT.MATCH_FOUND, { code: state.code });
+    emitToPresenceUser(id, 'match:found', { code: state.code });
   });
 }

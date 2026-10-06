@@ -38,7 +38,8 @@ export function CodeJoinModal({ visible, onClose }: Props) {
         <Button
           label="입장"
           color="primary"
-          disabled={code.length < 6 || isPending}
+          disabled={code.length < 6}
+          loading={isPending}
           onPress={handleJoin}
         />
       </View>

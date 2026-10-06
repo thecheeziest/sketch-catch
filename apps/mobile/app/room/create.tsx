@@ -86,7 +86,7 @@ export default function RoomCreateScreen() {
           />
         )}
         <View sx={{ marginTop: spacing.XL, marginBottom: spacing.LG }}>
-          <Button label="방 만들기" color="primary" disabled={isPending} onPress={handleCreate} />
+          <Button label="방 만들기" color="primary" loading={isPending} onPress={handleCreate} />
         </View>
       </ScrollView>
     </SafeAreaView>

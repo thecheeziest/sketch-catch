@@ -1,7 +1,6 @@
 import { useEffect } from 'react';
 import * as Notifications from 'expo-notifications';
 import { router } from 'expo-router';
-import { CLIENT_EVENT } from '@sketch-catch/shared';
 import { useToastStore, useRoomStore } from '@/shared/model';
 import { usePushStore } from '../model/usePushStore';
 
@@ -17,7 +16,7 @@ function handleGameInviteTap(roomCode: string): void {
     usePushStore.getState().setPendingInvite(roomCode);
     return;
   }
-  useRoomStore.getState().socket?.emit(CLIENT_EVENT.ROOM_JOIN, { code: roomCode });
+  // 방 입장(소켓 연결·room:join)은 room/[code]/_layout이 처리한다
   router.push(`/room/${roomCode}` as never);
 }
 

@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { StyleSheet, useWindowDimensions } from 'react-native';
-import { Canvas, Path, Skia } from '@shopify/react-native-skia';
+import { Canvas, Path } from '@shopify/react-native-skia';
+import { View } from 'dripsy';
 import { Gesture, GestureDetector } from 'react-native-gesture-handler';
 import type { SkPath } from '@shopify/react-native-skia';
 import type { Point, Stroke } from '@sketch-catch/shared';
@@ -8,6 +9,7 @@ import { colors } from '@/shared/config';
 import { useGameStore } from '@/features/game/model/useGameStore';
 import { useStrokeSender } from '@/features/game/api/useStrokeSender';
 import { useAuthStore } from '@/shared/model/auth';
+import { buildStrokePath } from '@/shared/lib/strokePath';
 // 간단한 클라이언트용 stroke ID 생성 (서버가 authorId를 덮어쓰므로 충돌 무관)
 function makeStrokeId(): string {
   return `${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 8)}`;
@@ -124,14 +126,8 @@ export function DrawingCanvas({ isDrawer, onStrokesChange }: Props) {
   const getLocalPath = (s: LocalStroke, w: number, h: number): SkPath | null => {
     const cached = localPathCache.current.get(s.strokeId);
     if (cached && cached.count === s.points.length && cached.w === w && cached.h === h) return cached.path;
-    const first = s.points[0];
-    if (!first) return null;
-    const p = Skia.Path.Make();
-    p.moveTo(first.x * w, first.y * h);
-    for (let i = 1; i < s.points.length; i++) {
-      const pt = s.points[i];
-      if (pt) p.lineTo(pt.x * w, pt.y * h);
-    }
+    const p = buildStrokePath(s.points, w, h);
+    if (!p) return null;
     localPathCache.current.set(s.strokeId, { path: p, count: s.points.length, w, h });
     return p;
   };
@@ -175,58 +171,52 @@ export function DrawingCanvas({ isDrawer, onStrokesChange }: Props) {
     for (const rs of remoteStrokes) {
       const cached = remotePathCache.current.get(rs.strokeId);
       if (cached && cached.count === rs.points.length && cached.w === cw && cached.h === ch) continue;
-      const first = rs.points[0];
-      if (!first) continue;
-      const p = Skia.Path.Make();
-      p.moveTo(first.x * cw, first.y * ch);
-      for (let i = 1; i < rs.points.length; i++) {
-        const pt = rs.points[i];
-        if (pt) p.lineTo(pt.x * cw, pt.y * ch);
-      }
+      const p = buildStrokePath(rs.points, cw, ch);
+      if (!p) continue;
       remotePathCache.current.set(rs.strokeId, { path: p, count: rs.points.length, w: cw, h: ch });
     }
   }
 
   return (
     <GestureDetector gesture={pan}>
-      <Canvas
-        style={[styles.canvas, { backgroundColor: '#FFFFFF' }]}
-        onLayout={handleLayout}
-      >
-        {/* 출제자 로컬 stroke — skia는 같은 SkPath 참조의 제자리 변경을 리페인트하지 않으므로
-            point가 늘어난 stroke는 새 SkPath로 교체(getLocalPath) */}
-        {isDrawer && cw > 0 && ch > 0 && localStrokes.map((s) => {
-          const p = getLocalPath(s, cw, ch);
-          if (!p) return null;
-          return (
-            <Path
-              key={s.strokeId}
-              path={p}
-              color={s.color}
-              strokeWidth={s.width}
-              style="stroke"
-              strokeCap="round"
-              strokeJoin="round"
-            />
-          );
-        })}
-        {/* 관전자 remote stroke */}
-        {!isDrawer && cw > 0 && ch > 0 && remoteStrokes.map((rs) => {
-          const cached = remotePathCache.current.get(rs.strokeId);
-          if (!cached) return null;
-          return (
-            <Path
-              key={rs.strokeId}
-              path={cached.path}
-              color={rs.color}
-              strokeWidth={rs.width}
-              style="stroke"
-              strokeCap="round"
-              strokeJoin="round"
-            />
-          );
-        })}
-      </Canvas>
+      {/* Skia Canvas의 onLayout은 New Architecture에서 호출되지 않는다 — 감싼 View로 크기를 측정 */}
+      <View style={[styles.canvas, { backgroundColor: '#FFFFFF' }]} onLayout={handleLayout}>
+        <Canvas style={StyleSheet.absoluteFill}>
+          {/* 출제자 로컬 stroke — skia는 같은 SkPath 참조의 제자리 변경을 리페인트하지 않으므로
+              point가 늘어난 stroke는 새 SkPath로 교체(getLocalPath) */}
+          {isDrawer && cw > 0 && ch > 0 && localStrokes.map((s) => {
+            const p = getLocalPath(s, cw, ch);
+            if (!p) return null;
+            return (
+              <Path
+                key={s.strokeId}
+                path={p}
+                color={s.color}
+                strokeWidth={s.width}
+                style="stroke"
+                strokeCap="round"
+                strokeJoin="round"
+              />
+            );
+          })}
+          {/* 관전자 remote stroke */}
+          {!isDrawer && cw > 0 && ch > 0 && remoteStrokes.map((rs) => {
+            const cached = remotePathCache.current.get(rs.strokeId);
+            if (!cached) return null;
+            return (
+              <Path
+                key={rs.strokeId}
+                path={cached.path}
+                color={rs.color}
+                strokeWidth={rs.width}
+                style="stroke"
+                strokeCap="round"
+                strokeJoin="round"
+              />
+            );
+          })}
+        </Canvas>
+      </View>
     </GestureDetector>
   );
 }

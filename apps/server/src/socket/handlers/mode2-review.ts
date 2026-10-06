@@ -9,7 +9,9 @@ import type {
 import { SERVER_EVENT } from '@sketch-catch/shared';
 import { getRoomState, saveRoomState } from '../../services/rooms.service.js';
 import { generateSheetGifs } from '../../services/replay.service.js';
+import { clearRoomTimer, setRoomTimer } from '../../services/roomTimers.js';
 import { phaseForStep, sortedPlayers, type Mode2Current } from './mode2.js';
+import { beginAward } from './award.js';
 
 type GameNamespace = Namespace<ClientEvents, ServerEvents>;
 type Mode2ReviewSocket = { data: { userId: string }; rooms: Set<string> };
@@ -33,13 +35,6 @@ type Mode2ReviewCurrent = {
   votes: Record<string, string>; // voterId -> sheetId (서버 전용 집계)
 };
 
-export const reviewTimers = new Map<string, ReturnType<typeof setTimeout>>();
-
-function clearReviewTimer(code: string): void {
-  clearTimeout(reviewTimers.get(code));
-  reviewTimers.delete(code);
-}
-
 function roomName(code: string): string {
   return `room:${code}`;
 }
@@ -49,8 +44,8 @@ function findRoomCode(socket: Mode2ReviewSocket): string | null {
   return found ? found.replace('room:', '') : null;
 }
 
-function emitReview(game: GameNamespace, code: string, review: Mode2ReviewCurrent): void {
-  game.to(roomName(code)).emit(SERVER_EVENT.MODE2_REVIEW, review);
+function emitReview(game: GameNamespace, state: RoomState, review: Mode2ReviewCurrent): void {
+  game.to(roomName(state.code)).emit(SERVER_EVENT.MODE2_REVIEW, { ...review, gameId: state.gameId ?? '' });
 }
 
 // MD2-04/D-07: 최다 득표 시트 그룹 반환 (동률 공동 발표)
@@ -99,10 +94,10 @@ export async function startMode2Review(game: GameNamespace, code: string): Promi
   };
   state.current = review;
   await saveRoomState(state);
-  emitReview(game, code, review);
+  emitReview(game, state, review);
 
   const firstSheet = review.sheets[0];
-  if (firstSheet) scheduleFrame(game, code, firstSheet, 0);
+  if (firstSheet) scheduleFrame(game, state, firstSheet, 0);
 }
 
 // D-02: 원조자가 마지막 단계 결과를 보고 O/X 1회 판정
@@ -124,7 +119,7 @@ export async function handleMode2JudgeFinal(
   if (sheet.ownerId !== socket.data.userId) return; // 원조자만 판정 가능 — 서버가 진실의 출처
   if (sheet.finalJudge) return; // D-02: 1회만
 
-  clearReviewTimer(code);
+  clearRoomTimer(code, 'review');
   sheet.finalJudge = { ok: payload.ok, judgedBy: socket.data.userId };
   state.current = review;
   await saveRoomState(state);
@@ -142,8 +137,8 @@ async function startSlideshow(
   review.currentFrameIndex = 0;
   state.current = review;
   await saveRoomState(state);
-  emitReview(game, code, review);
-  scheduleFrame(game, code, sheet, 0);
+  emitReview(game, state, review);
+  scheduleFrame(game, state, sheet, 0);
 }
 
 function frameDurationMs(sheet: Mode2ReviewSheet, frameIndex: number): number {
@@ -151,17 +146,15 @@ function frameDurationMs(sheet: Mode2ReviewSheet, frameIndex: number): number {
   return frame?.phase === 'DRAW' ? DRAW_FRAME_MS : TEXT_FRAME_MS;
 }
 
-function scheduleFrame(game: GameNamespace, code: string, sheet: Mode2ReviewSheet, frameIndex: number): void {
-  clearReviewTimer(code);
-  reviewTimers.set(
-    code,
-    setTimeout(() => void advanceFrame(game, code), frameDurationMs(sheet, frameIndex)),
-  );
+function scheduleFrame(game: GameNamespace, state: RoomState, sheet: Mode2ReviewSheet, frameIndex: number): void {
+  const { code, gameId } = state;
+  setRoomTimer(code, 'review', frameDurationMs(sheet, frameIndex), () => advanceFrame(game, code, gameId));
 }
 
-async function advanceFrame(game: GameNamespace, code: string): Promise<void> {
+async function advanceFrame(game: GameNamespace, code: string, expectedGameId?: string): Promise<void> {
   const state = await getRoomState(code);
   if (!state || state.status !== 'MODE2_REVIEW') return;
+  if (expectedGameId !== undefined && state.gameId !== expectedGameId) return;
   const review = state.current as Mode2ReviewCurrent;
   if (review.subPhase !== 'SLIDESHOW') return;
 
@@ -180,17 +173,17 @@ async function advanceFrame(game: GameNamespace, code: string): Promise<void> {
     review.currentFrameIndex = 0;
     state.current = review;
     await saveRoomState(state);
-    emitReview(game, code, review);
+    emitReview(game, state, review);
     const nextSheet = review.sheets[nextSheetIndex];
-    if (nextSheet) scheduleFrame(game, code, nextSheet, 0);
+    if (nextSheet) scheduleFrame(game, state, nextSheet, 0);
     return;
   }
 
   review.currentFrameIndex = nextFrame;
   state.current = review;
   await saveRoomState(state);
-  emitReview(game, code, review);
-  scheduleFrame(game, code, sheet, nextFrame);
+  emitReview(game, state, review);
+  scheduleFrame(game, state, sheet, nextFrame);
 }
 
 async function startBestVote(
@@ -204,13 +197,10 @@ async function startBestVote(
   review.votes = {};
   state.current = review;
   await saveRoomState(state);
-  emitReview(game, code, review);
+  emitReview(game, state, review);
 
-  clearReviewTimer(code);
-  reviewTimers.set(
-    code,
-    setTimeout(() => void finishBestVote(game, code), VOTE_TIMEOUT_MS),
-  );
+  const { gameId } = state;
+  setRoomTimer(code, 'review', VOTE_TIMEOUT_MS, () => finishBestVote(game, code, gameId));
 }
 
 // MD2-04: 본인 소유 시트 제외, 1인 1표
@@ -240,11 +230,11 @@ export async function handleMode2VoteBest(
   }
 }
 
-async function finishBestVote(game: GameNamespace, code: string): Promise<void> {
-  clearReviewTimer(code);
-
+async function finishBestVote(game: GameNamespace, code: string, expectedGameId?: string): Promise<void> {
   const state = await getRoomState(code);
   if (!state || state.status !== 'MODE2_REVIEW') return;
+  if (expectedGameId !== undefined && state.gameId !== expectedGameId) return;
+  clearRoomTimer(code, 'review');
   const review = state.current as Mode2ReviewCurrent;
   if (review.subPhase !== 'BEST_VOTE') return; // 전원 투표 완료와 타임아웃 경합 방지
 
@@ -252,18 +242,17 @@ async function finishBestVote(game: GameNamespace, code: string): Promise<void> 
   review.subPhase = 'BEST_REVEAL';
   state.current = review;
   await saveRoomState(state);
-  emitReview(game, code, review);
+  emitReview(game, state, review);
 
-  reviewTimers.set(
-    code,
-    setTimeout(() => void finalizeReview(game, code), REVEAL_DELAY_MS),
-  );
+  const { gameId } = state;
+  setRoomTimer(code, 'review', REVEAL_DELAY_MS, () => finalizeReview(game, code, gameId));
 }
 
 // D-10: 베스트 발표 후 참여 시트 GIF 사전 생성 트리거 + AWARD 전환
-async function finalizeReview(game: GameNamespace, code: string): Promise<void> {
+async function finalizeReview(game: GameNamespace, code: string, expectedGameId?: string): Promise<void> {
   const state = await getRoomState(code);
   if (!state || state.status !== 'MODE2_REVIEW') return;
+  if (expectedGameId !== undefined && state.gameId !== expectedGameId) return;
   const review = state.current as Mode2ReviewCurrent;
 
   const participantIds = state.players.map((p) => p.id);
@@ -279,6 +268,7 @@ async function finalizeReview(game: GameNamespace, code: string): Promise<void> 
   );
 
   state.status = 'AWARD';
-  await saveRoomState(state);
+  // 시상식 시작 — inAward 표시 + 시상식 만료 타이머 등록 후 저장
+  await beginAward(game, state);
   game.to(roomName(code)).emit(SERVER_EVENT.ROOM_STATE, state);
 }

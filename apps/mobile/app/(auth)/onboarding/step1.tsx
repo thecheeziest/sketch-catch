@@ -33,7 +33,7 @@ export default function OnboardingStep1() {
   const handleFriendCodeBlur = (): void => {
     const result = friendCodeInputSchema.safeParse(effectiveFriendCode)
     if (!result.success) {
-      setFriendCodeError('친구코드는 3~5자리 영문/숫자만 입력할 수 있어요.')
+      setFriendCodeError('해시태그는 3~5자리 영문/숫자만 입력할 수 있어요.')
     } else {
       setFriendCodeError('')
     }
@@ -48,7 +48,7 @@ export default function OnboardingStep1() {
       : (nicknameResult.error.issues[0]?.message ?? '닉네임을 확인해주세요.')
     const newFriendCodeError = friendCodeResult.success
       ? ''
-      : '친구코드는 3~5자리 영문/숫자만 입력할 수 있어요.'
+      : '해시태그는 3~5자리 영문/숫자만 입력할 수 있어요.'
 
     setNicknameError(newNicknameError)
     setFriendCodeError(newFriendCodeError)
@@ -79,7 +79,7 @@ export default function OnboardingStep1() {
           onBlur={handleNicknameBlur}
         />
         <AppInput
-          label="친구코드"
+          label="해시태그"
           hint="3~5자리 영문/숫자 (영문 대소문자 구분 없음)"
           error={friendCodeError}
           value={friendCode}

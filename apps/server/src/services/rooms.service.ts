@@ -31,16 +31,16 @@ export async function createRoom(opts: {
   locked: boolean;
   password?: string;
   mode: 1 | 2;
-  userMeta: Record<string, { nickname: string; characterId: string }>;
+  userMeta: Record<string, { nickname: string; characterId: string; friendCode: string }>;
 }): Promise<RoomState> {
   const code = generateRoomCode();
 
   const players: Player[] = opts.userIds.map((id, i) => {
-    const meta = opts.userMeta[id] ?? { nickname: '', characterId: '' };
+    const meta = opts.userMeta[id] ?? { nickname: '', characterId: '', friendCode: '' };
     return {
       id,
       nickname: meta.nickname,
-      friendCode: '',
+      friendCode: meta.friendCode,
       characterId: meta.characterId,
       slot: i,
       isHost: id === opts.hostId,

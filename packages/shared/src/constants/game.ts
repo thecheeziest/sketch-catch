@@ -12,6 +12,9 @@ export const ROOM_PLAYER_MIN = 3;
 export const MODE2_PLAYER_MIN = 4;
 export const ROOM_PLAYER_MAX = 12;
 
+// 시상식 유지 시간 — 모드2는 GIF 저장 시간을 확보하기 위해 더 길게
+export const AWARD_DURATION_SEC = { 1: 10, 2: 30 } as const;
+
 // 친구
 export const FRIEND_CODE_LENGTH = 5;
 

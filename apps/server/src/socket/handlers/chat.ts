@@ -4,13 +4,11 @@ import { SERVER_EVENT } from '@sketch-catch/shared';
 import { randomUUID } from 'node:crypto';
 import { getRoomState } from '../../services/rooms.service.js';
 import { profanityFilter } from '../../services/profanity.js';
+import { findMessage, rememberMessage } from '../../services/chatStore.js';
 import { endRound } from './game.js';
 
 type GameNamespace = Namespace<ClientEvents, ServerEvents>;
 type GameSocket = Socket<ClientEvents, ServerEvents, Record<string, never>, { userId: string }>;
-
-// answer:accept 조회용 — 최근 메시지 보관 (messageId → ChatMessage)
-const recentMessages = new Map<string, ChatMessage>();
 
 export async function handleChatSend(
   game: GameNamespace,
@@ -44,7 +42,9 @@ export async function handleChatSend(
 
   if (state.status !== 'MODE1_ROUND_START') return;
 
-  const current = state.current as Mode1RoundCurrent;
+  // 라운드 정보가 아직 없으면 무시 — null 접근으로 서버가 죽던 문제(R8) 방어
+  const current = state.current as Mode1RoundCurrent | null;
+  if (!current) return;
 
   // GAME-01: 출제자 채팅 차단
   if (socket.data.userId === current.drawerId) return;
@@ -66,8 +66,8 @@ export async function handleChatSend(
     createdAt: Date.now(),
   };
 
-  // answer:accept 조회용 저장
-  recentMessages.set(msg.id, msg);
+  // answer:accept 조회용 저장 — 방·라운드 단위
+  rememberMessage(code, msg, current.roundIndex);
 
   // chat:message broadcast (발신자 포함 — 본인 말풍선도 표시)
   game.to(`room:${code}`).emit(SERVER_EVENT.CHAT_MESSAGE, msg);
@@ -76,7 +76,7 @@ export async function handleChatSend(
   if (trimmed === current.prompt.trim()) {
     game
       .to(`room:${code}`)
-      .emit(SERVER_EVENT.CHAT_CORRECT, { userId: socket.data.userId, messageId: msg.id });
+      .emit(SERVER_EVENT.CHAT_CORRECT, { gameId: state.gameId ?? '', userId: socket.data.userId, messageId: msg.id });
     await endRound(game, code, current.roundIndex, socket.data.userId, Date.now() - current.startedAt);
   } else {
     // 오답 피드백은 제출자 본인에게만 전달 (다른 플레이어의 채팅 로그는 chat:message로 충분)
@@ -97,17 +97,20 @@ export async function handleAnswerAccept(
   const state = await getRoomState(code);
   if (!state || state.status !== 'MODE1_ROUND_START') return;
 
-  const current = state.current as Mode1RoundCurrent;
+  const current = state.current as Mode1RoundCurrent | null;
+  if (!current) return;
 
   // MD1-03: 출제자만 수동 인정 가능
   if (socket.data.userId !== current.drawerId) return;
 
-  const msg = recentMessages.get(payload.messageId);
-  // 없거나 출제자 자기 인정 방지
-  if (!msg || msg.userId === current.drawerId) return;
+  const stored = findMessage(code, payload.messageId);
+  // 없거나, 지난 라운드 메시지거나, 출제자 자기 인정 방지
+  if (!stored || stored.roundIndex !== current.roundIndex) return;
+  const msg = stored.msg;
+  if (msg.userId === current.drawerId) return;
 
   game
     .to(`room:${code}`)
-    .emit(SERVER_EVENT.CHAT_CORRECT, { userId: msg.userId, messageId: msg.id });
+    .emit(SERVER_EVENT.CHAT_CORRECT, { gameId: state.gameId ?? '', userId: msg.userId, messageId: msg.id });
   await endRound(game, code, current.roundIndex, msg.userId, Date.now() - current.startedAt);
 }

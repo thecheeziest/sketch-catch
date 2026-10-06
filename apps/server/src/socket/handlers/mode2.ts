@@ -12,6 +12,7 @@ import type {
 } from '@sketch-catch/shared';
 import { MODE2_PLAYER_MIN, SERVER_EVENT } from '@sketch-catch/shared';
 import { getRoomState, saveRoomState } from '../../services/rooms.service.js';
+import { clearRoomTimer, setRoomTimer } from '../../services/roomTimers.js';
 import { startMode2Review } from './mode2-review.js';
 import { endGame } from './game.js';
 
@@ -42,8 +43,6 @@ const MAX_TEXT_LENGTH = 40;
 // strokes는 RoomState에 영구 저장되고 GIF 렌더링 입력으로도 쓰이므로 상한 없이는 저장 폭증/렌더링 DoS 위험
 const MAX_STROKES = 300;
 const MAX_POINTS_PER_STROKE = 2000;
-
-export const mode2Timers = new Map<string, ReturnType<typeof setTimeout>>();
 
 export function currentAssignee(players: Player[], ownerIndex: number, step: number): Player {
   const n = players.length;
@@ -102,6 +101,7 @@ function buildStepPayloads(state: RoomState, current: Mode2Current): Mode2Step[]
   return current.sheets.map((sheet) => {
     const assignee = currentAssignee(players, sheet.ownerIndex, current.step);
     return {
+      gameId: state.gameId ?? '',
       sheetId: sheet.sheetId,
       stepIndex: current.step,
       phase: current.phase,
@@ -134,12 +134,8 @@ export function resendCurrentStep(
   }
 }
 
-function scheduleStepTimeout(game: GameNamespace, code: string, durationSec: number): void {
-  clearTimeout(mode2Timers.get(code));
-  mode2Timers.set(
-    code,
-    setTimeout(() => void advanceStep(game, code), durationSec * 1000),
-  );
+function scheduleStepTimeout(game: GameNamespace, code: string, gameId: string | undefined, durationSec: number): void {
+  setRoomTimer(code, 'mode2Step', durationSec * 1000, () => advanceStep(game, code, gameId));
 }
 
 export async function startMode2(game: GameNamespace, code: string): Promise<void> {
@@ -168,7 +164,7 @@ export async function startMode2(game: GameNamespace, code: string): Promise<voi
   game.to(`room:${code}`).emit(SERVER_EVENT.ROOM_STATE, state);
 
   emitSteps(game, code, state, current);
-  scheduleStepTimeout(game, code, durationForPhase('PROMPT', state.config));
+  scheduleStepTimeout(game, code, state.gameId, durationForPhase('PROMPT', state.config));
 }
 
 async function assertAssignee(
@@ -292,12 +288,11 @@ export async function handleMode2DrawDone(
   await checkAllSubmitted(game, code, ctx.current);
 }
 
-export async function advanceStep(game: GameNamespace, code: string): Promise<void> {
-  clearTimeout(mode2Timers.get(code));
-  mode2Timers.delete(code);
-
+export async function advanceStep(game: GameNamespace, code: string, expectedGameId?: string): Promise<void> {
   const state = await getRoomState(code);
   if (!state || !isMode2Active(state.status)) return;
+  if (expectedGameId !== undefined && state.gameId !== expectedGameId) return;
+  clearRoomTimer(code, 'mode2Step');
 
   const current = state.current as Mode2Current;
   const players = sortedPlayers(state);
@@ -330,7 +325,7 @@ export async function advanceStep(game: GameNamespace, code: string): Promise<vo
   await saveRoomState(state);
 
   emitSteps(game, code, state, current);
-  scheduleStepTimeout(game, code, durationForPhase(current.phase, state.config));
+  scheduleStepTimeout(game, code, state.gameId, durationForPhase(current.phase, state.config));
 }
 
 // OFFL-05/D-08: 모드2 전용 이탈 처리 — mode1의 handlePlayerLeft와는 별도 함수로 유지

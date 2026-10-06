@@ -1,4 +1,5 @@
 import type { FastifyPluginAsync } from 'fastify';
+import { z } from 'zod';
 import { kakaoLoginSchema, appleLoginSchema, refreshSchema } from '@sketch-catch/shared';
 import { verifyKakaoToken } from '../auth/kakao.js';
 import { verifyAppleToken } from '../auth/apple.js';
@@ -6,6 +7,13 @@ import { signTokens, verifyRefreshToken, verifyAccessToken } from '../auth/jwt.j
 import { upsertUserByProvider } from '../services/user.service.js';
 import { redis } from '../db/redis.js';
 import { logger } from '../lib/logger.js';
+import { env } from '../lib/env.js';
+
+// 개발 전용 테스트 계정 수 — 모드2 최소 인원(4명)을 기기별로 채울 수 있는 수
+const DEV_TEST_ACCOUNT_COUNT = 4;
+const devLoginSchema = z.object({ slot: z.number().int().min(1).max(DEV_TEST_ACCOUNT_COUNT) });
+// 카카오 providerId는 숫자 문자열이라 접두사 'dev:'와 겹치지 않는다
+const DEV_PROVIDER_ID_PREFIX = 'dev:';
 
 function userToPrivate(u: {
   id: string;
@@ -68,6 +76,27 @@ export const authRoutes: FastifyPluginAsync = async (app) => {
       return reply.status(401).send({ error: 'INVALID_TOKEN' });
     }
   });
+
+  // 개발 전용: 카카오/애플 인증 없이 테스트 계정으로 로그인 (다기기 동시성 테스트용).
+  // production에서는 플래그와 무관하게 라우트 자체를 등록하지 않는다.
+  if (env.ENABLE_DEV_LOGIN && env.NODE_ENV !== 'production') {
+    app.post('/auth/dev', async (request, reply) => {
+      const parsed = devLoginSchema.safeParse(request.body);
+      if (!parsed.success) return reply.status(400).send({ error: 'INVALID_INPUT' });
+      const { user, isNew } = await upsertUserByProvider({
+        provider: 'KAKAO',
+        providerId: `${DEV_PROVIDER_ID_PREFIX}${parsed.data.slot}`,
+      });
+      const tokens = await signTokens(user.id);
+      await redis.set(`session:${user.id}`, tokens.accessToken);
+      return reply.send({
+        accessToken: tokens.accessToken,
+        refreshToken: tokens.refreshToken,
+        needsOnboarding: isNew,
+        user: userToPrivate(user),
+      });
+    });
+  }
 
   app.post('/auth/refresh', async (request, reply) => {
     const parsed = refreshSchema.safeParse(request.body);

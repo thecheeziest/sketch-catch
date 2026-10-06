@@ -17,6 +17,8 @@ export type ClientEvents = {
   'room:leave': () => void;
   'room:ready': (payload: { ready: boolean }) => void;
   'room:start': () => void;
+  // 시상식에서 [한번 더!] — 같은 방 대기실로 복귀
+  'room:rematch': () => void;
   'stroke:start': (payload: { strokeId: string; color: string; width: number }) => void;
   'stroke:append': (payload: { strokeId: string; points: Point[] }) => void;
   'stroke:end': (payload: { strokeId: string }) => void;
@@ -42,13 +44,11 @@ export type ServerEvents = {
   'game:end': (payload: GameResult) => void;
   'stroke:remote': (payload: StrokeEvent) => void;
   'chat:message': (payload: ChatMessage) => void;
-  'chat:correct': (payload: { userId: string; messageId: string }) => void;
+  'chat:correct': (payload: { gameId: string; userId: string; messageId: string }) => void;
   'answer:wrong': (payload: { messageId: string; roundIndex: number }) => void; // 오답 제출자 본인에게만 전달
   'mode2:step': (payload: Mode2Step) => void;
   'mode2:review': (payload: Mode2ReviewState) => void;
   'cookie:ready': (payload: { sheetId: string; gifUrl: string }) => void;
-  'match:update': (payload: MatchLobbyUpdate) => void;
-  'match:found': (payload: { code: string }) => void;
   error: (payload: { code: string; message: string }) => void;
 };
 
@@ -68,6 +68,7 @@ export const CLIENT_EVENT = {
   ROOM_LEAVE: 'room:leave',
   ROOM_READY: 'room:ready',
   ROOM_START: 'room:start',
+  ROOM_REMATCH: 'room:rematch',
   STROKE_START: 'stroke:start',
   STROKE_APPEND: 'stroke:append',
   STROKE_END: 'stroke:end',
@@ -97,8 +98,6 @@ export const SERVER_EVENT = {
   MODE2_STEP: 'mode2:step',
   MODE2_REVIEW: 'mode2:review',
   COOKIE_READY: 'cookie:ready',
-  MATCH_UPDATE: 'match:update',
-  MATCH_FOUND: 'match:found',
   ERROR: 'error',
 } as const satisfies Readonly<Record<string, keyof ServerEvents>>;
 
@@ -124,8 +123,12 @@ export type PresenceClientEvents = {
   'presence:subscribe': (payload: { friendIds: string[] }) => void;
 };
 
+// 매칭 로비 이벤트는 presence 소켓으로 보낸다 — 홈(매칭 대기) 화면에는 방 소켓이 없고 presence 소켓은
+// 로그인 중 항상 연결되어 있다.
 export type PresenceServerEvents = {
   'presence:update': (payload: { userId: string; status: PresenceStatus; room?: PresenceRoomSummary }) => void;
+  'match:update': (payload: MatchLobbyUpdate) => void;
+  'match:found': (payload: { code: string }) => void;
 };
 
 export const PRESENCE_NAMESPACE = '/presence' as const;

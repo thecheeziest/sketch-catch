@@ -1,10 +1,11 @@
 import { useCallback, useState } from 'react';
 import { Text, View } from 'dripsy';
 import { type LayoutChangeEvent, StyleSheet, useWindowDimensions } from 'react-native';
-import { Canvas, Path, Skia } from '@shopify/react-native-skia';
+import { Canvas, Path } from '@shopify/react-native-skia';
 import type { Stroke } from '@sketch-catch/shared';
 import { colors, textSizes } from '@/shared/config';
 import { PixelFrame } from '@/shared/ui/PixelFrame';
+import { buildStrokePath } from '@/shared/lib/strokePath';
 
 type Props = {
   strokes: Stroke[];
@@ -31,14 +32,8 @@ export function ReferenceCanvas({ strokes }: Props) {
         <Canvas style={styles.canvas}>
           {canvasSize.width > 0 &&
             strokes.map((s) => {
-              const first = s.points[0];
-              if (!first) return null;
-              const path = Skia.Path.Make();
-              path.moveTo(first.x * canvasSize.width, first.y * canvasSize.height);
-              for (let i = 1; i < s.points.length; i++) {
-                const pt = s.points[i];
-                if (pt) path.lineTo(pt.x * canvasSize.width, pt.y * canvasSize.height);
-              }
+              const path = buildStrokePath(s.points, canvasSize.width, canvasSize.height);
+              if (!path) return null;
               return (
                 <Path
                   key={s.id}

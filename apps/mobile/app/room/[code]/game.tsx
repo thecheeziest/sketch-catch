@@ -1,10 +1,11 @@
-import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
-import { Alert, BackHandler, KeyboardAvoidingView, StyleSheet } from 'react-native';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { Alert, KeyboardAvoidingView, StyleSheet } from 'react-native';
 import { View } from 'dripsy';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { Stack, useLocalSearchParams, useRouter } from 'expo-router';
+import { useLocalSearchParams, useRouter } from 'expo-router';
 import { CLIENT_EVENT } from '@sketch-catch/shared';
 import { colors } from '@/shared/config';
+import { useHardwareBack } from '@/shared/lib';
 import { useAuthStore, useRoomStore } from '@/shared/model';
 import { gameSurface, playerDot, resultOverlay, toolbar } from '@/features/game/config';
 import { useGameStore } from '@/features/game/model/useGameStore';
@@ -21,6 +22,9 @@ import {
   CustomPromptModal,
 } from '@/features/game/ui';
 import { ResultOverlay } from '@/features/game/ui/ResultOverlay';
+
+// 라운드 종료 후 다음 라운드(서버 3초 대기)가 이 시간 안에 오지 않으면 서버에 현재 상태를 다시 요청한다
+const ROUND_RESYNC_DELAY_MS = 8000;
 
 type InputBarState = {
   disabled: boolean;
@@ -65,13 +69,8 @@ function getInputBarState(overlay: GameResultOverlayData | null, roundEnded: boo
 }
 
 export default function GameScreen() {
-  // useGameStore는 앱 전역 싱글턴 — 직전 게임의 roundResult/result 등이 남아 있으면
-  // 입장 직후 라운드 종료 오버레이가 잠깐 뜬다. 첫 페인트 전에 초기화한다.
-  // (렌더 중 store.set()은 "Cannot update a component while rendering" 경고를 유발)
-  useLayoutEffect(() => {
-    useGameStore.getState().reset();
-  }, []);
-
+  // 게임 이벤트 리스너·스토어 초기화는 room/[code]/_layout과 gameId 변경 시점에 처리된다 —
+  // 여기서 reset하면 화면 전환 중 먼저 도착한 첫 라운드를 지워 화면이 멈춘다.
   const router = useRouter();
   const { code } = useLocalSearchParams<{ code: string }>();
   const myId = useAuthStore.getState().user?.id ?? '';
@@ -94,24 +93,6 @@ export default function GameScreen() {
 
   const players = roomState?.players ?? [];
   const drawerId = round?.drawerId ?? '';
-
-  useEffect(() => {
-    if (!socket || !code) return;
-
-    useGameStore.getState().reset();
-
-    const handleConnect = (): void => {
-      socket.emit(CLIENT_EVENT.ROOM_JOIN, { code });
-    };
-    socket.on('connect', handleConnect);
-    if (socket.connected) handleConnect();
-
-    useGameStore.getState().registerGameListeners();
-
-    return () => {
-      socket.off('connect', handleConnect);
-    };
-  }, [socket, code]);
 
   useEffect(() => {
     if (roomState?.status === 'AWARD') {
@@ -210,14 +191,18 @@ export default function GameScreen() {
     );
   }, [socket, router]);
 
-  // Android 하드웨어 뒤로가기 차단
+  // Android 하드웨어 뒤로가기 — 나가기 확인 (iOS 스와이프는 레이아웃에서 차단)
+  useHardwareBack(handleExitAttempt);
+
+  // 라운드가 끝났는데 다음 라운드가 오지 않으면(네트워크 유실 등) 재입장으로 서버 상태를 다시 받는다 —
+  // 정답 후 채팅 입력이 잠긴 채 멈추던 문제의 클라이언트 측 안전장치
   useEffect(() => {
-    const subscription = BackHandler.addEventListener('hardwareBackPress', () => {
-      handleExitAttempt();
-      return true;
-    });
-    return () => subscription.remove();
-  }, [handleExitAttempt]);
+    if (roundResult === null || !socket || !code) return;
+    const timer = setTimeout(() => {
+      socket.emit(CLIENT_EVENT.ROOM_JOIN, { code });
+    }, ROUND_RESYNC_DELAY_MS);
+    return () => clearTimeout(timer);
+  }, [roundResult, socket, code]);
 
   const isDrawer = drawerId === myId;
   const totalTurns = roomState?.turnSchedule?.length ?? roomState?.config.roundCount ?? 1;
@@ -250,8 +235,6 @@ export default function GameScreen() {
 
   return (
     <SafeAreaView style={styles.container} edges={['top', 'bottom', 'left', 'right']}>
-      {/* iOS 스와이프 뒤로가기 비활성화 */}
-      <Stack.Screen options={{ gestureEnabled: false }} />
 
       <GameHeader
         roundIndex={roundIndex}

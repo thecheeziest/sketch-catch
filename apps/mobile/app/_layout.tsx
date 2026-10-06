@@ -6,9 +6,9 @@ import { NotificationGate } from '@/features/push/ui/NotificationGate';
 import { queryClient } from '@/shared/api';
 import { colors, icons, theme } from '@/shared/config';
 import { hydrateAuthStore, useAuthStore, usePresenceStore } from '@/shared/model';
-import { ToastHost } from '@/shared/ui';
+import { SketchbookLoadingSpinner, ToastHost } from '@/shared/ui';
 import { QueryClientProvider } from '@tanstack/react-query';
-import { DripsyProvider, Image, Text } from 'dripsy';
+import { DripsyProvider, Image, View } from 'dripsy';
 import Galmuri11 from '@assets/fonts/Galmuri11.ttf';
 import Mona12Bold from '@assets/fonts/Mona12-Bold.ttf';
 import { useFonts } from 'expo-font';
@@ -105,12 +105,9 @@ function SplashOverlay({
         />
       </Animated.View>
       {isWaiting && (
-        <Text
-          variant="B4"
-          sx={{ position: 'absolute', bottom: 60, color: colors.GRAY }}
-        >
-          정보를 가져오기 위해 춤추는 중..💃🏻
-        </Text>
+        <View sx={{ position: 'absolute', bottom: 60 }}>
+          <SketchbookLoadingSpinner size={Math.min(240, screenWidth - 48)} />
+        </View>
       )}
     </Animated.View>
   );
@@ -189,7 +186,12 @@ export default function RootLayout() {
               <Stack.Screen name="(auth)" redirect={isAuthenticated && !needsOnboarding} />
               <Stack.Screen name="(tabs)" redirect={!isAuthenticated || needsOnboarding} />
               <Stack.Screen name="settings" redirect={!isAuthenticated || needsOnboarding} />
-              <Stack.Screen name="room" redirect={!isAuthenticated || needsOnboarding} />
+              {/* 방(대기실·게임·시상식)은 스와이프로 나가지 않는다 — 각 화면의 나가기 확인을 거친다 */}
+              <Stack.Screen
+                name="room"
+                redirect={!isAuthenticated || needsOnboarding}
+                options={{ gestureEnabled: false }}
+              />
             </Stack>
             <ToastHost />
             <NotificationGate />

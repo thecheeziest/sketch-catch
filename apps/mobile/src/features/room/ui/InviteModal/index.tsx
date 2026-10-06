@@ -1,11 +1,13 @@
 import { Image, Text, View } from 'dripsy';
+import { useState } from 'react';
 import { StyleSheet } from 'react-native';
 import { useFriends } from '@/features/friends/api';
 import { useInvite } from '@/features/room/api/useInvite';
 import { colors, getCharacterImageSource, spacing } from '@/shared/config';
+import { handleApiError } from '@/shared/lib';
 import type { Friend } from '@/shared/model';
 import { useToastStore } from '@/shared/model';
-import { Button, Dialog, FlatList } from '@/shared/ui';
+import { Button, Dialog, FlatList, SketchbookLoadingSpinner } from '@/shared/ui';
 
 type Props = {
   visible: boolean;
@@ -27,16 +29,27 @@ const PRESENCE_LABEL: Record<Friend['presenceStatus'], string> = {
   IN_GAME: '게임 중',
 };
 
+// 이미 대기실·게임에 있는 친구는 초대해도 반응할 수 없으므로 초대 대상에서 제외 (서버도 TARGET_BUSY로 거부)
+function isBusy(friend: Friend): boolean {
+  return friend.presenceStatus === 'IN_LOBBY' || friend.presenceStatus === 'IN_GAME';
+}
+
 export function InviteModal({ visible, onClose, code }: Props) {
-  const { data: friends = [] } = useFriends();
+  const { data: friends = [], isLoading } = useFriends();
   const invite = useInvite(code);
+  // 이 대기실에서 초대를 보낸 친구 — 모달을 닫았다 열어도 유지된다
+  const [invitedIds, setInvitedIds] = useState<ReadonlySet<string>>(() => new Set());
 
   const handleInvite = (friend: Friend): void => {
     invite.mutate(
       { target: friend.userId },
       {
-        onSuccess: () => useToastStore.getState().show('초대를 보냈어요'),
-        onError: () => useToastStore.getState().show('초대를 보낼 수 없어요. 게임이 이미 시작됐어요.'),
+        onSuccess: () => {
+          setInvitedIds((prev) => new Set(prev).add(friend.userId));
+          useToastStore.getState().show('초대를 보냈어요');
+        },
+        onError: (err) =>
+          handleApiError(err, { fallbackType: 'toast', fallbackMessage: '초대를 보낼 수 없어요. 잠시 후 다시 시도해주세요.' }),
       }
     );
   };
@@ -70,15 +83,26 @@ export function InviteModal({ visible, onClose, code }: Props) {
                     {PRESENCE_LABEL[item.presenceStatus]}
                   </Text>
                 </View>
-                <Button label="초대" color="secondary" height={32} onPress={() => handleInvite(item)} />
+                <Button
+                  label={invitedIds.has(item.userId) ? '초대됨' : '초대'}
+                  color="secondary"
+                  height={32}
+                  disabled={invitedIds.has(item.userId) || isBusy(item)}
+                  loading={invite.isPending && invite.variables?.target === item.userId}
+                  onPress={() => handleInvite(item)}
+                />
               </View>
             );
           }}
           ListEmptyComponent={
             <View sx={{ paddingVertical: spacing.XL, alignItems: 'center' }}>
-              <Text variant="B4" sx={{ color: colors.LIGHT_500 }}>
-                초대할 수 있는 친구가 없어요
-              </Text>
+              {isLoading ? (
+                <SketchbookLoadingSpinner size={140} accessibilityLabel="친구 목록 불러오는 중" />
+              ) : (
+                <Text variant="B4" sx={{ color: colors.LIGHT_500 }}>
+                  초대할 수 있는 친구가 없어요
+                </Text>
+              )}
             </View>
           }
         />

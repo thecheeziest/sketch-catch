@@ -12,6 +12,9 @@
       "supportsTablet": false,
       "bundleIdentifier": "com.sketchcatch.app",
       "usesAppleSignIn": true,
+      "entitlements": {
+        "com.apple.developer.applesignin": ["Default"]
+      },
       "buildNumber": "2",
       "infoPlist": {
         "ITSAppUsesNonExemptEncryption": false
@@ -57,7 +60,7 @@
         {
           "image": "./assets/logo-splash-v2.png",
           "resizeMode": "contain",
-          "backgroundColor": "#FAFAF0",
+          "backgroundColor": "#1E1C2C",
           "imageWidth": 280,
           "ios": {
             "enableFullScreenImage_legacy": true

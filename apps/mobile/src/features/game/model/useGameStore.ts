@@ -1,6 +1,6 @@
 import { create } from 'zustand';
 import { immer } from 'zustand/middleware/immer';
-import type { StrokeEvent, Point, RoundStart, RoundEnd, GameResult, ChatMessage } from '@sketch-catch/shared';
+import type { StrokeEvent, Point, RoundStart, RoundEnd, GameResult, ChatMessage, RoomState } from '@sketch-catch/shared';
 import { useRoomStore } from '@/shared/model/room';
 import { useAuthStore } from '@/shared/model/auth';
 import { colors } from '@/shared/config';
@@ -17,6 +17,8 @@ type RemoteStroke = {
 };
 
 type GameStore = {
+  // 지금 진행 중인 게임 1판의 식별자 (room:state 기준). 다른 gameId의 이벤트는 지난 게임 것으로 보고 버린다
+  gameId: string | null;
   round: { roundIndex: number; drawerId: string; durationSec: number } | null;
   promptForDrawer: string | null;
   promptHint: string | null;
@@ -39,7 +41,8 @@ type GameStore = {
   drawerClearNonce: number;
   drawerUndoNonce: number;
   // actions
-  registerGameListeners: () => void;
+  // 방 소켓에 게임 이벤트 리스너를 1회 등록하고 해제 함수를 돌려준다 (room/[code]/_layout에서 호출)
+  registerGameListeners: () => () => void;
   applyRemoteStroke: (e: StrokeEvent) => void;
   setColor: (c: string) => void;
   setWidth: (w: number) => void;
@@ -52,6 +55,7 @@ type GameStore = {
 
 export const useGameStore = create<GameStore>()(
   immer((set, get) => ({
+    gameId: null,
     round: null,
     promptForDrawer: null,
     promptHint: null,
@@ -103,11 +107,22 @@ export const useGameStore = create<GameStore>()(
 
     registerGameListeners: () => {
       const socket = useRoomStore.getState().socket;
-      if (!socket) return;
+      if (!socket) return () => undefined;
       const myId = useAuthStore.getState().user?.id;
+      const isCurrentGame = (gameId: string): boolean => gameId === get().gameId;
 
-      // 이벤트명 리터럴 직접 사용 — D-04-04
-      socket.on('game:round:start', (payload: RoundStart) => {
+      // 새 게임이 시작되거나(대기실 → 게임) 대기실로 돌아오면 gameId가 바뀐다 — 이전 판의 데이터를 비운다
+      const handleRoomState = (state: RoomState): void => {
+        const nextGameId = state.gameId ?? null;
+        if (nextGameId === get().gameId) return;
+        get().reset();
+        set((st) => {
+          st.gameId = nextGameId;
+        });
+      };
+
+      const handleRoundStart = (payload: RoundStart): void => {
+        if (!isCurrentGame(payload.gameId)) return;
         set((st) => {
           // 커스텀 라운드는 제시어 입력 전/후 두 번의 round:start를 같은 roundIndex로 보낸다.
           // 새 라운드 진입 시점에만 커스텀 여부를 확정하고, 후속 재전송에선 유지한다.
@@ -137,51 +152,75 @@ export const useGameStore = create<GameStore>()(
             ? payload.promptForDrawer.split('').map((ch) => (ch === ' ' ? ' ' : 'ㅇ')).join('')
             : null;
           // 커스텀 모드: 서버가 제시어를 받은 뒤 다시 game:round:start를 보낼 때 캔버스 유지
-          if (!payload.needsCustomPrompt) {
+          if (!payload.needsCustomPrompt && isNewRound) {
             st.remoteStrokes = [];
           }
         });
-      });
+      };
 
-      socket.on('game:round:end', (payload: RoundEnd) => {
+      const handleRoundEnd = (payload: RoundEnd): void => {
+        if (!isCurrentGame(payload.gameId)) return;
         set((st) => {
           st.roundResult = payload;
         });
-      });
+      };
 
-      socket.on('game:end', (payload: GameResult) => {
+      const handleGameEnd = (payload: GameResult): void => {
+        if (!isCurrentGame(payload.gameId)) return;
         set((st) => {
           st.result = payload;
         });
-      });
+      };
 
-      socket.on('stroke:remote', (e: StrokeEvent) => {
+      const handleStrokeRemote = (e: StrokeEvent): void => {
         get().applyRemoteStroke(e);
-      });
+      };
 
-      socket.on('chat:message', (msg: ChatMessage) => {
+      const handleChatMessage = (msg: ChatMessage): void => {
         set((st) => {
           st.chatMessages.push(msg);
           if (st.chatMessages.length > MAX_CHAT_MESSAGES) {
             st.chatMessages.splice(0, st.chatMessages.length - MAX_CHAT_MESSAGES);
           }
         });
-      });
+      };
 
-      socket.on('chat:correct', (payload: { userId: string; messageId: string }) => {
+      const handleChatCorrect = (payload: { gameId: string; userId: string; messageId: string }): void => {
+        if (!isCurrentGame(payload.gameId)) return;
         set((st) => {
-          st.correct = payload;
+          st.correct = { userId: payload.userId, messageId: payload.messageId };
         });
-      });
+      };
 
-      socket.on('answer:wrong', (payload: { messageId: string; roundIndex: number }) => {
+      const handleAnswerWrong = (payload: { messageId: string; roundIndex: number }): void => {
         set((st) => {
           // 네트워크 지연으로 응답이 라운드 종료 후 도착하면 다음 라운드 시작 화면에서
           // 엉뚱하게 "오답입니다" 피드백이 뜬다 — 이미 지난 라운드의 응답이면 무시한다.
           if (st.round !== null && payload.roundIndex !== st.round.roundIndex) return;
           st.wrongAnswer = payload;
         });
-      });
+      };
+
+      // 이벤트명 리터럴 직접 사용 — D-04-04
+      socket.on('room:state', handleRoomState);
+      socket.on('game:round:start', handleRoundStart);
+      socket.on('game:round:end', handleRoundEnd);
+      socket.on('game:end', handleGameEnd);
+      socket.on('stroke:remote', handleStrokeRemote);
+      socket.on('chat:message', handleChatMessage);
+      socket.on('chat:correct', handleChatCorrect);
+      socket.on('answer:wrong', handleAnswerWrong);
+
+      return () => {
+        socket.off('room:state', handleRoomState);
+        socket.off('game:round:start', handleRoundStart);
+        socket.off('game:round:end', handleRoundEnd);
+        socket.off('game:end', handleGameEnd);
+        socket.off('stroke:remote', handleStrokeRemote);
+        socket.off('chat:message', handleChatMessage);
+        socket.off('chat:correct', handleChatCorrect);
+        socket.off('answer:wrong', handleAnswerWrong);
+      };
     },
 
     setColor: (c) =>
@@ -217,6 +256,7 @@ export const useGameStore = create<GameStore>()(
 
     reset: () =>
       set((st) => {
+        st.gameId = null;
         st.round = null;
         st.promptForDrawer = null;
         st.promptHint = null;

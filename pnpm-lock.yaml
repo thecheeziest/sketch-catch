@@ -6,6 +6,11 @@ settings:
 
 packageExtensionsChecksum: 81035fb17578ff8f27781524a77295f4
 
+patchedDependencies:
+  dripsy@4.3.8:
+    hash: 7c3i7nommfrmgt6c62uoxykxvm
+    path: patches/dripsy@4.3.8.patch
+
 importers:
 
   .:
@@ -63,7 +68,7 @@ importers:
         version: 5.100.10(react@19.2.3)
       dripsy:
         specifier: ^4.3.8
-        version: 4.3.8
+        version: 4.3.8(patch_hash=7c3i7nommfrmgt6c62uoxykxvm)
       expo:
         specifier: ^57.0.26
         version: 57.0.26(@babel/core@7.29.0)(@expo/dom-webview@56.0.6)(@expo/metro-runtime@57.0.16)(expo-router@57.0.24)(react-native-worklets@0.10.1(@babel/core@7.29.0)(@react-native/metro-config@0.87.1(@babel/core@7.29.0))(react-native@0.86.3(@babel/core@7.29.0)(@react-native-community/cli@13.6.9)(@react-native/metro-config@0.87.1(@babel/core@7.29.0))(@types/react@19.2.18)(react@19.2.3))(react@19.2.3))(react-native@0.86.3(@babel/core@7.29.0)(@react-native-community/cli@13.6.9)(@react-native/metro-config@0.87.1(@babel/core@7.29.0))(@types/react@19.2.18)(react@19.2.3))(react@19.2.3)(typescript@6.0.3)
@@ -7629,7 +7634,7 @@ snapshots:
 
   dotenv@16.6.1: {}
 
-  dripsy@4.3.8:
+  dripsy@4.3.8(patch_hash=7c3i7nommfrmgt6c62uoxykxvm):
     dependencies:
       '@expo/html-elements': 0.2.2
       '@theme-ui/css': 0.4.0-rc.13

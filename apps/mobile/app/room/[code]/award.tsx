@@ -1,56 +1,27 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useMemo } from 'react';
 import { KeyboardAvoidingView, StyleSheet, useWindowDimensions } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Text, View } from 'dripsy';
-import { useLocalSearchParams, useRouter } from 'expo-router';
-import { CLIENT_EVENT } from '@sketch-catch/shared';
+import { useLocalSearchParams } from 'expo-router';
 import { useGameStore } from '@/features/game/model/useGameStore';
 import { useChatSender } from '@/features/game/api/useChatSender';
 import { useRoomStore } from '@/shared/model/room';
 import { PodiumSlot, ChatStream, ChatInputBar } from '@/features/game/ui';
 import { AudienceCheer } from '@/features/game/ui/AudienceCheer';
+import { useAwardSession } from '@/features/room/lib';
 import { Button } from '@/shared/ui/Button';
 import { colors, spacing, textSizes, fontFamily } from '@/shared/config';
 
 export default function AwardScreen() {
-  const router = useRouter();
   const { code } = useLocalSearchParams<{ code: string }>();
   const { width } = useWindowDimensions();
-  const socket = useRoomStore((s) => s.socket);
   const result = useGameStore((s) => s.result);
   const chatMessages = useGameStore((s) => s.chatMessages);
   const roomState = useRoomStore((s) => s.roomState);
   const { sendChat } = useChatSender();
 
-  const [countdown, setCountdown] = useState(30);
-
-  // 소켓 연결 후 방 재입장
-  useEffect(() => {
-    if (!socket || !code) return;
-    const handleConnect = (): void => {
-      socket.emit(CLIENT_EVENT.ROOM_JOIN, { code });
-    };
-    socket.on('connect', handleConnect);
-    if (socket.connected) handleConnect();
-    return () => {
-      socket.off('connect', handleConnect);
-    };
-  }, [socket, code]);
-
-  // 30초 자동 종료 (AWRD-03)
-  useEffect(() => {
-    const interval = setInterval(() => {
-      setCountdown((prev) => {
-        if (prev <= 1) {
-          clearInterval(interval);
-          router.replace('/(tabs)');
-          return 0;
-        }
-        return prev - 1;
-      });
-    }, 1000);
-    return () => clearInterval(interval);
-  }, []);
+  // 시상식: 한번 더!(대기실 복귀) / 나가기 / 만료 시 자동 퇴장 — 방 재입장은 room/[code]/_layout이 처리
+  const { secondsLeft, rematch, exit } = useAwardSession(code ?? '', roomState?.mode ?? 1);
 
   const ranking = result?.ranking ?? [];
   const players = roomState?.players ?? [];
@@ -113,17 +84,15 @@ export default function AwardScreen() {
         <Text style={styles.title} sx={{ color: colors.LIGHT_100 }}>
           게임 종료
         </Text>
-        <Button
-          label="나가기"
-          color="primary"
-          height={32}
-          onPress={() => router.replace('/(tabs)')}
-        />
+        <View sx={{ flexDirection: 'row', gap: spacing.XS }}>
+          <Button label="한번 더!" color="primary" height={32} onPress={rematch} />
+          <Button label="나가기" color="light" height={32} onPress={exit} />
+        </View>
       </View>
 
-      {/* 자동 종료 안내 — 나가기 버튼과 분리된 별도 자리에서 알림만 한다 */}
+      {/* 자동 종료 안내 — 버튼을 누르지 않으면 만료 시 퇴장 처리된다 */}
       <Text sx={{ ...textSizes.B4, color: colors.GRAY, textAlign: 'center', paddingTop: spacing.XS }}>
-        {countdown}초 후 자동으로 나가져요
+        {secondsLeft}초 후 자동으로 나가져요
       </Text>
 
       {/* 인원 부족 조기 종료 안내 배너 (D-05, OFFL-03) */}

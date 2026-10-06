@@ -53,6 +53,15 @@ async function bootstrap(): Promise<void> {
     process.exit(0);
   };
   process.on('SIGINT', () => void shutdown('SIGINT'));
+  // 핸들러 밖으로 새어 나온 비동기 에러는 기록만 하고 프로세스는 유지 — 크래시 1건이 모든 방의 타이머를 날리던 문제 방지
+  process.on('unhandledRejection', (reason) => {
+    logger.error({ err: reason }, 'unhandled promise rejection');
+  });
+  // 동기 예외는 프로세스 상태를 신뢰할 수 없으므로 기록 후 종료 (Railway가 재시작)
+  process.on('uncaughtException', (err) => {
+    logger.fatal({ err }, 'uncaught exception');
+    process.exit(1);
+  });
   process.on('SIGTERM', () => void shutdown('SIGTERM'));
 
   const address = await app.listen({ port: env.PORT, host: '0.0.0.0' });
