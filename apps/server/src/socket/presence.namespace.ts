@@ -1,7 +1,8 @@
 import type { Server, Namespace } from 'socket.io';
 import type { PresenceClientEvents, PresenceServerEvents, PresenceStatus } from '@sketch-catch/shared';
-import { PRESENCE_NAMESPACE } from '@sketch-catch/shared';
+import { PRESENCE_NAMESPACE, UPDATE_REQUIRED_CODE } from '@sketch-catch/shared';
 import { verifyAccessToken } from '../auth/jwt.js';
+import { isOutdatedClient } from '../lib/appVersion.js';
 import { getPresence } from '../db/redis.js';
 import { getFriendRoomView } from '../services/friends.service.js';
 
@@ -13,6 +14,9 @@ export function registerPresenceNamespace(io: Server): void {
   ns = io.of(PRESENCE_NAMESPACE) as PresenceNamespace;
 
   ns.use(async (socket, next) => {
+    const { platform, build } = socket.handshake.auth as { platform?: unknown; build?: unknown };
+    if (isOutdatedClient(platform, build)) return next(new Error(UPDATE_REQUIRED_CODE));
+
     const token = socket.handshake.auth.token as string | undefined;
     if (!token) return next(new Error('UNAUTHORIZED'));
     const payload = await verifyAccessToken(token);

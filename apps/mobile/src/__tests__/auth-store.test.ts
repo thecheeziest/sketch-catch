@@ -19,6 +19,9 @@ vi.mock('expo-secure-store', () => ({
   }),
 }));
 
+// shared/model → 소켓 스토어가 앱 빌드 정보(expo-application, 네이티브 모듈)를 읽는다
+vi.mock('expo-application', () => ({ nativeBuildVersion: '1' }));
+
 import { useAuthStore, hydrateAuthStore, SECURE_STORE_KEYS } from '@/shared/model';
 import * as SecureStore from 'expo-secure-store';
 

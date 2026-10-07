@@ -1,5 +1,6 @@
 import { ApiError } from '@/shared/api';
 import { useToastStore } from '@/shared/model';
+import { DEFAULT_ERROR_MESSAGE, getErrorMessage } from './getErrorMessage';
 
 type ErrorAction =
   | { type: 'setError'; message: string }
@@ -35,24 +36,19 @@ export function handleApiError(err: unknown, options: HandleApiErrorOptions = {}
   const {
     setError,
     onClose,
-    fallbackMessage = '연결에 실패했어요. 잠시 후 다시 시도해주세요.',
+    fallbackMessage = DEFAULT_ERROR_MESSAGE,
     fallbackType,
     overrides,
   } = options;
 
   const useFallbackToast = fallbackType === 'toast' || (!fallbackType && !setError);
 
-  if (!(err instanceof ApiError)) {
-    if (useFallbackToast) useToastStore.getState().show(fallbackMessage);
-    else setError?.(fallbackMessage);
-    return;
-  }
-
-  const action = overrides?.[err.code] ?? ERROR_HANDLERS[err.code];
+  const action = err instanceof ApiError ? (overrides?.[err.code] ?? ERROR_HANDLERS[err.code]) : undefined;
 
   if (!action) {
-    if (useFallbackToast) useToastStore.getState().show(err.message || fallbackMessage);
-    else setError?.(err.message || fallbackMessage);
+    const message = getErrorMessage(err, { fallback: fallbackMessage });
+    if (useFallbackToast) useToastStore.getState().show(message);
+    else setError?.(message);
     return;
   }
 

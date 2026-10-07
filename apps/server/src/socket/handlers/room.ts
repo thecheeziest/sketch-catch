@@ -1,7 +1,7 @@
 import type { Namespace, Socket } from 'socket.io';
 import type { ClientEvents, ServerEvents, RoomState } from '@sketch-catch/shared';
 import { randomUUID } from 'node:crypto';
-import { MODE2_PLAYER_MIN, SERVER_EVENT } from '@sketch-catch/shared';
+import { MODE2_PLAYER_MIN, ROOM_PLAYER_MIN, SERVER_EVENT } from '@sketch-catch/shared';
 import { getRoomState, saveRoomState, withRoomLock } from '../../services/rooms.service.js';
 import { computeAllReady, ensureHost } from '../../services/roomRules.js';
 import { setPresence, setUserRoom, clearUserRoom } from '../../db/redis.js';
@@ -199,9 +199,13 @@ export async function handleRoomStart(
     return;
   }
 
-  // Pitfall 4: 모드 2는 시트 로테이션 상태 머신(startMode2)으로 분기 — initTurnSchedule(모드1 전용) 미호출
-  if (state.mode === 2 && state.players.filter((p) => p.connected).length < MODE2_PLAYER_MIN) {
-    socket.emit(SERVER_EVENT.ERROR, { code: 'INSUFFICIENT_PLAYERS', message: '모드 2는 최소 4명이 필요합니다.' });
+  // 모드별 최소 인원 미달이면 시작 거부 — 인원 부족 상태로 시작되면 출제 순서가 꼬여 게임이 멈춘다
+  const minPlayers = state.mode === 2 ? MODE2_PLAYER_MIN : ROOM_PLAYER_MIN;
+  if (state.players.filter((p) => p.connected).length < minPlayers) {
+    socket.emit(SERVER_EVENT.ERROR, {
+      code: 'INSUFFICIENT_PLAYERS',
+      message: `최소 ${minPlayers}명이 모여야 시작할 수 있어요.`,
+    });
     return;
   }
 
@@ -212,6 +216,7 @@ export async function handleRoomStart(
   state.allReady = false;
   const activePlayers = state.players.filter((p) => p.connected);
 
+  // Pitfall 4: 모드 2는 시트 로테이션 상태 머신(startMode2)으로 분기 — initTurnSchedule(모드1 전용) 미호출
   if (state.mode === 2) {
     await saveRoomState(state);
     await Promise.all(activePlayers.map((p) => setPresence(p.id, 'IN_GAME')));

@@ -1,7 +1,8 @@
 import type { Server, Namespace, Socket } from 'socket.io';
 import type { ClientEvents, ServerEvents } from '@sketch-catch/shared';
-import { SERVER_EVENT, SOCKET_NAMESPACE } from '@sketch-catch/shared';
+import { SERVER_EVENT, SOCKET_NAMESPACE, UPDATE_REQUIRED_CODE } from '@sketch-catch/shared';
 import { verifyAccessToken } from '../auth/jwt.js';
+import { isOutdatedClient } from '../lib/appVersion.js';
 import { logger } from '../lib/logger.js';
 import { runInRooms } from '../services/roomQueue.js';
 import { handleRoomJoin, handleRoomLeave, handleRoomReady, handleRoomStart } from './handlers/room.js';
@@ -41,6 +42,9 @@ export function registerGameNamespace(io: Server<ClientEvents, ServerEvents>): v
 
   // JWT 인증 미들웨어 — 모든 소켓 이벤트 전에 인증 강제
   game.use(async (socket, next) => {
+    const { platform, build } = socket.handshake.auth as { platform?: unknown; build?: unknown };
+    if (isOutdatedClient(platform, build)) return next(new Error(UPDATE_REQUIRED_CODE));
+
     const token = socket.handshake.auth.token as string | undefined;
     if (!token) return next(new Error('UNAUTHORIZED'));
 

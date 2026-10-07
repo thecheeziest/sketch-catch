@@ -23,6 +23,12 @@ const envSchema = z.object({
     .enum(['true', 'false'])
     .default('false')
     .transform(v => v === 'true'),
+  // 강제 업데이트 — 플랫폼별 최소 빌드 번호(iOS CFBundleVersion / Android versionCode). 미설정이면 차단하지 않는다.
+  // 릴리스마다 새 빌드 번호로 올린다. 업데이트 링크는 출시 전 TestFlight·내부 테스트, 출시 후 스토어 링크로 교체.
+  MIN_BUILD_IOS: z.coerce.number().int().positive().optional(),
+  MIN_BUILD_ANDROID: z.coerce.number().int().positive().optional(),
+  APP_UPDATE_URL_IOS: z.string().url().optional(),
+  APP_UPDATE_URL_ANDROID: z.string().url().optional(),
 });
 
 const parsed = envSchema.safeParse(process.env);

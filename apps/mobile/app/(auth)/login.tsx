@@ -1,11 +1,12 @@
-import { View, Image } from 'dripsy'
+import { View, Image, Text } from 'dripsy'
 import { Platform, useWindowDimensions } from 'react-native'
 import { useRouter } from 'expo-router'
 import { SafeAreaView } from 'react-native-safe-area-context'
-import { Button, SocialButton } from '@/shared/ui'
-import { useKakaoLogin, useAppleLogin, useDevLogin, DEV_TEST_SLOTS } from '@/features/auth/lib'
+import { Button, SketchbookLoadingSpinner, SocialButton } from '@/shared/ui'
+import { useKakaoLogin, useAppleLogin, useDevLogin, DEV_TEST_SLOTS, isAppleLoginCanceled } from '@/features/auth/lib'
+import { getErrorMessage } from '@/shared/lib'
 import { useToastStore } from '@/shared/model'
-import { colors, icons, spacing } from '@/shared/config'
+import { colors, icons, spacing, textSizes } from '@/shared/config'
 
 export default function LoginScreen() {
   const router = useRouter()
@@ -15,6 +16,7 @@ export default function LoginScreen() {
   const kakaoLogin = useKakaoLogin()
   const appleLogin = useAppleLogin()
   const devLogin = useDevLogin()
+  const isLoggingIn = kakaoLogin.isPending || appleLogin.isPending || devLogin.isPending
 
   const handleLoginSuccess = (needsOnboarding: boolean): void => {
     if (needsOnboarding) {
@@ -25,7 +27,14 @@ export default function LoginScreen() {
   }
 
   const handleError = (err: Error): void => {
-    useToastStore.getState().show(err.message || '연결에 실패했어요. 잠시 후 다시 시도해주세요.')
+    console.log('[login] failed', err)
+    if (isAppleLoginCanceled(err)) return
+    useToastStore.getState().show(
+      getErrorMessage(err, {
+        fallback: '로그인하지 못했어요. 다시 시도해주세요.',
+        serverMessage: '서버 문제로 지금은 로그인할 수 없어요. 잠시 후 다시 시도해주세요.',
+      }),
+    )
   }
 
   return (
@@ -36,7 +45,7 @@ export default function LoginScreen() {
       <View sx={{ flex: 4, gap: spacing.SM, justifyContent: Platform.OS === 'ios' ? 'center' : 'flex-end' }}>
         <SocialButton
           provider="kakao"
-          disabled={kakaoLogin.isPending}
+          disabled={isLoggingIn}
           onPress={() => {
             kakaoLogin.mutate(undefined, {
               onSuccess: (data) => handleLoginSuccess(data.needsOnboarding),
@@ -47,7 +56,7 @@ export default function LoginScreen() {
         {Platform.OS === 'ios' && (
           <SocialButton
             provider="apple"
-            disabled={appleLogin.isPending}
+            disabled={isLoggingIn}
             onPress={() => {
               appleLogin.mutate(undefined, {
                 onSuccess: (data) => handleLoginSuccess(data.needsOnboarding),
@@ -65,7 +74,7 @@ export default function LoginScreen() {
                   label={`테스트${slot}`}
                   color="dark"
                   height={36}
-                  disabled={devLogin.isPending}
+                  disabled={isLoggingIn}
                   onPress={() => {
                     devLogin.mutate(slot, {
                       onSuccess: (data) => handleLoginSuccess(data.needsOnboarding),
@@ -78,6 +87,26 @@ export default function LoginScreen() {
           </View>
         )}
       </View>
+      {isLoggingIn && (
+        <View sx={sxStyles.loadingOverlay}>
+          <SketchbookLoadingSpinner size={200} accessibilityLabel="로그인 중" />
+          <Text sx={{ ...textSizes.B2, color: colors.LIGHT_100 }}>로그인하고 있어요...</Text>
+        </View>
+      )}
     </SafeAreaView>
   )
 }
+
+const sxStyles = {
+  loadingOverlay: {
+    position: 'absolute',
+    top: 0,
+    right: 0,
+    bottom: 0,
+    left: 0,
+    backgroundColor: colors.DARK_200,
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: spacing.MD,
+  },
+} as const

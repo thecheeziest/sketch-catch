@@ -1,4 +1,5 @@
 export { handleApiError, ERROR_HANDLERS } from './handleApiError';
+export { getErrorMessage } from './getErrorMessage';
 export { initializeAuthState } from './initializeAuthState';
 export { useMatchingTimer } from './useMatchingTimer';
 export { useMatchingNavigation } from './useMatchingNavigation';

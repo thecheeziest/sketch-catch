@@ -72,6 +72,9 @@ importers:
       expo:
         specifier: ^57.0.26
         version: 57.0.26(@babel/core@7.29.0)(@expo/dom-webview@56.0.6)(@expo/metro-runtime@57.0.16)(expo-router@57.0.24)(react-native-worklets@0.10.1(@babel/core@7.29.0)(@react-native/metro-config@0.87.1(@babel/core@7.29.0))(react-native@0.86.3(@babel/core@7.29.0)(@react-native-community/cli@13.6.9)(@react-native/metro-config@0.87.1(@babel/core@7.29.0))(@types/react@19.2.18)(react@19.2.3))(react@19.2.3))(react-native@0.86.3(@babel/core@7.29.0)(@react-native-community/cli@13.6.9)(@react-native/metro-config@0.87.1(@babel/core@7.29.0))(@types/react@19.2.18)(react@19.2.3))(react@19.2.3)(typescript@6.0.3)
+      expo-application:
+        specifier: ~57.0.3
+        version: 57.0.3(expo@57.0.26)
       expo-blur:
         specifier: ~57.0.3
         version: 57.0.3(expo@57.0.26)(react-native@0.86.3(@babel/core@7.29.0)(@react-native-community/cli@13.6.9)(@react-native/metro-config@0.87.1(@babel/core@7.29.0))(@types/react@19.2.18)(react@19.2.3))(react@19.2.3)

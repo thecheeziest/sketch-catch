@@ -4,7 +4,7 @@ import { useAuthStore, useRoomStore, useToastStore } from '@/shared/model';
 import { copyToClipboard, useHardwareBack } from '@/shared/lib';
 import { Button, FlatList, Icon, SketchbookLoadingSpinner } from '@/shared/ui';
 import type { Player } from '@sketch-catch/shared';
-import { CLIENT_EVENT, MODE2_PLAYER_MIN } from '@sketch-catch/shared';
+import { CLIENT_EVENT, MODE2_PLAYER_MIN, ROOM_PLAYER_MIN } from '@sketch-catch/shared';
 import { Text, View } from 'dripsy';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { useEffect, useRef, useState } from 'react';
@@ -107,13 +107,12 @@ export default function LobbyScreen() {
   // 다른 참가자가 아직 시상식에 있는 동안(status=AWARD)은 준비·시작 불가
   const isAwardInProgress = roomState?.status === 'AWARD';
   const connectedPlayerCount = roomState?.players.filter((p) => p.connected).length ?? 0;
-  const hasEnoughMode2Players = roomState?.mode !== 2 || connectedPlayerCount >= MODE2_PLAYER_MIN;
-  const canStartGame = allReady && hasEnoughMode2Players && !isAwardInProgress;
+  const minPlayers = roomState?.mode === 2 ? MODE2_PLAYER_MIN : ROOM_PLAYER_MIN;
+  const hasEnoughPlayers = connectedPlayerCount >= minPlayers;
+  const canStartGame = allReady && hasEnoughPlayers && !isAwardInProgress;
   const startButtonLabel = (() => {
     if (isAwardInProgress) return '시상 진행 중..';
-    if (roomState?.mode === 2 && !hasEnoughMode2Players) {
-      return `최소 ${MODE2_PLAYER_MIN}명 필요`;
-    }
+    if (!hasEnoughPlayers) return `최소 ${minPlayers}명 필요`;
     return '게임 시작';
   })();
 

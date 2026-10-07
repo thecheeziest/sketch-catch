@@ -2,7 +2,9 @@ import { create } from 'zustand';
 import { immer } from 'zustand/middleware/immer';
 import { io, type Socket } from 'socket.io-client';
 import type { ClientEvents, ServerEvents, RoomState, Player } from '@sketch-catch/shared';
-import { CLIENT_EVENT, SOCKET_NAMESPACE } from '@sketch-catch/shared';
+import { CLIENT_EVENT, SOCKET_NAMESPACE, UPDATE_REQUIRED_CODE } from '@sketch-catch/shared';
+import { APP_CLIENT_INFO } from '../config/appInfo';
+import { useAppUpdateStore } from './appUpdate';
 import { useAuthStore } from './auth';
 import { useToastStore } from './toast';
 import { refreshAccessToken } from '../api/client';
@@ -65,7 +67,7 @@ export const useRoomStore = create<RoomStore>()(
       const socket = io(`${BASE_URL}${SOCKET_NAMESPACE}`, {
         transports: ['websocket'], // Pitfall 1: RN에서 polling fallback 비활성화 필수
         // 재연결마다 스토어의 최신 accessToken을 읽는다 — 만료된 토큰 재사용 방지
-        auth: (cb) => cb({ token: useAuthStore.getState().accessToken ?? '' }),
+        auth: (cb) => cb({ token: useAuthStore.getState().accessToken ?? '', ...APP_CLIENT_INFO }),
       });
 
       // accessToken 만료로 인증 실패 시 1회 갱신 후 재연결. connect 성공 시 초기화된다.
@@ -76,6 +78,12 @@ export const useRoomStore = create<RoomStore>()(
         socket.emit(CLIENT_EVENT.ROOM_JOIN, { code });
       });
       socket.on('connect_error', (err) => {
+        // 최소 빌드 미달 — 재연결해도 계속 거부되므로 연결을 멈추고 업데이트 화면으로 전환
+        if (err.message === UPDATE_REQUIRED_CODE) {
+          socket.disconnect();
+          useAppUpdateStore.getState().requireUpdate();
+          return;
+        }
         const isAuthError = err.message === 'INVALID_TOKEN' || err.message === 'UNAUTHORIZED';
         // 토큰 만료는 아래에서 갱신 후 재연결하는 정상 흐름 — 에러로 기록하지 않는다 (개발 빌드 LogBox 에러 토스트 방지)
         if (!isAuthError) {
@@ -88,7 +96,7 @@ export const useRoomStore = create<RoomStore>()(
         didRefreshAuth = true;
         void refreshAccessToken().then((newToken) => {
           if (newToken) socket.connect();
-        });
+        }).catch(() => undefined); // 서버 장애로 재발급 실패 시 세션은 유지, 연결만 보류
       });
       // 이벤트명 리터럴 직접 사용 — SERVER_EVENT 상수를 통한 타입 추론이 socket.on 오버로드와 불일치 (D-04-04)
       socket.on('room:state', (s) => {

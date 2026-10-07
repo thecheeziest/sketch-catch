@@ -97,6 +97,9 @@ export default function GameScreen() {
   useEffect(() => {
     if (roomState?.status === 'AWARD') {
       router.replace(`/room/${code}/award` as never);
+    } else if (roomState?.status === 'LOBBY') {
+      // 서버가 게임을 취소하고 대기실로 되돌린 경우 (예: 제시어 로드 실패) — 빈 캔버스에 멈춰 있지 않도록 복귀
+      router.replace(`/room/${code}` as never);
     }
   }, [roomState?.status, code, router]);
 

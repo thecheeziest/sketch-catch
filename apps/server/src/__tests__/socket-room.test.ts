@@ -244,6 +244,7 @@ describe('socket room handlers', () => {
 
     it('LBBY-02: 방장 + allReady → gameId·startedAt 세팅 후 첫 라운드 시작 (room:state는 startRound가 전송)', async () => {
       const state = makeRoomState();
+      state.players.push({ ...state.players[1]!, id: 'u3', nickname: '참가자2', friendCode: 'CODE3', slot: 2 });
       state.allReady = true;
       state.players.forEach((p) => (p.isReady = true));
       mockGetRoomState.mockResolvedValue(state);
@@ -273,9 +274,27 @@ describe('socket room handlers', () => {
 
       expect(socket.emit).toHaveBeenCalledWith(SERVER_EVENT.ERROR, {
         code: 'INSUFFICIENT_PLAYERS',
-        message: '모드 2는 최소 4명이 필요합니다.',
+        message: '최소 4명이 모여야 시작할 수 있어요.',
       });
       expect(mockSaveRoomState).not.toHaveBeenCalled();
+    });
+
+    it('LBBY-02: 모드1은 3명 미만이면 시작을 거부한다', async () => {
+      const state = makeRoomState();
+      state.allReady = true;
+      state.players.forEach((p) => (p.isReady = true));
+      mockGetRoomState.mockResolvedValue(state);
+      const socket = makeSocket('u1');
+      const game = makeNamespace();
+
+      await handleRoomStart(game as any, socket as any);
+
+      expect(socket.emit).toHaveBeenCalledWith(SERVER_EVENT.ERROR, {
+        code: 'INSUFFICIENT_PLAYERS',
+        message: '최소 3명이 모여야 시작할 수 있어요.',
+      });
+      expect(mockSaveRoomState).not.toHaveBeenCalled();
+      expect(vi.mocked(startRound)).not.toHaveBeenCalled();
     });
   });
 

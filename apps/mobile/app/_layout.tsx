@@ -1,3 +1,5 @@
+import { useAppVersionGate } from '@/features/appUpdate/lib/useAppVersionGate';
+import { ForceUpdateScreen } from '@/features/appUpdate/ui/ForceUpdateScreen';
 import { useMe } from '@/features/auth/api';
 import { useRegisterPushToken } from '@/features/push/api/useRegisterPushToken';
 import { registerForPushNotificationsAsync } from '@/features/push/lib/registerForPushNotificationsAsync';
@@ -5,7 +7,7 @@ import { useNotificationListeners } from '@/features/push/lib/useNotificationLis
 import { NotificationGate } from '@/features/push/ui/NotificationGate';
 import { queryClient } from '@/shared/api';
 import { colors, icons, theme } from '@/shared/config';
-import { hydrateAuthStore, useAuthStore, usePresenceStore } from '@/shared/model';
+import { hydrateAuthStore, useAppUpdateStore, useAuthStore, usePresenceStore } from '@/shared/model';
 import { SketchbookLoadingSpinner, ToastHost } from '@/shared/ui';
 import { QueryClientProvider } from '@tanstack/react-query';
 import { DripsyProvider, Image, View } from 'dripsy';
@@ -31,24 +33,28 @@ function createWobble(logoRotate: Animated.Value): Animated.CompositeAnimation {
 
 function SplashOverlay({
   isAuthenticated,
+  isCheckingVersion,
   onDone,
 }: {
   isAuthenticated: boolean;
+  isCheckingVersion: boolean;
   onDone: () => void;
 }) {
   const { isLoading: userIsLoading } = useMe();
+  // 유저 정보 로딩 또는 강제 업데이트 확인이 끝날 때까지 스플래시를 유지한다
+  const shouldWait = (isAuthenticated && userIsLoading) || isCheckingVersion;
   const { width: screenWidth } = useWindowDimensions();
 
   const splashOpacity = useRef(new Animated.Value(1)).current;
   const logoX = useRef(new Animated.Value(-screenWidth)).current;
   const logoRotate = useRef(new Animated.Value(0)).current;
   const wobbleLoopRef = useRef<Animated.CompositeAnimation | null>(null);
-  const userIsLoadingRef = useRef(userIsLoading);
+  const shouldWaitRef = useRef(shouldWait);
   const [isWaiting, setIsWaiting] = useState(false);
 
   useEffect(() => {
-    userIsLoadingRef.current = userIsLoading;
-  }, [userIsLoading]);
+    shouldWaitRef.current = shouldWait;
+  }, [shouldWait]);
 
   const fadeOut = useCallback(() => {
     Animated.timing(splashOpacity, { toValue: 0, duration: 400, useNativeDriver: true }).start(() =>
@@ -62,7 +68,7 @@ function SplashOverlay({
       createWobble(logoRotate),
       Animated.delay(1000),
     ]).start(() => {
-      if (isAuthenticated && userIsLoadingRef.current) {
+      if (shouldWaitRef.current) {
         setIsWaiting(true);
       } else {
         fadeOut();
@@ -83,12 +89,12 @@ function SplashOverlay({
 
   useEffect(() => {
     if (!isWaiting) return;
-    if (isAuthenticated && userIsLoading) return;
+    if (shouldWait) return;
     wobbleLoopRef.current?.stop();
     wobbleLoopRef.current = null;
     setIsWaiting(false);
     fadeOut();
-  }, [isWaiting, isAuthenticated, userIsLoading, fadeOut]);
+  }, [isWaiting, shouldWait, fadeOut]);
 
   const rotate = logoRotate.interpolate({
     inputRange: [-12, 12],
@@ -151,6 +157,10 @@ export default function RootLayout() {
   const isAuthenticated = useAuthStore((s) => s.isAuthenticated);
   const needsOnboarding = useAuthStore((s) => s.needsOnboarding);
   const [splashDone, setSplashDone] = useState(false);
+  const isSignedIn = isAuthenticated && !needsOnboarding;
+  const updateStatus = useAppUpdateStore((s) => s.status);
+
+  useAppVersionGate();
 
   useEffect(() => {
     hydrateAuthStore().catch(() => undefined);
@@ -181,22 +191,34 @@ export default function RootLayout() {
         <QueryClientProvider client={queryClient}>
           <PushTokenRegistrar isAuthenticated={isAuthenticated} needsOnboarding={needsOnboarding} />
           <DripsyProvider theme={theme}>
-            <Stack screenOptions={{ headerShown: false, fullScreenGestureEnabled: true }}>
-              <Stack.Screen name="index" />
-              <Stack.Screen name="(auth)" redirect={isAuthenticated && !needsOnboarding} />
-              <Stack.Screen name="(tabs)" redirect={!isAuthenticated || needsOnboarding} />
-              <Stack.Screen name="settings" redirect={!isAuthenticated || needsOnboarding} />
-              {/* 방(대기실·게임·시상식)은 스와이프로 나가지 않는다 — 각 화면의 나가기 확인을 거친다 */}
-              <Stack.Screen
-                name="room"
-                redirect={!isAuthenticated || needsOnboarding}
-                options={{ gestureEnabled: false }}
-              />
-            </Stack>
+            {/* 최소 빌드 미달이면 어떤 화면(로그인 포함)으로도 진입하지 못하게 업데이트 화면만 렌더한다 */}
+            {updateStatus === 'required' ? (
+              <ForceUpdateScreen />
+            ) : (
+              <>
+                {/* Protected는 guard가 바뀌는 즉시 반응한다 — 사용 중 로그인이 풀리면 보호 화면에서 바로 빠져나간다 */}
+                <Stack screenOptions={{ headerShown: false, fullScreenGestureEnabled: true }}>
+                  <Stack.Screen name="index" />
+                  <Stack.Protected guard={!isSignedIn}>
+                    <Stack.Screen name="(auth)" />
+                  </Stack.Protected>
+                  <Stack.Protected guard={isSignedIn}>
+                    <Stack.Screen name="(tabs)" />
+                    <Stack.Screen name="settings" />
+                    {/* 방(대기실·게임·시상식)은 스와이프로 나가지 않는다 — 각 화면의 나가기 확인을 거친다 */}
+                    <Stack.Screen name="room" options={{ gestureEnabled: false }} />
+                  </Stack.Protected>
+                </Stack>
+                <NotificationGate />
+              </>
+            )}
             <ToastHost />
-            <NotificationGate />
             {!splashDone && (
-              <SplashOverlay isAuthenticated={isAuthenticated} onDone={() => setSplashDone(true)} />
+              <SplashOverlay
+                isAuthenticated={isAuthenticated}
+                isCheckingVersion={updateStatus === 'checking'}
+                onDone={() => setSplashDone(true)}
+              />
             )}
           </DripsyProvider>
         </QueryClientProvider>
