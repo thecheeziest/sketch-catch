@@ -22,6 +22,7 @@ export function StepperField({ label, value, min, max, step = 1, onChange }: Pro
         <Button
           label="-"
           color="dark"
+          textColor={colors.WHITE}
           pressedTextColor={colors.PRIMARY_300}
           height={40}
           style={{ width: 40 }}
@@ -32,6 +33,7 @@ export function StepperField({ label, value, min, max, step = 1, onChange }: Pro
         <Button
           label="+"
           color="dark"
+          textColor={colors.WHITE}
           pressedTextColor={colors.PRIMARY_300}
           height={40}
           style={{ width: 40 }}
