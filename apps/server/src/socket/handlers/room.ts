@@ -4,7 +4,7 @@ import { randomUUID } from 'node:crypto';
 import { MODE2_PLAYER_MIN, ROOM_PLAYER_MIN, SERVER_EVENT } from '@sketch-catch/shared';
 import { getRoomState, saveRoomState, withRoomLock } from '../../services/rooms.service.js';
 import { computeAllReady, ensureHost } from '../../services/roomRules.js';
-import { setPresence, setUserRoom, clearUserRoom } from '../../db/redis.js';
+import { setPresence, setUserRoom, clearUserRoom, getUserRoom } from '../../db/redis.js';
 import { broadcastPresenceUpdate } from '../presence.namespace.js';
 import { prisma } from '../../db/prisma.js';
 import { startRound, initTurnSchedule, handlePlayerLeft, resendCurrentRound } from './game.js';
@@ -43,18 +43,14 @@ async function hasActiveUserSocketInRoom(
   if (!canFetchSockets(game)) return false;
 
   const sockets = await game.in(roomName).fetchSockets();
-  return sockets.some((s) => s.id !== leavingSocketId && s.data.userId === userId);
+  return sockets.some(s => s.id !== leavingSocketId && s.data.userId === userId);
 }
 
 type JoinResult =
   | { ok: true; state: RoomState }
   | { ok: false; code: 'ROOM_NOT_FOUND' | 'ALREADY_LEFT' | 'ROOM_FULL' | 'GAME_IN_PROGRESS'; message: string };
 
-export async function handleRoomJoin(
-  game: GameNamespace,
-  socket: GameSocket,
-  code: string,
-): Promise<void> {
+export async function handleRoomJoin(game: GameNamespace, socket: GameSocket, code: string): Promise<void> {
   const userId = socket.data.userId;
 
   // 동시 입장 시 slot 번호가 겹치는 read-modify-write 레이스를 막기 위해 방 단위 락으로 감싼다.
@@ -64,7 +60,7 @@ export async function handleRoomJoin(
       return { ok: false, code: 'ROOM_NOT_FOUND', message: '방을 찾을 수 없습니다. 코드를 다시 확인하세요.' };
     }
 
-    const existingPlayer = state.players.find((p) => p.id === userId);
+    const existingPlayer = state.players.find(p => p.id === userId);
     if (existingPlayer) {
       // Pitfall 5: 게임 진행 중 이미 이탈(left=true)한 유저의 재입장은 거부 — 서버가 진실의 출처
       if (existingPlayer.left && isGameInProgressStatus(state.status)) {
@@ -83,7 +79,7 @@ export async function handleRoomJoin(
       }
 
       // 사용 중인 slot 번호를 제외한 최소 slot 번호 계산
-      const usedSlots = new Set(state.players.map((p) => p.slot));
+      const usedSlots = new Set(state.players.map(p => p.slot));
       let slot = 0;
       while (usedSlots.has(slot)) slot++;
 
@@ -121,7 +117,7 @@ export async function handleRoomJoin(
   const roomName = `room:${code}`;
   game.to(roomName).emit(SERVER_EVENT.ROOM_STATE, state);
 
-  const player = state.players.find((p) => p.id === userId)!;
+  const player = state.players.find(p => p.id === userId)!;
   game.to(roomName).emit(SERVER_EVENT.ROOM_PLAYER_JOIN, { player });
 
   // 진행 중인 모드2 방에 (재)입장 시 현재 스텝을 이 소켓에만 재전송 — 화면 전환 레이스로
@@ -141,15 +137,11 @@ export async function handleRoomJoin(
   console.log(`[room:join] presence set to ${presenceStatus} for`, userId);
 }
 
-export async function handleRoomReady(
-  game: GameNamespace,
-  socket: GameSocket,
-  ready: boolean,
-): Promise<void> {
+export async function handleRoomReady(game: GameNamespace, socket: GameSocket, ready: boolean): Promise<void> {
   const userId = socket.data.userId;
 
   // socket.rooms에서 방 이름 찾기
-  const roomName = Array.from(socket.rooms).find((r) => r.startsWith('room:'));
+  const roomName = Array.from(socket.rooms).find(r => r.startsWith('room:'));
   if (!roomName) return;
 
   const code = roomName.replace('room:', '');
@@ -157,7 +149,7 @@ export async function handleRoomReady(
   // 준비 상태는 대기실에서만 의미가 있다 (시상식 중 복귀한 유저는 대기실 전환 후 준비)
   if (!state || state.status !== 'LOBBY') return;
 
-  const player = state.players.find((p) => p.id === userId);
+  const player = state.players.find(p => p.id === userId);
   if (!player) return;
 
   player.isReady = ready;
@@ -168,13 +160,10 @@ export async function handleRoomReady(
   game.to(roomName).emit(SERVER_EVENT.ROOM_STATE, state);
 }
 
-export async function handleRoomStart(
-  game: GameNamespace,
-  socket: GameSocket,
-): Promise<void> {
+export async function handleRoomStart(game: GameNamespace, socket: GameSocket): Promise<void> {
   const userId = socket.data.userId;
 
-  const roomName = Array.from(socket.rooms).find((r) => r.startsWith('room:'));
+  const roomName = Array.from(socket.rooms).find(r => r.startsWith('room:'));
   if (!roomName) return;
 
   const code = roomName.replace('room:', '');
@@ -201,7 +190,7 @@ export async function handleRoomStart(
 
   // 모드별 최소 인원 미달이면 시작 거부 — 인원 부족 상태로 시작되면 출제 순서가 꼬여 게임이 멈춘다
   const minPlayers = state.mode === 2 ? MODE2_PLAYER_MIN : ROOM_PLAYER_MIN;
-  if (state.players.filter((p) => p.connected).length < minPlayers) {
+  if (state.players.filter(p => p.connected).length < minPlayers) {
     socket.emit(SERVER_EVENT.ERROR, {
       code: 'INSUFFICIENT_PLAYERS',
       message: `최소 ${minPlayers}명이 모여야 시작할 수 있어요.`,
@@ -214,13 +203,13 @@ export async function handleRoomStart(
   state.startedAt = Date.now();
   state.scoreboard = {};
   state.allReady = false;
-  const activePlayers = state.players.filter((p) => p.connected);
+  const activePlayers = state.players.filter(p => p.connected);
 
   // Pitfall 4: 모드 2는 시트 로테이션 상태 머신(startMode2)으로 분기 — initTurnSchedule(모드1 전용) 미호출
   if (state.mode === 2) {
     await saveRoomState(state);
-    await Promise.all(activePlayers.map((p) => setPresence(p.id, 'IN_GAME')));
-    activePlayers.forEach((p) => broadcastPresenceUpdate(p.id, 'IN_GAME'));
+    await Promise.all(activePlayers.map(p => setPresence(p.id, 'IN_GAME')));
+    activePlayers.forEach(p => broadcastPresenceUpdate(p.id, 'IN_GAME'));
     await startMode2(game, code);
     return;
   }
@@ -232,16 +221,19 @@ export async function handleRoomStart(
   const started = await startRound(game, code, 0);
   if (!started) return;
 
-  await Promise.all(activePlayers.map((p) => setPresence(p.id, 'IN_GAME')));
-  activePlayers.forEach((p) => broadcastPresenceUpdate(p.id, 'IN_GAME'));
+  await Promise.all(activePlayers.map(p => setPresence(p.id, 'IN_GAME')));
+  activePlayers.forEach(p => broadcastPresenceUpdate(p.id, 'IN_GAME'));
 }
 
 export async function handleRoomLeave(
   game: GameNamespace,
-  socket: GameSocket,
+  socket: Pick<GameSocket, 'id' | 'data' | 'rooms' | 'leave'>,
+  capturedCodes?: string[],
 ): Promise<void> {
   const userId = socket.data.userId;
-  const rooms = Array.from(socket.rooms).filter((r) => r.startsWith('room:'));
+  const rooms = capturedCodes
+    ? capturedCodes.map(code => `room:${code}`)
+    : Array.from(socket.rooms).filter(r => r.startsWith('room:'));
   let hasActiveRoomSocket = false;
 
   for (const roomName of rooms) {
@@ -268,10 +260,10 @@ export async function handleRoomLeave(
     }
 
     // 로비/시상식: 즉시 제거
-    const departed = state.players.filter((p) => p.id === userId);
-    state.players = state.players.filter((p) => p.id !== userId);
+    const departed = state.players.filter(p => p.id === userId);
+    state.players = state.players.filter(p => p.id !== userId);
 
-    if (state.players.every((p) => p.left)) {
+    if (state.players.every(p => p.left)) {
       await destroyRoom(code);
       continue;
     }
@@ -281,7 +273,7 @@ export async function handleRoomLeave(
     await saveRoomState(state);
 
     // 시상식에 남은 유저가 더 없으면 만료를 기다리지 않고 대기실로 전환 (finishAward가 room:state 전송)
-    if (state.status === 'AWARD' && !state.players.some((p) => p.inAward)) {
+    if (state.status === 'AWARD' && !state.players.some(p => p.inAward)) {
       game.to(roomName).emit(SERVER_EVENT.ROOM_PLAYER_LEAVE, { userId });
       await finishAward(game, code);
       continue;
@@ -291,6 +283,10 @@ export async function handleRoomLeave(
   }
 
   if (hasActiveRoomSocket) return;
+
+  // 이전 방의 지연된 disconnect 정리가 새 방의 참가 상태를 지우지 않게 한다.
+  const currentCode = await getUserRoom(userId);
+  if (currentCode && !rooms.includes(`room:${currentCode}`)) return;
 
   await clearUserRoom(userId);
   await setPresence(userId, 'ONLINE');

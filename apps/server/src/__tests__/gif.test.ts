@@ -1,6 +1,7 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import Fastify from 'fastify';
 import type { Stroke } from '@sketch-catch/shared';
+import { createCanvas, loadImage } from '@napi-rs/canvas';
 
 // ---- gif generation: sheetToGif 실제 렌더링 (napi-rs/canvas — mock 없음, 로컬 darwin 바이너리) ----
 
@@ -20,6 +21,36 @@ const sampleStroke: Stroke = {
 };
 
 describe('gif generation', () => {
+  it('페인트 영역을 GIF에 색칠하고 바깥은 보존한다', async () => {
+    const buf = await sheetToGif({
+      width: 32,
+      height: 32,
+      fps: 10,
+      drawFrameDurationMs: 100,
+      steps: [
+        {
+          kind: 'DRAW',
+          authorId: 'u2',
+          strokes: [
+            {
+              id: 'fill',
+              authorId: 'u2',
+              color: '#FFD21F',
+              width: 0,
+              points: [],
+              startTime: 100,
+              paintSpans: [{ x: 0.25, y: 0.25, width: 0.5, height: 0.5 }],
+            },
+          ],
+        },
+      ],
+    });
+    const decoded = await loadImage(buf);
+    const ctx = createCanvas(32, 32).getContext('2d');
+    ctx.drawImage(decoded, 0, 0);
+    expect(Array.from(ctx.getImageData(16, 16, 1, 1).data)).toEqual([255, 210, 31, 255]);
+    expect(Array.from(ctx.getImageData(0, 0, 1, 1).data)).toEqual([255, 255, 255, 255]);
+  });
   it('sheetToGif가 GIF89a 매직 바이트로 시작하는 Buffer를 반환한다', async () => {
     const buf = await sheetToGif({
       steps: [

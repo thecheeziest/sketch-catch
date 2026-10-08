@@ -27,9 +27,9 @@ export default function Mode2ReviewScreen() {
   const router = useRouter();
   const { code } = useLocalSearchParams<{ code: string }>();
   const myId = useAuthStore.getState().user?.id ?? '';
-  const socket = useRoomStore((s) => s.socket);
-  const roomState = useRoomStore((s) => s.roomState);
-  const review = useMode2Store((s) => s.review);
+  const socket = useRoomStore(s => s.socket);
+  const roomState = useRoomStore(s => s.roomState);
+  const review = useMode2Store(s => s.review);
   const { judgeFinal, voteBest } = useMode2Sender();
   const { height: windowHeight } = useWindowDimensions();
 
@@ -51,7 +51,7 @@ export default function Mode2ReviewScreen() {
   const handleConfirmExit = (): void => {
     socket?.emit(CLIENT_EVENT.ROOM_LEAVE);
     setExitDialogVisible(false);
-    router.replace('/(tabs)' as never);
+    router.replace('/(tabs)/' as never);
   };
 
   const players = roomState?.players ?? [];
@@ -87,7 +87,7 @@ export default function Mode2ReviewScreen() {
   useEffect(() => {
     if (displayContent?.kind === 'DRAW') {
       useGameStore.setState({
-        remoteStrokes: displayContent.strokes.map((s) => ({
+        remoteStrokes: displayContent.strokes.map(s => ({
           strokeId: s.id,
           authorId: s.authorId,
           color: s.color,
@@ -131,8 +131,8 @@ export default function Mode2ReviewScreen() {
     return undefined;
   })();
 
-  const voteSheets: VoteSheet[] = (review?.sheets ?? []).map((s) => {
-    const owner = players.find((p) => p.id === s.ownerId);
+  const voteSheets: VoteSheet[] = (review?.sheets ?? []).map(s => {
+    const owner = players.find(p => p.id === s.ownerId);
     return {
       sheetId: s.sheetId,
       ownerId: s.ownerId,
@@ -142,10 +142,10 @@ export default function Mode2ReviewScreen() {
   });
 
   const bestSheets = (review?.bestSheetIds ?? [])
-    .map((id) => review?.sheets.find((s) => s.sheetId === id))
+    .map(id => review?.sheets.find(s => s.sheetId === id))
     .filter((s): s is Mode2ReviewSheet => s != null)
-    .map((s) => {
-      const owner = players.find((p) => p.id === s.ownerId);
+    .map(s => {
+      const owner = players.find(p => p.id === s.ownerId);
       return {
         sheetId: s.sheetId,
         nickname: owner?.nickname ?? s.ownerId,
@@ -155,7 +155,11 @@ export default function Mode2ReviewScreen() {
 
   return (
     <SafeAreaView style={styles.container} edges={['top', 'bottom']}>
-      <ReviewProgressHeader key={`${review?.subPhase}-${review?.currentSheetIndex}`} text={headerText} timerSec={headerTimer} />
+      <ReviewProgressHeader
+        key={`${review?.subPhase}-${review?.currentSheetIndex}`}
+        text={headerText}
+        timerSec={headerTimer}
+      />
 
       {review?.subPhase === 'FINAL_JUDGE' && currentSheet && (
         <View sx={{ flex: 1, paddingHorizontal: spacing.MD, paddingTop: spacing.LG, gap: spacing.MD }}>
@@ -175,7 +179,7 @@ export default function Mode2ReviewScreen() {
           ) : (
             <FinalJudgeButton
               isOwner={isOwner}
-              onJudge={(ok) => {
+              onJudge={ok => {
                 judgeFinal(currentSheet.sheetId, ok);
                 setHasJudged(true);
               }}
@@ -222,11 +226,13 @@ export default function Mode2ReviewScreen() {
 
       {review?.subPhase === 'BEST_REVEAL' && (
         <View sx={{ flex: 1, alignItems: 'center', paddingTop: spacing.XL }}>
-          <Text sx={{ ...textSizes.T1, fontFamily: fontFamily.BOLD, color: colors.LIGHT_100, marginBottom: spacing.LG }}>
+          <Text
+            sx={{ ...textSizes.T1, fontFamily: fontFamily.BOLD, color: colors.LIGHT_100, marginBottom: spacing.LG }}
+          >
             오늘의 베스트 🏆
           </Text>
           <ScrollView horizontal contentContainerStyle={{ gap: spacing.MD, paddingHorizontal: spacing.MD }}>
-            {bestSheets.map((sheet) => {
+            {bestSheets.map(sheet => {
               const source = getCharacterImageSource(sheet.characterId);
               return (
                 <SparkleBadge key={sheet.sheetId}>

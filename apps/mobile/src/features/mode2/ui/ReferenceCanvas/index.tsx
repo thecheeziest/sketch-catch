@@ -5,7 +5,7 @@ import { Canvas, Path } from '@shopify/react-native-skia';
 import type { Stroke } from '@sketch-catch/shared';
 import { colors, textSizes } from '@/shared/config';
 import { PixelFrame } from '@/shared/ui/PixelFrame';
-import { buildStrokePath } from '@/shared/lib/strokePath';
+import { buildPaintPath, buildStrokePath } from '@/shared/lib/strokePath';
 
 type Props = {
   strokes: Stroke[];
@@ -31,16 +31,18 @@ export function ReferenceCanvas({ strokes }: Props) {
       <View style={styles.body} onLayout={handleLayout}>
         <Canvas style={styles.canvas}>
           {canvasSize.width > 0 &&
-            strokes.map((s) => {
-              const path = buildStrokePath(s.points, canvasSize.width, canvasSize.height);
+            strokes.map(s => {
+              const path = s.paintSpans
+                ? buildPaintPath(s.paintSpans, canvasSize.width, canvasSize.height)
+                : buildStrokePath(s.points, canvasSize.width, canvasSize.height);
               if (!path) return null;
               return (
                 <Path
                   key={s.id}
                   path={path}
                   color={s.color}
-                  strokeWidth={s.width}
-                  style="stroke"
+                  strokeWidth={s.width <= 1 ? s.width * canvasSize.width : s.width}
+                  style={s.paintSpans ? 'fill' : 'stroke'}
                   strokeCap="round"
                   strokeJoin="round"
                 />

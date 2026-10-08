@@ -80,7 +80,7 @@ export async function sheetToGif(opts: SheetToGifOptions): Promise<Buffer> {
 export function debugRenderTextFrame(
   text: string,
   width = 480,
-  height = 480
+  height = 480,
 ): { data: Uint8ClampedArray; width: number; height: number } {
   ensureFontRegistered();
   const canvas = createCanvas(width, height);
@@ -89,7 +89,13 @@ export function debugRenderTextFrame(
   return ctx.getImageData(0, 0, width, height);
 }
 
-function writeCanvasFrame(enc: GifEncoderInstance, ctx: SKRSContext2D, width: number, height: number, delay: number): void {
+function writeCanvasFrame(
+  enc: GifEncoderInstance,
+  ctx: SKRSContext2D,
+  width: number,
+  height: number,
+  delay: number,
+): void {
   const { data } = ctx.getImageData(0, 0, width, height);
   const palette = quantize(data, 256);
   const indexed = applyPalette(data, palette);
@@ -142,13 +148,14 @@ function renderDrawFrames(
   width: number,
   height: number,
   fps: number,
-  drawFrameDurationMs: number
+  drawFrameDurationMs: number,
 ): void {
   const frameCount = Math.max(1, Math.ceil(drawFrameDurationMs / (1000 / fps)));
   const frameDelay = Math.round(drawFrameDurationMs / frameCount);
 
   let maxT = 0;
   for (const stroke of strokes) {
+    if (stroke.startTime > maxT) maxT = stroke.startTime;
     for (const point of stroke.points) {
       if (point.t > maxT) maxT = point.t;
     }
@@ -165,6 +172,13 @@ function renderDrawFrames(
     ctx.fillRect(0, 0, width, height);
 
     for (const stroke of strokes) {
+      if (stroke.paintSpans) {
+        if (stroke.startTime > cutoffT) continue;
+        ctx.fillStyle = stroke.color;
+        for (const span of stroke.paintSpans)
+          ctx.fillRect(span.x * width, span.y * height, span.width * width, span.height * height);
+        continue;
+      }
       const visiblePoints = stroke.points.filter(p => p.t <= cutoffT);
       const first = visiblePoints[0];
       if (visiblePoints.length < 2 || !first) continue;

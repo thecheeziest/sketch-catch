@@ -1,13 +1,14 @@
-import { useState } from 'react';
-import { View } from 'dripsy';
-import { Pressable, StyleSheet, TextInput } from 'react-native';
+import { useEffect, useState } from 'react';
+import { Text, TextInput, View } from 'dripsy';
+import { Pressable, StyleSheet } from 'react-native';
 import { colors, fontFamily, spacing, textSizes } from '@/shared/config';
 import { PixelFrame } from '@/shared/ui/PixelFrame';
 import { toolbar } from '@/features/game/config';
 
 type Props = {
   isDrawer: boolean;
-  onSend: (text: string) => void;
+  resetKey?: string;
+  onSend: (text: string) => boolean;
   placeholder?: string;
   /** 라운드 종료 구간(정답/게임오버) — 입력 비활성화 */
   disabled?: boolean;
@@ -18,6 +19,7 @@ type Props = {
 
 export function ChatInputBar({
   isDrawer,
+  resetKey,
   onSend,
   placeholder = '정답을 입력하세요',
   disabled = false,
@@ -26,14 +28,15 @@ export function ChatInputBar({
 }: Props) {
   const [text, setText] = useState('');
 
+  useEffect(() => setText(''), [resetKey, disabled]);
+
   if (isDrawer) return null;
 
   const canSend = !disabled && text.trim().length > 0;
 
   const handleSend = (): void => {
     if (!canSend) return;
-    onSend(text.trim());
-    setText('');
+    if (onSend(text.trim())) setText('');
   };
 
   return (
@@ -52,6 +55,7 @@ export function ChatInputBar({
           editable={!disabled}
           onSubmitEditing={handleSend}
           returnKeyType="send"
+          submitBehavior="submit"
         />
         <Pressable
           onPress={handleSend}
@@ -59,11 +63,9 @@ export function ChatInputBar({
           style={[styles.sendButton, !canSend && styles.sendButtonDisabled]}
           accessibilityLabel="전송"
         >
-          <TextInput
-            editable={false}
-            style={[styles.sendIcon, !canSend && styles.sendIconDisabled]}
-            value="→"
-          />
+          <Text style={[styles.sendIcon, !canSend && styles.sendIconDisabled]} pointerEvents="none">
+            →
+          </Text>
         </Pressable>
       </View>
     </View>

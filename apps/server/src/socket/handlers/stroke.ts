@@ -1,6 +1,6 @@
 import type { Namespace, Socket } from 'socket.io';
 import type { ClientEvents, ServerEvents, Mode1RoundCurrent, Point } from '@sketch-catch/shared';
-import { SERVER_EVENT } from '@sketch-catch/shared';
+import { paintSpansSchema, SERVER_EVENT } from '@sketch-catch/shared';
 import { getRoomState } from '../../services/rooms.service.js';
 
 type GameNamespace = Namespace<ClientEvents, ServerEvents>;
@@ -8,7 +8,7 @@ type GameSocket = Socket<ClientEvents, ServerEvents, Record<string, never>, { us
 
 // 출제자 권한 검증 — MODE1_ROUND_START 상태이고 현재 출제자일 때만 통과
 async function assertDrawer(socket: GameSocket): Promise<{ roomName: string; code: string } | null> {
-  const roomName = Array.from(socket.rooms).find((r) => r.startsWith('room:'));
+  const roomName = Array.from(socket.rooms).find(r => r.startsWith('room:'));
   if (!roomName) return null;
 
   const code = roomName.replace('room:', '');
@@ -17,7 +17,7 @@ async function assertDrawer(socket: GameSocket): Promise<{ roomName: string; cod
 
   const current = state.current as Mode1RoundCurrent | null;
   // DRAW-03: 출제자가 아닌 경우 조용히 거부 (보안 원칙 — 서버가 진실의 출처)
-  if (!current || current.drawerId !== socket.data.userId) return null;
+  if (!current || current.prompt === '' || current.drawerId !== socket.data.userId) return null;
 
   return { roomName, code };
 }
@@ -69,10 +69,7 @@ export async function handleStrokeEnd(
   });
 }
 
-export async function handleStrokeUndo(
-  _game: GameNamespace,
-  socket: GameSocket,
-): Promise<void> {
+export async function handleStrokeUndo(_game: GameNamespace, socket: GameSocket): Promise<void> {
   const ctx = await assertDrawer(socket);
   if (!ctx) return;
 
@@ -84,10 +81,7 @@ export async function handleStrokeUndo(
   });
 }
 
-export async function handleStrokeClear(
-  _game: GameNamespace,
-  socket: GameSocket,
-): Promise<void> {
+export async function handleStrokeClear(_game: GameNamespace, socket: GameSocket): Promise<void> {
   const ctx = await assertDrawer(socket);
   if (!ctx) return;
 
@@ -95,6 +89,24 @@ export async function handleStrokeClear(
   socket.to(ctx.roomName).emit(SERVER_EVENT.STROKE_REMOTE, {
     strokeId: '__clear__',
     authorId: socket.data.userId,
+    ended: true,
+  });
+}
+
+export async function handleStrokeFill(_game: GameNamespace, socket: GameSocket, payload: unknown): Promise<void> {
+  const ctx = await assertDrawer(socket);
+  if (!ctx || typeof payload !== 'object' || payload === null) return;
+  const data = payload as Record<string, unknown>;
+  if (typeof data.strokeId !== 'string' || data.strokeId.length > 100) return;
+  if (typeof data.color !== 'string' || !/^#[0-9a-f]{6}$/i.test(data.color)) return;
+  const parsed = paintSpansSchema.safeParse(data.paintSpans);
+  if (!parsed.success) return;
+  socket.to(ctx.roomName).emit(SERVER_EVENT.STROKE_REMOTE, {
+    strokeId: data.strokeId,
+    authorId: socket.data.userId,
+    color: data.color,
+    width: 0,
+    paintSpans: parsed.data,
     ended: true,
   });
 }

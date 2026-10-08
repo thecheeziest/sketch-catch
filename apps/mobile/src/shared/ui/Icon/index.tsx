@@ -1,7 +1,7 @@
-import { FontAwesome } from '@expo/vector-icons'
-import { Text } from 'dripsy'
-import { Pressable, StyleProp, TextStyle } from 'react-native'
-import { fontFamily } from '@/shared/config'
+import { FontAwesome, MaterialCommunityIcons } from '@expo/vector-icons';
+import { Text } from 'dripsy';
+import { Pressable, StyleProp, TextStyle } from 'react-native';
+import { fontFamily } from '@/shared/config';
 
 // TEXT_ICONS: Mona 픽셀 폰트로 렌더링되는 ASCII 문자
 const TEXT_ICONS = {
@@ -9,7 +9,7 @@ const TEXT_ICONS = {
   BACK: '<',
   CHEVRON_RIGHT: '>',
   CLOSE: 'X',
-} as const
+} as const;
 
 // FA_ICONS: FontAwesome 벡터 아이콘 (이모지 대체)
 const FA_ICONS = {
@@ -20,22 +20,23 @@ const FA_ICONS = {
   LOCK_OPEN: 'unlock',
   COPY: 'clone',
   ERASER: 'eraser',
+  PAINT: 'tint',
   TRASH: 'trash',
   UNDO: 'undo',
   INVITE: 'paper-plane',
   TROPHY: 'trophy',
-} as const
+} as const;
 
-export type IconName = keyof typeof TEXT_ICONS | keyof typeof FA_ICONS
+export type IconName = keyof typeof TEXT_ICONS | keyof typeof FA_ICONS;
 
 type Props = {
-  name: IconName
-  size?: number
-  color?: string
-  opacity?: number
-  style?: StyleProp<TextStyle>
-  onPress?: () => void
-}
+  name: IconName;
+  size?: number;
+  color?: string;
+  opacity?: number;
+  style?: StyleProp<TextStyle>;
+  onPress?: () => void;
+};
 
 function IconContent({ name, size = 24, color = '#FAFAF0', opacity = 1, style }: Omit<Props, 'onPress'>) {
   if (name in TEXT_ICONS) {
@@ -48,8 +49,10 @@ function IconContent({ name, size = 24, color = '#FAFAF0', opacity = 1, style }:
       >
         {TEXT_ICONS[name as keyof typeof TEXT_ICONS]}
       </Text>
-    )
+    );
   }
+  if (name === 'PAINT')
+    return <MaterialCommunityIcons name="format-color-fill" size={size} color={color} style={[{ opacity }, style]} />;
   return (
     <FontAwesome
       name={FA_ICONS[name as keyof typeof FA_ICONS]}
@@ -57,7 +60,7 @@ function IconContent({ name, size = 24, color = '#FAFAF0', opacity = 1, style }:
       color={color}
       style={[{ opacity }, style]}
     />
-  )
+  );
 }
 
 export function Icon({ name, size = 24, color = '#FAFAF0', opacity = 1, style, onPress }: Props) {
@@ -66,7 +69,7 @@ export function Icon({ name, size = 24, color = '#FAFAF0', opacity = 1, style, o
       <Pressable onPress={onPress} hitSlop={8}>
         <IconContent name={name} size={size} color={color} opacity={opacity} style={style} />
       </Pressable>
-    )
+    );
   }
-  return <IconContent name={name} size={size} color={color} opacity={opacity} style={style} />
+  return <IconContent name={name} size={size} color={color} opacity={opacity} style={style} />;
 }

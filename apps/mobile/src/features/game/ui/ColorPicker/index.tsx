@@ -21,8 +21,11 @@ export function ColorPicker({ value, onChange }: Props) {
 
   return (
     <View sx={{ flexDirection: 'row', flexWrap: 'wrap', gap: GAP }}>
-      {drawingPalette.map((swatch) => {
+      {drawingPalette.map(swatch => {
         const isSelected = swatch.toLowerCase() === normalizedValue;
+        let borderColor: string = toolbar.SWATCH_BORDER;
+        if (swatch === '#14101C') borderColor = '#FFFFFF';
+        if (isSelected) borderColor = toolbar.SWATCH_SELECTED;
         return (
           <Pressable
             key={swatch}
@@ -31,7 +34,7 @@ export function ColorPicker({ value, onChange }: Props) {
             style={{ width: swatchWidth, height: SWATCH_HEIGHT }}
           >
             <PixelFrame
-              borderColor={isSelected ? toolbar.SWATCH_SELECTED : toolbar.SWATCH_BORDER}
+              borderColor={borderColor}
               borderWidth={isSelected ? 3 : 2}
               notchSize={3}
               style={StyleSheet.absoluteFill}

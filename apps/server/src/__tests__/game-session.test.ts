@@ -47,12 +47,12 @@ vi.mock('../services/replay.service.js', () => ({ generateSheetGifs: vi.fn() }))
 
 const { pickRoundWord } = await import('../services/word.service.js');
 const { runInRoom } = await import('../services/roomQueue.js');
-const { handleRoomJoin, handleRoomReady, handleRoomStart, handleRoomLeave } = await import(
-  '../socket/handlers/room.js'
-);
+const { handleRoomJoin, handleRoomReady, handleRoomStart, handleRoomLeave } =
+  await import('../socket/handlers/room.js');
 const { handleChatSend } = await import('../socket/handlers/chat.js');
-const { handlePlayerLeft } = await import('../socket/handlers/game.js');
+const { handleCustomPromptSubmit, handlePlayerLeft } = await import('../socket/handlers/game.js');
 const { handleRematch } = await import('../socket/handlers/award.js');
+const { handleStrokeFill } = await import('../socket/handlers/stroke.js');
 
 const CODE = 'ABC123';
 const ROOM = `room:${CODE}`;
@@ -115,7 +115,9 @@ function readState(): RoomState {
 }
 
 const eventsOf = (ns: ReturnType<typeof makeNamespace>, event: string) =>
-  ns.emitted.filter(e => e.event === event).map(e => e.payload);
+  ns.emitted
+    .filter(e => e.event === event && (event !== 'game:round:start' || e.room === ROOM || e.room === 'user:u1'))
+    .map(e => e.payload);
 
 // 방장(u1)이 게임을 시작해 u1이 출제하는 첫 라운드까지 진행
 async function startGame(ns: ReturnType<typeof makeNamespace>) {
@@ -250,7 +252,11 @@ describe('게임 세션·동시성', () => {
     expect(state.gameId).toBeUndefined();
     expect(state.current).toBeNull();
     expect(ns.emitted).toContainEqual(
-      expect.objectContaining({ room: ROOM, event: 'error', payload: expect.objectContaining({ code: 'WORD_POOL_EMPTY' }) }),
+      expect.objectContaining({
+        room: ROOM,
+        event: 'error',
+        payload: expect.objectContaining({ code: 'WORD_POOL_EMPTY' }),
+      }),
     );
   });
 
@@ -299,7 +305,7 @@ describe('시상식 → 대기실 복귀', () => {
     expect(state.awardEndsAt).toBeTypeOf('number');
   });
 
-  it('[한번 더!]를 누른 유저만 남고, 10초 만료 시 누르지 않은 유저는 제거된 뒤 대기실로 전환된다', async () => {
+  it('[한번 더!]를 누른 유저만 남고, 30초 만료 시 누르지 않은 유저는 제거된 뒤 대기실로 전환된다', async () => {
     const ns = makeNamespace();
     await reachAward(ns);
 
@@ -307,7 +313,7 @@ describe('시상식 → 대기실 복귀', () => {
     expect(readState().status).toBe('AWARD');
     expect(readState().players.find(p => p.id === 'u2')?.inAward).toBe(false);
 
-    await vi.advanceTimersByTimeAsync(10_000);
+    await vi.advanceTimersByTimeAsync(30_000);
 
     const state = readState();
     expect(state.status).toBe('LOBBY');
@@ -316,6 +322,28 @@ describe('시상식 → 대기실 복귀', () => {
     expect(state.hostId).toBe('u2');
     expect(state.gameId).toBeUndefined();
     expect(state.scoreboard).toEqual({});
+  });
+
+  it('한 명만 복귀하고 나머지가 퇴장하면 즉시 대기실로 전환된다', async () => {
+    const ns = makeNamespace();
+    await reachAward(ns);
+    await runInRoom(CODE, () => handleRematch(ns as never, makeSocket('u2')));
+    for (const id of ['u1', 'u3']) await runInRoom(CODE, () => handleRoomLeave(ns as never, makeSocket(id) as never));
+    expect(readState().status).toBe('LOBBY');
+    expect(readState().players.map(p => p.id)).toEqual(['u2']);
+  });
+
+  it('큐 대기 중 소켓 방 목록이 비워져도 확보한 방 코드로 퇴장 처리한다', async () => {
+    const ns = makeNamespace();
+    await reachAward(ns);
+    await runInRoom(CODE, () => handleRematch(ns as never, makeSocket('u2')));
+    const leaving = makeSocket('u1');
+    const task = runInRoom(CODE, () => handleRoomLeave(ns as never, leaving as never, [CODE]));
+    leaving.rooms.clear();
+    await task;
+    expect(readState().players.map(p => p.id)).not.toContain('u1');
+    await runInRoom(CODE, () => handleRoomLeave(ns as never, makeSocket('u3') as never, [CODE]));
+    expect(readState().status).toBe('LOBBY');
   });
 
   it('전원이 [한번 더!]를 누르면 만료를 기다리지 않고 바로 대기실로 전환된다', async () => {
@@ -363,6 +391,67 @@ describe('시상식 → 대기실 복귀', () => {
     expect(state.status).toBe('MODE1_ROUND_START');
     expect(state.gameId).toBeTypeOf('string');
     expect(state.gameId).not.toBe(firstGameId);
+  });
+});
+
+describe('커스텀 제시어 안내', () => {
+  beforeEach(() => {
+    store.clear();
+    vi.clearAllMocks();
+    vi.useFakeTimers();
+  });
+  afterEach(() => vi.useRealTimers());
+  it('출제 대기는 20초이며 제출 후 답안자는 글자 수와 커스텀 여부만 받는다', async () => {
+    seedLobby({ config: { roundCount: 2, drawTimer: 30, answerTimer: 10, categories: ['CUSTOM'], playerCountMax: 6 } });
+    const ns = makeNamespace();
+    await startGame(ns);
+    expect(eventsOf(ns, 'game:round:start')[0]).toMatchObject({ durationSec: 20, needsCustomPrompt: true });
+    await vi.advanceTimersByTimeAsync(10_000);
+    expect(readState().status).toBe('MODE1_ROUND_START');
+    await runInRoom(CODE, () => handleCustomPromptSubmit(ns as never, makeSocket('u1'), { text: '빨간 사과' }));
+    const guesser = [...ns.emitted]
+      .reverse()
+      .find(e => e.event === 'game:round:start' && e.room === 'user:u2')?.payload;
+    expect(guesser).toMatchObject({ promptHint: 'ㅇㅇ ㅇㅇ', isCustomRound: true, durationSec: 30 });
+    expect(guesser).toHaveProperty('promptForDrawer', undefined);
+    expect(readState().current).toMatchObject({ prompt: '빨간 사과' });
+  });
+});
+
+describe('페인트 전송 권한', () => {
+  beforeEach(() => {
+    store.clear();
+    vi.clearAllMocks();
+    vi.useFakeTimers();
+    vi.mocked(pickRoundWord).mockResolvedValue({ word: '사과', category: 'ANIMAL' });
+  });
+  afterEach(() => vi.useRealTimers());
+  const payload = { strokeId: 'fill', color: '#FFD21F', paintSpans: [{ x: 0, y: 0, width: 1, height: 1 }] };
+  it('현재 출제자의 검증된 영역만 관전자에게 전송한다', async () => {
+    seedLobby();
+    const ns = makeNamespace();
+    await startGame(ns);
+    const socket = { ...makeSocket('u1'), to: ns.to };
+    await handleStrokeFill(ns as never, socket as never, payload);
+    expect(eventsOf(ns, 'stroke:remote')).toEqual([
+      expect.objectContaining({ ...payload, authorId: 'u1', ended: true }),
+    ]);
+  });
+  it('답안자·캔버스 밖 영역·제시어 입력 중에는 전송하지 않는다', async () => {
+    seedLobby();
+    const ns = makeNamespace();
+    await startGame(ns);
+    await handleStrokeFill(ns as never, { ...makeSocket('u2'), to: ns.to } as never, payload);
+    const socket = { ...makeSocket('u1'), to: ns.to };
+    await handleStrokeFill(ns as never, socket as never, {
+      ...payload,
+      paintSpans: [{ x: 0.9, y: 0, width: 1, height: 1 }],
+    });
+    const state = readState();
+    (state.current as Mode1RoundCurrent).prompt = '';
+    store.set(CODE, JSON.stringify(state));
+    await handleStrokeFill(ns as never, socket as never, payload);
+    expect(eventsOf(ns, 'stroke:remote')).toEqual([]);
   });
 });
 

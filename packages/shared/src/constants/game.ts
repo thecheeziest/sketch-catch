@@ -13,7 +13,7 @@ export const MODE2_PLAYER_MIN = 4;
 export const ROOM_PLAYER_MAX = 12;
 
 // 시상식 유지 시간 — 모드2는 GIF 저장 시간을 확보하기 위해 더 길게
-export const AWARD_DURATION_SEC = { 1: 10, 2: 30 } as const;
+export const AWARD_DURATION_SEC = { 1: 30, 2: 60 } as const;
 
 // 친구
 export const FRIEND_CODE_LENGTH = 5;
@@ -39,3 +39,6 @@ export const MATCH_HARD_CAP_MS = 45_000; // 카운트다운 시작 시점부터 
 // 오프라인
 export const OFFLINE_GRACE_SEC = 30;
 export const MIN_PLAYERS_TO_CONTINUE = 3;
+
+// 직접 제시어 입력 시간 — 두 모드 공통
+export const PROMPT_DURATION_SEC = 20;

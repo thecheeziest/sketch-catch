@@ -1,13 +1,7 @@
+import type { PaintSpan } from '../drawing/paint.js';
 import type { Point, Stroke } from '../types/stroke.js';
 import type { RoomState, Player } from '../types/room.js';
-import type {
-  RoundStart,
-  RoundEnd,
-  GameResult,
-  ChatMessage,
-  Mode2Step,
-  Mode2ReviewState,
-} from '../types/game.js';
+import type { RoundStart, RoundEnd, GameResult, ChatMessage, Mode2Step, Mode2ReviewState } from '../types/game.js';
 import type { StrokeEvent } from '../types/stroke.js';
 
 // 클라이언트 → 서버 (Socket.io EventsMap: 각 이벤트를 함수 시그니처로 정의)
@@ -24,6 +18,7 @@ export type ClientEvents = {
   'stroke:end': (payload: { strokeId: string }) => void;
   'stroke:undo': () => void;
   'stroke:clear': () => void;
+  'stroke:fill': (payload: { strokeId: string; color: string; paintSpans: PaintSpan[] }) => void;
   'chat:send': (payload: { text: string }) => void;
   'answer:accept': (payload: { messageId: string }) => void;
   'game:custom:prompt': (payload: { text: string }) => void;
@@ -36,6 +31,7 @@ export type ClientEvents = {
 
 // 서버 → 클라이언트 (Socket.io EventsMap: 각 이벤트를 함수 시그니처로 정의)
 export type ServerEvents = {
+  'room:removed': (payload: { code: string; reason: 'AWARD_EXPIRED' }) => void;
   'room:state': (state: RoomState) => void;
   'room:player:join': (payload: { player: Player }) => void;
   'room:player:leave': (payload: { userId: string }) => void;

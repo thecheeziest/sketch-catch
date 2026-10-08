@@ -1,12 +1,21 @@
 import type { Server, Namespace, Socket } from 'socket.io';
 import type { ClientEvents, ServerEvents } from '@sketch-catch/shared';
+import { setPresence } from '../db/redis.js';
+import { broadcastPresenceUpdate } from './presence.namespace.js';
 import { SERVER_EVENT, SOCKET_NAMESPACE, UPDATE_REQUIRED_CODE } from '@sketch-catch/shared';
 import { verifyAccessToken } from '../auth/jwt.js';
 import { isOutdatedClient } from '../lib/appVersion.js';
 import { logger } from '../lib/logger.js';
 import { runInRooms } from '../services/roomQueue.js';
 import { handleRoomJoin, handleRoomLeave, handleRoomReady, handleRoomStart } from './handlers/room.js';
-import { handleStrokeStart, handleStrokeAppend, handleStrokeEnd, handleStrokeUndo, handleStrokeClear } from './handlers/stroke.js';
+import {
+  handleStrokeStart,
+  handleStrokeAppend,
+  handleStrokeEnd,
+  handleStrokeUndo,
+  handleStrokeClear,
+  handleStrokeFill,
+} from './handlers/stroke.js';
 import { handleChatSend, handleAnswerAccept } from './handlers/chat.js';
 import { handleCustomPromptSubmit } from './handlers/game.js';
 import { handleMode2Prompt, handleMode2DrawDone, handleMode2Answer } from './handlers/mode2.js';
@@ -55,7 +64,7 @@ export function registerGameNamespace(io: Server<ClientEvents, ServerEvents>): v
     next();
   });
 
-  game.on('connection', (socket) => {
+  game.on('connection', socket => {
     // 유저 개인 채널 — 시상식 만료 시 해당 유저의 소켓을 방 채널에서 빼는 데 쓴다(award.ts detachUser)
     void socket.join(`user:${socket.data.userId}`);
 
@@ -69,31 +78,47 @@ export function registerGameNamespace(io: Server<ClientEvents, ServerEvents>): v
     socket.on('room:rematch', () => inRoom('room:rematch', () => handleRematch(game, socket)));
     // disconnecting 사용 — disconnect 시점에는 socket.rooms가 이미 비워지므로
     // disconnecting 시점(rooms 아직 유지)에 처리해야 방 코드를 찾을 수 있음
-    socket.on('disconnecting', () => inRoom('disconnecting', () => handleRoomLeave(game, socket)));
+    socket.on('disconnecting', () => {
+      const codes = roomCodesOf(socket);
+      run(socket, 'disconnecting', codes, async () => {
+        await handleRoomLeave(game, socket, codes);
+        const online = await io.of('/presence').in(`user:${socket.data.userId}`).fetchSockets();
+        const otherGameSockets = await game.in(`user:${socket.data.userId}`).fetchSockets();
+        if (online.length === 0 && !otherGameSockets.some(s => s.id !== socket.id)) {
+          await setPresence(socket.data.userId, 'OFFLINE');
+          broadcastPresenceUpdate(socket.data.userId, 'OFFLINE');
+        }
+      });
+    });
 
     // DRAW-03: stroke 이벤트 — 출제자만 broadcast (리터럴 이벤트명 직접 사용 — Phase 4 결정)
-    socket.on('stroke:start', (payload) => inRoom('stroke:start', () => handleStrokeStart(game, socket, payload)));
-    socket.on('stroke:append', (payload) => inRoom('stroke:append', () => handleStrokeAppend(game, socket, payload)));
-    socket.on('stroke:end', (payload) => inRoom('stroke:end', () => handleStrokeEnd(game, socket, payload)));
+    socket.on('stroke:start', payload => inRoom('stroke:start', () => handleStrokeStart(game, socket, payload)));
+    socket.on('stroke:append', payload => inRoom('stroke:append', () => handleStrokeAppend(game, socket, payload)));
+    socket.on('stroke:end', payload => inRoom('stroke:end', () => handleStrokeEnd(game, socket, payload)));
     socket.on('stroke:undo', () => inRoom('stroke:undo', () => handleStrokeUndo(game, socket)));
+    socket.on('stroke:fill', payload => inRoom('stroke:fill', () => handleStrokeFill(game, socket, payload)));
     socket.on('stroke:clear', () => inRoom('stroke:clear', () => handleStrokeClear(game, socket)));
 
     // GAME-01/MD1-02/MD1-03: 채팅 + 정답 판정
-    socket.on('chat:send', (payload) => inRoom('chat:send', () => handleChatSend(game, socket, payload)));
-    socket.on('answer:accept', (payload) => inRoom('answer:accept', () => handleAnswerAccept(game, socket, payload)));
-    socket.on('game:custom:prompt', (payload) =>
+    socket.on('chat:send', payload => inRoom('chat:send', () => handleChatSend(game, socket, payload)));
+    socket.on('answer:accept', payload => inRoom('answer:accept', () => handleAnswerAccept(game, socket, payload)));
+    socket.on('game:custom:prompt', payload =>
       inRoom('game:custom:prompt', () => handleCustomPromptSubmit(game, socket, payload)),
     );
 
     // MD2-01/02: 모드2 시트 로테이션 — 리터럴 이벤트명 직접 사용 (Phase 4 결정)
-    socket.on('mode2:prompt', (payload) => inRoom('mode2:prompt', () => handleMode2Prompt(game, socket, payload)));
-    socket.on('mode2:draw:done', (payload) => inRoom('mode2:draw:done', () => handleMode2DrawDone(game, socket, payload)));
-    socket.on('mode2:answer', (payload) => inRoom('mode2:answer', () => handleMode2Answer(game, socket, payload)));
+    socket.on('mode2:prompt', payload => inRoom('mode2:prompt', () => handleMode2Prompt(game, socket, payload)));
+    socket.on('mode2:draw:done', payload =>
+      inRoom('mode2:draw:done', () => handleMode2DrawDone(game, socket, payload)),
+    );
+    socket.on('mode2:answer', payload => inRoom('mode2:answer', () => handleMode2Answer(game, socket, payload)));
 
     // MD2-03/04: 리뷰 최종 판정 + 베스트 시트 투표 — 리터럴 이벤트명 직접 사용 (Phase 4 결정)
-    socket.on('mode2:judge:final', (payload) =>
+    socket.on('mode2:judge:final', payload =>
       inRoom('mode2:judge:final', () => handleMode2JudgeFinal(game, socket, payload)),
     );
-    socket.on('mode2:vote:best', (payload) => inRoom('mode2:vote:best', () => handleMode2VoteBest(game, socket, payload)));
+    socket.on('mode2:vote:best', payload =>
+      inRoom('mode2:vote:best', () => handleMode2VoteBest(game, socket, payload)),
+    );
   });
 }

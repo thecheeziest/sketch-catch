@@ -9,7 +9,13 @@ import { useAuthStore, useRoomStore } from '@/shared/model';
 import { colors, spacing, textSizes } from '@/shared/config';
 import { PixelInput } from '@/shared/ui/PixelInput';
 import { DrawingCanvas, ToolbarRow, WordBanner } from '@/features/game/ui';
-import { ReferenceCanvas, SheetRotationHeader, SubmitStepButton, useMode2Sender, useMode2Store } from '@/features/mode2';
+import {
+  ReferenceCanvas,
+  SheetRotationHeader,
+  SubmitStepButton,
+  useMode2Sender,
+  useMode2Store,
+} from '@/features/mode2';
 
 const MAX_TEXT_LENGTH = 40;
 
@@ -17,10 +23,10 @@ export default function Mode2Screen() {
   const router = useRouter();
   const { code } = useLocalSearchParams<{ code: string }>();
   const myId = useAuthStore.getState().user?.id ?? '';
-  const socket = useRoomStore((s) => s.socket);
-  const roomState = useRoomStore((s) => s.roomState);
-  const step = useMode2Store((s) => s.step);
-  const myStrokesLength = useMode2Store((s) => s.myStrokes.length);
+  const socket = useRoomStore(s => s.socket);
+  const roomState = useRoomStore(s => s.roomState);
+  const step = useMode2Store(s => s.step);
+  const myStrokesLength = useMode2Store(s => s.myStrokes.length);
   const { submitPrompt, submitDraw, submitAnswer } = useMode2Sender();
 
   const [text, setText] = useState('');
@@ -45,31 +51,24 @@ export default function Mode2Screen() {
   }, [step?.stepIndex]);
 
   const handleExitAttempt = useCallback((): void => {
-    Alert.alert(
-      '게임에서 나가기',
-      '게임을 나가면 현재 진행 중인 시트가 비어있는 상태로 처리됩니다. 계속할까요?',
-      [
-        { text: '계속 플레이', style: 'cancel' },
-        {
-          text: '나가기',
-          style: 'destructive',
-          onPress: () => {
-            socket?.emit(CLIENT_EVENT.ROOM_LEAVE);
-            router.replace('/(tabs)' as never);
-          },
+    Alert.alert('게임에서 나가기', '게임을 나가면 현재 진행 중인 시트가 비어있는 상태로 처리됩니다. 계속할까요?', [
+      { text: '계속 플레이', style: 'cancel' },
+      {
+        text: '나가기',
+        style: 'destructive',
+        onPress: () => {
+          socket?.emit(CLIENT_EVENT.ROOM_LEAVE);
+          router.replace('/(tabs)/' as never);
         },
-      ],
-    );
+      },
+    ]);
   }, [socket, router]);
 
   // Android 하드웨어 뒤로가기 — 나가기 확인 (iOS 스와이프는 레이아웃에서 차단)
   useHardwareBack(handleExitAttempt);
 
   if (!step) {
-    return (
-      <SafeAreaView style={styles.container} edges={['top', 'bottom', 'left', 'right']}>
-      </SafeAreaView>
-    );
+    return <SafeAreaView style={styles.container} edges={['top', 'bottom', 'left', 'right']}></SafeAreaView>;
   }
 
   const isAssignee = step.assigneeId === myId;
@@ -83,6 +82,7 @@ export default function Mode2Screen() {
     } else {
       submitAnswer(step.sheetId, text);
     }
+    setText('');
     setSubmitted(true);
   };
 
@@ -97,9 +97,7 @@ export default function Mode2Screen() {
     if (showWaiting) {
       return (
         <View sx={styles2.waiting}>
-          <Text sx={{ ...textSizes.B1, color: colors.GRAY, textAlign: 'center' }}>
-            다른 플레이어를 기다리는 중...
-          </Text>
+          <Text sx={{ ...textSizes.B1, color: colors.GRAY, textAlign: 'center' }}>다른 플레이어를 기다리는 중...</Text>
         </View>
       );
     }
@@ -107,6 +105,9 @@ export default function Mode2Screen() {
     if (step.phase === 'PROMPT') {
       return (
         <View sx={styles2.content}>
+          <Text sx={{ ...textSizes.B1, color: colors.LIGHT_100, marginBottom: spacing.MD }}>
+            제시어를 직접 입력해 주세요
+          </Text>
           <PixelInput
             value={text}
             onChangeText={setText}

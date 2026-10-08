@@ -10,7 +10,7 @@ vi.mock('../socket/handlers/game.js', () => ({
   resendCurrentRound: vi.fn(),
 }));
 
-vi.mock('../socket/handlers/mode2.js', async (importOriginal) => ({
+vi.mock('../socket/handlers/mode2.js', async importOriginal => ({
   ...(await importOriginal<typeof import('../socket/handlers/mode2.js')>()),
   startMode2: vi.fn(),
   handleMode2PlayerLeft: vi.fn(),
@@ -23,6 +23,7 @@ vi.mock('../db/redis.js', () => ({
   getPresence: vi.fn(),
   setUserRoom: vi.fn(),
   clearUserRoom: vi.fn(),
+  getUserRoom: vi.fn().mockResolvedValue(null),
 }));
 
 // rooms.service mock
@@ -33,7 +34,7 @@ vi.mock('../services/rooms.service.js', () => ({
 }));
 
 import { getRoomState, saveRoomState } from '../services/rooms.service.js';
-import { setPresence, redis, clearUserRoom } from '../db/redis.js';
+import { setPresence, redis, clearUserRoom, getUserRoom } from '../db/redis.js';
 import { handlePlayerLeft, startRound } from '../socket/handlers/game.js';
 import { handleMode2PlayerLeft } from '../socket/handlers/mode2.js';
 
@@ -161,11 +162,14 @@ describe('socket room handlers', () => {
       expect(mockSaveRoomState).toHaveBeenCalled();
       const savedState = mockSaveRoomState.mock.calls[0]![0]!;
       expect(savedState.players).toHaveLength(3);
-      expect(savedState.players.find((p) => p.id === 'u3')).toBeDefined();
+      expect(savedState.players.find(p => p.id === 'u3')).toBeDefined();
 
       // room:state broadcast
       expect(game.to).toHaveBeenCalledWith('room:ABC123');
-      expect(game._broadcastEmit).toHaveBeenCalledWith(SERVER_EVENT.ROOM_STATE, expect.objectContaining({ code: 'ABC123' }));
+      expect(game._broadcastEmit).toHaveBeenCalledWith(
+        SERVER_EVENT.ROOM_STATE,
+        expect.objectContaining({ code: 'ABC123' }),
+      );
 
       // 대기실 입장 시 presence IN_LOBBY 갱신
       expect(mockSetPresence).toHaveBeenCalledWith('u3', 'IN_LOBBY');
@@ -184,13 +188,16 @@ describe('socket room handlers', () => {
       await handleRoomReady(game as any, socket as any, true);
 
       const savedState = mockSaveRoomState.mock.calls[0]![0]!;
-      const u1 = savedState.players.find((p) => p.id === 'u1');
+      const u1 = savedState.players.find(p => p.id === 'u1');
       expect(u1?.isReady).toBe(true);
       // u2는 아직 준비 안 함 → allReady false
       expect(savedState.allReady).toBe(false);
 
       // room:state broadcast
-      expect(game._broadcastEmit).toHaveBeenCalledWith(SERVER_EVENT.ROOM_STATE, expect.objectContaining({ allReady: false }));
+      expect(game._broadcastEmit).toHaveBeenCalledWith(
+        SERVER_EVENT.ROOM_STATE,
+        expect.objectContaining({ allReady: false }),
+      );
     });
 
     it('LBBY-02: 전원 준비 완료 시 allReady=true', async () => {
@@ -246,7 +253,7 @@ describe('socket room handlers', () => {
       const state = makeRoomState();
       state.players.push({ ...state.players[1]!, id: 'u3', nickname: '참가자2', friendCode: 'CODE3', slot: 2 });
       state.allReady = true;
-      state.players.forEach((p) => (p.isReady = true));
+      state.players.forEach(p => (p.isReady = true));
       mockGetRoomState.mockResolvedValue(state);
       const socket = makeSocket('u1');
       const game = makeNamespace();
@@ -265,7 +272,7 @@ describe('socket room handlers', () => {
       const state = makeRoomState();
       state.mode = 2;
       state.allReady = true;
-      state.players.forEach((p) => (p.isReady = true));
+      state.players.forEach(p => (p.isReady = true));
       mockGetRoomState.mockResolvedValue(state);
       const socket = makeSocket('u1');
       const game = makeNamespace();
@@ -282,7 +289,7 @@ describe('socket room handlers', () => {
     it('LBBY-02: 모드1은 3명 미만이면 시작을 거부한다', async () => {
       const state = makeRoomState();
       state.allReady = true;
-      state.players.forEach((p) => (p.isReady = true));
+      state.players.forEach(p => (p.isReady = true));
       mockGetRoomState.mockResolvedValue(state);
       const socket = makeSocket('u1');
       const game = makeNamespace();
@@ -313,13 +320,16 @@ describe('socket room handlers', () => {
       const savedState = mockSaveRoomState.mock.calls[0]![0]!;
       // u2가 방장 승계
       expect(savedState.hostId).toBe('u2');
-      const u2 = savedState.players.find((p) => p.id === 'u2');
+      const u2 = savedState.players.find(p => p.id === 'u2');
       expect(u2?.isHost).toBe(true);
       // u1은 제거됨
-      expect(savedState.players.find((p) => p.id === 'u1')).toBeUndefined();
+      expect(savedState.players.find(p => p.id === 'u1')).toBeUndefined();
 
       // room:state broadcast
-      expect(game._broadcastEmit).toHaveBeenCalledWith(SERVER_EVENT.ROOM_STATE, expect.objectContaining({ hostId: 'u2' }));
+      expect(game._broadcastEmit).toHaveBeenCalledWith(
+        SERVER_EVENT.ROOM_STATE,
+        expect.objectContaining({ hostId: 'u2' }),
+      );
       // room:player:leave broadcast
       expect(game._broadcastEmit).toHaveBeenCalledWith(SERVER_EVENT.ROOM_PLAYER_LEAVE, { userId: 'u1' });
 
@@ -342,6 +352,14 @@ describe('socket room handlers', () => {
       expect(mockSaveRoomState).not.toHaveBeenCalled();
     });
 
+    it('이전 방의 지연된 퇴장은 새 방의 참가 상태를 지우지 않는다', async () => {
+      mockGetRoomState.mockResolvedValue(makeRoomState());
+      vi.mocked(getUserRoom).mockResolvedValueOnce('NEW123');
+      await handleRoomLeave(makeNamespace() as never, makeSocket('u1', ['room:ABC123']) as never, ['ABC123']);
+      expect(clearUserRoom).not.toHaveBeenCalled();
+      expect(mockSetPresence).not.toHaveBeenCalled();
+    });
+
     it('같은 유저의 다른 방 소켓이 살아 있으면 stale disconnect를 ONLINE으로 덮지 않는다', async () => {
       const state = makeRoomState();
       mockGetRoomState.mockResolvedValue(state);
@@ -349,9 +367,7 @@ describe('socket room handlers', () => {
       const game = {
         ...makeNamespace(),
         in: vi.fn(() => ({
-          fetchSockets: vi.fn().mockResolvedValue([
-            { id: 'u1-active-socket', data: { userId: 'u1' } },
-          ]),
+          fetchSockets: vi.fn().mockResolvedValue([{ id: 'u1-active-socket', data: { userId: 'u1' } }]),
         })),
       };
 

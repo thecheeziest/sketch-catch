@@ -137,4 +137,23 @@ describe('presence flow', () => {
       }),
     ]);
   });
+
+  it('남아 있는 게임 상태와 삭제된 방을 재접속·친구 조회에서 온라인으로 복구한다', async () => {
+    const app = await buildApp();
+    const { accessToken } = await signTokens('uB');
+    await redis.set('session:uB', accessToken);
+    redisStore.set('user:presence:uA', 'IN_GAME');
+    redisStore.set('user:room:uA', 'OLD111');
+    redisStore.set('user:presence:uB', 'IN_GAME');
+    redisStore.set('user:room:uB', 'OLD222');
+    const response = await app.inject({
+      method: 'GET',
+      url: '/friends',
+      headers: { authorization: `Bearer ${accessToken}` },
+    });
+    expect(response.statusCode).toBe(200);
+    expect(response.json()).toEqual([expect.objectContaining({ userId: 'uA', presenceStatus: 'ONLINE' })]);
+    expect(redisStore.get('user:presence:uB')).toBe('ONLINE');
+    expect(redisStore.has('user:room:uB')).toBe(false);
+  });
 });

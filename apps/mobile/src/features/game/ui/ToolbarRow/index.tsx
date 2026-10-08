@@ -17,7 +17,7 @@ const WIDTH_OPTIONS = [
 
 type LabeledButtonProps = {
   label: string;
-  icon: 'ERASER' | 'UNDO' | 'TRASH';
+  icon: 'ERASER' | 'UNDO' | 'TRASH' | 'PAINT';
   bg: string;
   ring: string;
   labelColor: string;
@@ -28,11 +28,7 @@ type LabeledButtonProps = {
 function LabeledButton({ label, icon, bg, ring, labelColor, active = false, onPress }: LabeledButtonProps) {
   return (
     <Pressable onPress={onPress} accessibilityLabel={label} style={styles.labeledButton}>
-      <PixelFrame
-        borderColor={active ? toolbar.SWATCH_SELECTED : ring}
-        borderWidth={3}
-        style={StyleSheet.absoluteFill}
-      >
+      <PixelFrame borderColor={active ? toolbar.SWATCH_SELECTED : ring} borderWidth={3} style={StyleSheet.absoluteFill}>
         <View style={[StyleSheet.absoluteFill, { backgroundColor: bg }]} />
       </PixelFrame>
       <View style={styles.labeledButtonContent}>
@@ -44,8 +40,19 @@ function LabeledButton({ label, icon, bg, ring, labelColor, active = false, onPr
 }
 
 export function ToolbarRow() {
-  const { color, width, eraser, setColor, setWidth, setEraser, clearRemote, requestDrawerClear, requestDrawerUndo } =
-    useGameStore();
+  const {
+    color,
+    width,
+    eraser,
+    paint,
+    setColor,
+    setWidth,
+    setEraser,
+    setPaint,
+    clearRemote,
+    requestDrawerClear,
+    requestDrawerUndo,
+  } = useGameStore();
   const sender = useStrokeSender(true); // ToolbarRow는 출제자 전용
 
   const handleClear = (): void => {
@@ -65,14 +72,15 @@ export function ToolbarRow() {
 
       <View style={styles.toolRow}>
         <View style={styles.sizeGroup}>
-          {WIDTH_OPTIONS.map((opt) => {
-            const isSelected = !eraser && width === opt.width;
+          {WIDTH_OPTIONS.map(opt => {
+            const isSelected = !eraser && !paint && width === opt.width;
             return (
               <Pressable
                 key={opt.width}
                 onPress={() => {
                   setWidth(opt.width);
                   setEraser(false);
+                  setPaint(false);
                 }}
                 accessibilityLabel={`굵기 ${opt.label}`}
                 style={styles.sizeButton}
@@ -87,9 +95,7 @@ export function ToolbarRow() {
                     <View style={[StyleSheet.absoluteFill, { backgroundColor: toolbar.SIZE_BTN_SELECTED_BG }]} />
                   </PixelFrame>
                 )}
-                {!isSelected && (
-                  <View style={[StyleSheet.absoluteFill, { backgroundColor: toolbar.SIZE_BTN_BG }]} />
-                )}
+                {!isSelected && <View style={[StyleSheet.absoluteFill, { backgroundColor: toolbar.SIZE_BTN_BG }]} />}
                 <View
                   style={{
                     width: opt.dotSize,
@@ -103,6 +109,15 @@ export function ToolbarRow() {
           })}
         </View>
 
+        <LabeledButton
+          label="페인트"
+          icon="PAINT"
+          bg={toolbar.ERASER_BG}
+          ring={toolbar.ERASER_RING}
+          labelColor={toolbar.LABEL_FG}
+          active={paint}
+          onPress={() => setPaint(!paint)}
+        />
         <LabeledButton
           label="지우개"
           icon="ERASER"
@@ -121,7 +136,7 @@ export function ToolbarRow() {
           onPress={handleUndo}
         />
         <LabeledButton
-          label="전부지우기"
+          label="처음으로"
           icon="TRASH"
           bg={toolbar.CLEAR_BG}
           ring={toolbar.CLEAR_RING}
@@ -153,7 +168,7 @@ const styles = StyleSheet.create({
     backgroundColor: toolbar.SIZE_GROUP_BG,
   },
   sizeButton: {
-    width: 44,
+    width: 32,
     height: 44,
     alignItems: 'center',
     justifyContent: 'center',

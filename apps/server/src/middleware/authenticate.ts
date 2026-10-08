@@ -1,6 +1,7 @@
 import type { FastifyRequest, FastifyReply } from 'fastify';
 import { verifyAccessToken } from '../auth/jwt.js';
-import { redis, setPresence, getPresence } from '../db/redis.js';
+import { redis, setPresence, getPresence, getUserRoom, clearUserRoom } from '../db/redis.js';
+import { getRoomState } from '../services/rooms.service.js';
 import { broadcastPresenceUpdate } from '../socket/presence.namespace.js';
 
 export async function authenticate(request: FastifyRequest, reply: FastifyReply): Promise<void> {
@@ -25,7 +26,12 @@ export async function authenticate(request: FastifyRequest, reply: FastifyReply)
   // IN_LOBBY / IN_GAME 상태는 소켓 lifecycle이 관리하므로 덮어쓰지 않음
   // OFFLINE → ONLINE 전환 또는 ONLINE TTL 갱신 목적으로만 호출
   const currentPresence = await getPresence(payload.sub);
-  if (currentPresence !== 'IN_LOBBY' && currentPresence !== 'IN_GAME') {
+  let code: string | null = null;
+  if (currentPresence === 'IN_LOBBY' || currentPresence === 'IN_GAME') code = await getUserRoom(payload.sub);
+  const state = code ? await getRoomState(code) : null;
+  const activeMember = state?.players.some(p => p.id === payload.sub && p.connected && !p.left) ?? false;
+  if (!activeMember || (currentPresence !== 'IN_LOBBY' && currentPresence !== 'IN_GAME')) {
+    if (code && !activeMember) await clearUserRoom(payload.sub);
     await setPresence(payload.sub);
     broadcastPresenceUpdate(payload.sub, 'ONLINE');
   }

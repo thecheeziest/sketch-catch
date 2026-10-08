@@ -97,12 +97,12 @@ export function AnswerApprovalButton({ selectedUserId, selectedNickname, chatMes
                         <View
                           style={[
                             StyleSheet.absoluteFill,
-                            { backgroundColor: isSelected ? colors.PRIMARY_100 : colors.DARK_100 },
+                            { backgroundColor: isSelected ? colors.PRIMARY_500 : colors.DARK_100 },
                           ]}
                         />
                       </PixelFrame>
                       <View sx={{ paddingHorizontal: spacing.SM, paddingVertical: spacing.XS }}>
-                        <Text sx={{ ...textSizes.B2, color: isSelected ? colors.PRIMARY_400 : colors.LIGHT_100 }}>
+                        <Text sx={{ ...textSizes.B2, color: colors.LIGHT_100 }}>
                           {msg.text}
                         </Text>
                       </View>

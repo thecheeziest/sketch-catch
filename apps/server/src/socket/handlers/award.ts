@@ -38,6 +38,7 @@ export async function beginAward(game: GameNamespace, state: RoomState): Promise
 // 방에서 제거되는 유저의 소켓을 room 채널에서 빼고, 아직 이 방을 가리키는 presence만 정리한다
 // (그 사이 다른 방을 만든 유저의 상태를 덮어쓰지 않도록 userRoom이 이 방일 때만)
 async function detachUser(game: GameNamespace, code: string, userId: string): Promise<void> {
+  game.to(`user:${userId}`).emit('room:removed', { code, reason: 'AWARD_EXPIRED' });
   game.in(`user:${userId}`).socketsLeave(`room:${code}`);
   if ((await getUserRoom(userId)) !== code) return;
   await clearUserRoom(userId);

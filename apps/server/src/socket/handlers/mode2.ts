@@ -10,7 +10,7 @@ import type {
   Mode2Step,
   Stroke,
 } from '@sketch-catch/shared';
-import { MODE2_PLAYER_MIN, SERVER_EVENT } from '@sketch-catch/shared';
+import { MODE2_PLAYER_MIN, PROMPT_DURATION_SEC, paintSpansSchema, SERVER_EVENT } from '@sketch-catch/shared';
 import { getRoomState, saveRoomState } from '../../services/rooms.service.js';
 import { clearRoomTimer, setRoomTimer } from '../../services/roomTimers.js';
 import { startMode2Review } from './mode2-review.js';
@@ -36,7 +36,6 @@ export type Mode2Current = {
 };
 
 // PROMPT 단계는 고정 20초 (UI-SPEC). DRAW/ANSWER는 RoomConfig 값 사용.
-const PROMPT_DURATION_SEC = 20;
 
 // 클라이언트 입력 절대 신뢰 금지 — mobile MAX_TEXT_LENGTH(mode2.tsx)와 동일한 상한
 const MAX_TEXT_LENGTH = 40;
@@ -98,7 +97,7 @@ function toPreviousContent(content: Mode2StepContent | undefined): Mode2Step['pr
 function buildStepPayloads(state: RoomState, current: Mode2Current): Mode2Step[] {
   const players = sortedPlayers(state);
   const totalSteps = finalStepForPlayerCount(players.length) + 1;
-  return current.sheets.map((sheet) => {
+  return current.sheets.map(sheet => {
     const assignee = currentAssignee(players, sheet.ownerIndex, current.step);
     return {
       gameId: state.gameId ?? '',
@@ -123,10 +122,7 @@ function emitSteps(game: GameNamespace, code: string, state: RoomState, current:
 // startMode2/advanceStep의 mode2:step broadcast는 room:state 직후 발생하므로, 그 시점에
 // 아직 모드2 화면이 mount되지 않은 클라이언트(화면 전환 중)는 첫 스텝 이벤트를 놓쳐
 // 다음 스텝까지 까만 화면만 보게 된다. room:join 시 현재 스텝을 해당 소켓에만 재전송한다.
-export function resendCurrentStep(
-  socket: Pick<Socket<ClientEvents, ServerEvents>, 'emit'>,
-  state: RoomState,
-): void {
+export function resendCurrentStep(socket: Pick<Socket<ClientEvents, ServerEvents>, 'emit'>, state: RoomState): void {
   if (!isMode2Active(state.status)) return;
   const current = state.current as Mode2Current;
   for (const payload of buildStepPayloads(state, current)) {
@@ -176,7 +172,7 @@ async function assertAssignee(
   if (!state || !isMode2Active(state.status)) return null;
 
   const current = state.current as Mode2Current;
-  const sheet = current.sheets.find((s) => s.sheetId === sheetId);
+  const sheet = current.sheets.find(s => s.sheetId === sheetId);
   if (!sheet) return null;
   if (current.submitted.includes(sheetId)) return null; // 중복 제출 방지
 
@@ -201,6 +197,21 @@ function sanitizeStrokes(strokes: unknown, authorId: string): Stroke[] {
     const stroke = s as Partial<Stroke>;
     if (typeof stroke.id !== 'string' || typeof stroke.color !== 'string') continue;
     if (typeof stroke.width !== 'number' || typeof stroke.startTime !== 'number') continue;
+    if (stroke.paintSpans !== undefined) {
+      if (!Number.isFinite(stroke.startTime) || stroke.startTime < 0) continue;
+      const parsed = paintSpansSchema.safeParse(stroke.paintSpans);
+      if (!parsed.success || !/^#[0-9a-f]{6}$/i.test(stroke.color)) continue;
+      clean.push({
+        id: stroke.id,
+        authorId,
+        color: stroke.color,
+        width: 0,
+        points: [],
+        startTime: stroke.startTime,
+        paintSpans: parsed.data,
+      });
+      continue;
+    }
     if (!Array.isArray(stroke.points)) continue;
     const points = stroke.points
       .slice(0, MAX_POINTS_PER_STROKE)
@@ -213,21 +224,24 @@ function sanitizeStrokes(strokes: unknown, authorId: string): Stroke[] {
           typeof (p as { t?: unknown }).t === 'number',
       );
     // authorId는 클라이언트 값을 신뢰하지 않고 서버가 검증한 assignee로 강제
-    clean.push({ id: stroke.id, authorId, color: stroke.color, width: stroke.width, points, startTime: stroke.startTime });
+    clean.push({
+      id: stroke.id,
+      authorId,
+      color: stroke.color,
+      width: stroke.width,
+      points,
+      startTime: stroke.startTime,
+    });
   }
   return clean;
 }
 
 function findRoomCode(socket: Mode2Socket): string | null {
-  const roomName = Array.from(socket.rooms).find((r) => r.startsWith('room:'));
+  const roomName = Array.from(socket.rooms).find(r => r.startsWith('room:'));
   return roomName ? roomName.replace('room:', '') : null;
 }
 
-async function checkAllSubmitted(
-  game: GameNamespace,
-  code: string,
-  current: Mode2Current,
-): Promise<void> {
+async function checkAllSubmitted(game: GameNamespace, code: string, current: Mode2Current): Promise<void> {
   if (current.submitted.length >= current.sheets.length) {
     await advanceStep(game, code);
   }
@@ -329,21 +343,17 @@ export async function advanceStep(game: GameNamespace, code: string, expectedGam
 }
 
 // OFFL-05/D-08: 모드2 전용 이탈 처리 — mode1의 handlePlayerLeft와는 별도 함수로 유지
-export async function handleMode2PlayerLeft(
-  game: GameNamespace,
-  code: string,
-  userId: string,
-): Promise<void> {
+export async function handleMode2PlayerLeft(game: GameNamespace, code: string, userId: string): Promise<void> {
   const state = await getRoomState(code);
   if (!state) return;
 
-  const player = state.players.find((p) => p.id === userId);
+  const player = state.players.find(p => p.id === userId);
   if (!player || player.left) return; // 이미 처리됨
 
   player.connected = false;
   player.left = true;
 
-  const activePlayers = state.players.filter((p) => !p.left);
+  const activePlayers = state.players.filter(p => !p.left);
 
   // 텔레스테이션 룰은 최소 4명부터 성립한다.
   if (activePlayers.length < MODE2_PLAYER_MIN) {

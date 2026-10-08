@@ -13,6 +13,7 @@ type Props = Omit<PressableProps, 'children'> & {
   color?: ButtonColor;
   height?: number;
   fontVariant?: FontVariant;
+  pressedTextColor?: string;
   // 요청 처리 중 — 라벨 대신 원형 스피너를 보이고 연타를 막는다
   loading?: boolean;
 };
@@ -32,7 +33,7 @@ const COLOR_MAP: Record<ButtonColor, ColorTokens> = {
   light: {
     bg: colors.LIGHT_500,
     border: colors.BLACK,
-    text: colors.SECONDARY_400,
+    text: colors.DARK_500,
     pressedBg: colors.LIGHT_100,
     pressedBorder: colors.LIGHT_500,
     disabledBg: colors.LIGHT_300,
@@ -42,7 +43,7 @@ const COLOR_MAP: Record<ButtonColor, ColorTokens> = {
   dark: {
     bg: colors.DARK_500,
     border: colors.LIGHT_100,
-    text: colors.PRIMARY_300,
+    text: colors.LIGHT_100,
     pressedBg: colors.DARK_300,
     pressedBorder: colors.LIGHT_500,
     disabledBg: colors.DARK_100,
@@ -50,20 +51,20 @@ const COLOR_MAP: Record<ButtonColor, ColorTokens> = {
     disabledBorder: colors.DARK_200,
   },
   primary: {
-    bg: colors.PRIMARY_400,
+    bg: colors.PRIMARY_500,
     border: colors.BLACK,
-    text: colors.ACCENT_300,
-    pressedBg: colors.PRIMARY_100,
+    text: colors.LIGHT_100,
+    pressedBg: '#940044',
     pressedBorder: colors.PRIMARY_400,
     disabledBg: colors.PRIMARY_300,
     disabledText: colors.PRIMARY_200,
     disabledBorder: colors.PRIMARY_500,
   },
   secondary: {
-    bg: colors.SECONDARY_300,
+    bg: colors.SECONDARY_400,
     border: colors.BLACK,
-    text: colors.ACCENT_300,
-    pressedBg: colors.SECONDARY_100,
+    text: colors.LIGHT_100,
+    pressedBg: colors.SECONDARY_500,
     pressedBorder: colors.SECONDARY_400,
     disabledBg: colors.SECONDARY_300,
     disabledText: colors.SECONDARY_200,
@@ -87,6 +88,7 @@ export function Button({
   color = 'primary',
   height = 48,
   fontVariant = 'BOLD',
+  pressedTextColor,
   style,
   disabled,
   loading = false,
@@ -100,7 +102,11 @@ export function Button({
   const getBg = (pressed: boolean) => (disabled ? tokens.disabledBg : pressed ? tokens.pressedBg : tokens.bg);
   const getBorderColor = (pressed: boolean) =>
     disabled ? tokens.disabledBorder : pressed ? tokens.pressedBorder : tokens.border;
-  const textColor = disabled ? tokens.disabledText : tokens.text;
+  const getTextColor = (pressed: boolean) => {
+    if (disabled) return tokens.disabledText;
+    if (pressed && pressedTextColor) return pressedTextColor;
+    return tokens.text;
+  };
 
   return (
     <Pressable
@@ -128,11 +134,14 @@ export function Button({
                   source={icon}
                   sx={{ width: iconSize, height: iconSize }}
                   resizeMode="contain"
-                  style={{ tintColor: textColor }}
+                  style={{ tintColor: getTextColor(pressed) }}
                 />
               )}
               {label && (
-                <Text variants={fontVariant === 'BOLD' ? ['bold'] : undefined} sx={{ ...textSize, color: textColor }}>
+                <Text
+                  variants={fontVariant === 'BOLD' ? ['bold'] : undefined}
+                  sx={{ ...textSize, color: getTextColor(pressed) }}
+                >
                   {label}
                 </Text>
               )}

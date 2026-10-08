@@ -14,3 +14,13 @@ export function buildStrokePath(points: readonly NormalizedPoint[], w: number, h
   }
   return builder.build();
 }
+
+export function buildPaintPath(
+  spans: readonly import('@sketch-catch/shared').PaintSpan[],
+  w: number,
+  h: number,
+): SkPath {
+  const builder = Skia.PathBuilder.Make();
+  for (const span of spans) builder.addRect(Skia.XYWHRect(span.x * w, span.y * h, span.width * w, span.height * h));
+  return builder.build();
+}

@@ -59,7 +59,7 @@ export const useRoomStore = create<RoomStore>()(
 
     // 방 코드마다 소켓을 새로 만든다. 다른 방의 소켓을 재사용하면 이전 방 이벤트(정답 등)가 새 게임에
     // 섞이고, 이전 방 화면 정리 시 공용 소켓이 끊겨 새 게임이 멈춘다 (A-3).
-    connect: (code) => {
+    connect: code => {
       const { socket: current, roomCode } = get();
       if (current && roomCode === code) return;
       current?.disconnect();
@@ -67,7 +67,7 @@ export const useRoomStore = create<RoomStore>()(
       const socket = io(`${BASE_URL}${SOCKET_NAMESPACE}`, {
         transports: ['websocket'], // Pitfall 1: RN에서 polling fallback 비활성화 필수
         // 재연결마다 스토어의 최신 accessToken을 읽는다 — 만료된 토큰 재사용 방지
-        auth: (cb) => cb({ token: useAuthStore.getState().accessToken ?? '', ...APP_CLIENT_INFO }),
+        auth: cb => cb({ token: useAuthStore.getState().accessToken ?? '', ...APP_CLIENT_INFO }),
       });
 
       // accessToken 만료로 인증 실패 시 1회 갱신 후 재연결. connect 성공 시 초기화된다.
@@ -77,7 +77,7 @@ export const useRoomStore = create<RoomStore>()(
         // 최초 연결·재연결 모두 방에 (재)입장 — 서버가 진행 중 라운드/스텝을 이 소켓에 다시 보내준다
         socket.emit(CLIENT_EVENT.ROOM_JOIN, { code });
       });
-      socket.on('connect_error', (err) => {
+      socket.on('connect_error', err => {
         // 최소 빌드 미달 — 재연결해도 계속 거부되므로 연결을 멈추고 업데이트 화면으로 전환
         if (err.message === UPDATE_REQUIRED_CODE) {
           socket.disconnect();
@@ -94,47 +94,56 @@ export const useRoomStore = create<RoomStore>()(
         console.log('[socket] auth expired, refreshing token');
         if (didRefreshAuth) return;
         didRefreshAuth = true;
-        void refreshAccessToken().then((newToken) => {
-          if (newToken) socket.connect();
-        }).catch(() => undefined); // 서버 장애로 재발급 실패 시 세션은 유지, 연결만 보류
+        void refreshAccessToken()
+          .then(newToken => {
+            if (newToken) socket.connect();
+          })
+          .catch(() => undefined); // 서버 장애로 재발급 실패 시 세션은 유지, 연결만 보류
       });
       // 이벤트명 리터럴 직접 사용 — SERVER_EVENT 상수를 통한 타입 추론이 socket.on 오버로드와 불일치 (D-04-04)
-      socket.on('room:state', (s) => {
+      socket.on('room:state', s => {
         if (s.code !== code) return;
         get().setRoomState(s);
       });
+      socket.on('room:removed', payload => {
+        if (payload.code !== code || get().roomCode !== code) return;
+        set(st => {
+          st.joinError = { code: 'ROOM_REMOVED', message: '시상식이 종료되어 방에서 나왔어요' };
+          st.roomState = null;
+        });
+      });
       socket.on('room:player:join', ({ player }: { player: Player }) =>
-        set((st) => {
-          if (st.roomState && !st.roomState.players.some((p) => p.id === player.id)) {
+        set(st => {
+          if (st.roomState && !st.roomState.players.some(p => p.id === player.id)) {
             st.roomState.players.push(player);
           }
-        })
+        }),
       );
       socket.on('room:player:leave', ({ userId }: { userId: string }) =>
-        set((st) => {
+        set(st => {
           if (!st.roomState) return;
-          st.roomState.players = st.roomState.players.filter((p) => p.id !== userId);
+          st.roomState.players = st.roomState.players.filter(p => p.id !== userId);
           // hostId는 room:state 이벤트로 함께 갱신되지만, 방어적으로 직접 승계
           if (st.roomState.hostId === userId) {
             const next = [...st.roomState.players].sort((a, b) => a.slot - b.slot)[0];
             if (next) {
               st.roomState.hostId = next.id;
-              st.roomState.players.forEach((p) => {
+              st.roomState.players.forEach(p => {
                 p.isHost = p.id === next.id;
               });
             }
           }
-        })
+        }),
       );
       socket.on('error', ({ code: errorCode, message }) => {
         useToastStore.getState().show(message);
         if (!JOIN_REJECT_CODES.has(errorCode)) return;
-        set((st) => {
+        set(st => {
           st.joinError = { code: errorCode, message };
         });
       });
 
-      set((st) => {
+      set(st => {
         st.socket = socket as unknown as typeof st.socket;
         st.roomCode = code;
         st.joinError = null;
@@ -143,10 +152,10 @@ export const useRoomStore = create<RoomStore>()(
     },
 
     // 자기 방 소켓만 정리 — 다른 방으로 이동한 뒤 이전 방 화면의 정리 코드가 늦게 실행돼도 새 소켓을 끊지 않는다
-    disconnect: (code) => {
+    disconnect: code => {
       if (get().roomCode !== code) return;
       get().socket?.disconnect();
-      set((st) => {
+      set(st => {
         st.socket = null;
         st.roomCode = null;
         st.joinError = null;
@@ -154,13 +163,13 @@ export const useRoomStore = create<RoomStore>()(
       });
     },
 
-    setRoomState: (s) =>
-      set((st) => {
+    setRoomState: s =>
+      set(st => {
         st.roomState = s;
       }),
 
-    setMatchmaking: (on) =>
-      set((st) => {
+    setMatchmaking: on =>
+      set(st => {
         st.isMatchmaking = on;
         if (!on) {
           st.matchingSeconds = 0;
@@ -168,19 +177,19 @@ export const useRoomStore = create<RoomStore>()(
         }
       }),
 
-    setMatchingSeconds: (n) =>
-      set((st) => {
+    setMatchingSeconds: n =>
+      set(st => {
         st.matchingSeconds = n;
       }),
 
-    setMatchLobby: (s) =>
-      set((st) => {
+    setMatchLobby: s =>
+      set(st => {
         st.matchLobby = s;
       }),
 
-    setMatchFoundCode: (code) =>
-      set((st) => {
+    setMatchFoundCode: code =>
+      set(st => {
         st.matchFoundCode = code;
       }),
-  }))
+  })),
 );

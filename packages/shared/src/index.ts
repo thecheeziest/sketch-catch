@@ -5,3 +5,5 @@ export * from './schemas/index.js';
 export * from './constants/index.js';
 
 export const SHARED_PACKAGE_VERSION = '0.1.0';
+
+export * from './drawing/paint.js';

@@ -1,6 +1,13 @@
 import type { Namespace, Socket } from 'socket.io';
-import type { ClientEvents, ServerEvents, Mode1RoundCurrent, RoomState, Category, RoundStart } from '@sketch-catch/shared';
-import { SERVER_EVENT } from '@sketch-catch/shared';
+import type {
+  ClientEvents,
+  ServerEvents,
+  Mode1RoundCurrent,
+  RoomState,
+  Category,
+  RoundStart,
+} from '@sketch-catch/shared';
+import { PROMPT_DURATION_SEC, SERVER_EVENT } from '@sketch-catch/shared';
 import { getRoomState, saveRoomState } from '../../services/rooms.service.js';
 import { pickRoundWord } from '../../services/word.service.js';
 import { clearRoomTimer, clearRoomTimers, setRoomTimer } from '../../services/roomTimers.js';
@@ -16,7 +23,7 @@ function pickRoundCategory(categories: Category[]): Category {
 
 type GameNamespace = Namespace<ClientEvents, ServerEvents>;
 
-const CUSTOM_PROMPT_TIMEOUT_MS = 10_000;
+const CUSTOM_PROMPT_TIMEOUT_MS = PROMPT_DURATION_SEC * 1000;
 const NEXT_ROUND_DELAY_MS = 3000;
 
 // D-01: answeredAt 누적 Map (동점자 정렬용 — score DESC, answeredAt ASC)
@@ -84,9 +91,15 @@ export async function startRound(
   const roomName = `room:${code}`;
 
   if (roundCategory === 'CUSTOM') {
-    // 커스텀 모드: 제시어 없이 시작, 출제자가 10초 내 직접 입력
+    // 커스텀 모드: 제시어 없이 시작, 출제자가 20초 내 직접 입력
     state.status = 'MODE1_ROUND_START';
-    state.current = { roundIndex, drawerId, prompt: '', startedAt: Date.now() } satisfies Mode1RoundCurrent;
+    state.current = {
+      roundIndex,
+      drawerId,
+      prompt: '',
+      isCustomRound: true,
+      startedAt: Date.now(),
+    } satisfies Mode1RoundCurrent;
     await saveRoomState(state);
 
     if (isFirstRound) game.to(roomName).emit(SERVER_EVENT.ROOM_STATE, state);
@@ -94,7 +107,9 @@ export async function startRound(
       gameId: gameId ?? '',
       roundIndex,
       drawerId,
-      durationSec: state.config.drawTimer,
+      durationSec: PROMPT_DURATION_SEC,
+      isCustomRound: true,
+      promptInputEndsAt: Date.now() + CUSTOM_PROMPT_TIMEOUT_MS,
       needsCustomPrompt: true,
     });
 
@@ -115,13 +130,17 @@ export async function startRound(
   await saveRoomState(state);
 
   if (isFirstRound) game.to(roomName).emit(SERVER_EVENT.ROOM_STATE, state);
-  game.to(roomName).emit('game:round:start', {
-    gameId: gameId ?? '',
-    roundIndex,
-    drawerId,
-    promptForDrawer: picked.word,
-    durationSec: state.config.drawTimer,
-  });
+  for (const player of state.players.filter(p => !p.left)) {
+    game.to(`user:${player.id}`).emit('game:round:start', {
+      gameId: gameId ?? '',
+      roundIndex,
+      drawerId,
+      promptForDrawer: player.id === drawerId ? picked.word : undefined,
+      promptHint: picked.word.replace(/[^ ]/gu, 'ㅇ'),
+      isCustomRound: false,
+      durationSec: state.config.drawTimer,
+    });
+  }
 
   setRoomTimer(code, 'round', state.config.drawTimer * 1000, () =>
     endRound(game, code, roundIndex, null, undefined, gameId),
@@ -129,7 +148,7 @@ export async function startRound(
   return true;
 }
 
-// 커스텀 제시어 10초 초과 → 출제자 점수 차감 후 다음 턴
+// 커스텀 제시어 20초 초과 → 출제자 점수 차감 후 다음 턴
 async function handleCustomPromptTimeout(
   game: GameNamespace,
   code: string,
@@ -152,7 +171,7 @@ export async function handleCustomPromptSubmit(
   socket: { rooms: Set<string>; data: { userId: string } },
   payload: { text: string },
 ): Promise<void> {
-  const roomName = Array.from(socket.rooms).find((r) => r.startsWith('room:'));
+  const roomName = Array.from(socket.rooms).find(r => r.startsWith('room:'));
   if (!roomName) return;
   const code = roomName.replace('room:', '');
 
@@ -172,13 +191,17 @@ export async function handleCustomPromptSubmit(
 
   const gameId = state.gameId;
   // 출제자에게만 실제 제시어 전달
-  game.to(`room:${code}`).emit('game:round:start', {
-    gameId: gameId ?? '',
-    roundIndex: current.roundIndex,
-    drawerId: current.drawerId,
-    promptForDrawer: prompt,
-    durationSec: state.config.drawTimer,
-  });
+  for (const player of state.players.filter(p => !p.left)) {
+    game.to(`user:${player.id}`).emit('game:round:start', {
+      gameId: gameId ?? '',
+      roundIndex: current.roundIndex,
+      drawerId: current.drawerId,
+      promptForDrawer: player.id === current.drawerId ? prompt : undefined,
+      promptHint: prompt.replace(/[^ ]/gu, 'ㅇ'),
+      isCustomRound: true,
+      durationSec: state.config.drawTimer,
+    });
+  }
 
   // 커스텀 제시어 대기 타이머를 그림 타이머로 교체
   setRoomTimer(code, 'round', state.config.drawTimer * 1000, () =>
@@ -203,7 +226,12 @@ export function resendCurrentRound(
     gameId: state.gameId ?? '',
     roundIndex: current.roundIndex,
     drawerId: current.drawerId,
-    durationSec: needsCustomPrompt ? state.config.drawTimer : Math.max(0, state.config.drawTimer - elapsedSec),
+    durationSec: needsCustomPrompt
+      ? Math.max(0, PROMPT_DURATION_SEC - elapsedSec)
+      : Math.max(0, state.config.drawTimer - elapsedSec),
+    isCustomRound: current.isCustomRound === true,
+    promptHint: current.prompt.replace(/[^ ]/gu, 'ㅇ'),
+    promptInputEndsAt: needsCustomPrompt ? current.startedAt + CUSTOM_PROMPT_TIMEOUT_MS : undefined,
   };
   if (needsCustomPrompt) payload.needsCustomPrompt = true;
   if (!needsCustomPrompt && current.drawerId === userId) payload.promptForDrawer = current.prompt;
@@ -265,21 +293,17 @@ export async function endRound(
   }
 }
 
-export async function handlePlayerLeft(
-  game: GameNamespace,
-  code: string,
-  userId: string,
-): Promise<void> {
+export async function handlePlayerLeft(game: GameNamespace, code: string, userId: string): Promise<void> {
   const state = await getRoomState(code);
   if (!state) return;
 
-  const player = state.players.find((p) => p.id === userId);
+  const player = state.players.find(p => p.id === userId);
   if (!player || player.left) return; // 이미 처리됨
 
   player.connected = false;
   player.left = true;
 
-  const activePlayers = state.players.filter((p) => !p.left);
+  const activePlayers = state.players.filter(p => !p.left);
 
   // 3명 미만이면 게임 즉시 종료 (D-03)
   if (activePlayers.length < 3) {
@@ -311,11 +335,7 @@ export async function handlePlayerLeft(
   }
 }
 
-export async function endGame(
-  game: GameNamespace,
-  code: string,
-  reason?: 'INSUFFICIENT_PLAYERS',
-): Promise<void> {
+export async function endGame(game: GameNamespace, code: string, reason?: 'INSUFFICIENT_PLAYERS'): Promise<void> {
   const state = await getRoomState(code);
   if (!state) return;
   // 이미 시상식으로 넘어간 게임에 대한 중복 종료 방어

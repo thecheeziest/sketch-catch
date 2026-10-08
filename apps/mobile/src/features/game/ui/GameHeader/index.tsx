@@ -2,6 +2,7 @@ import { type ReactNode, useEffect, useState } from 'react';
 import { Text, View } from 'dripsy';
 import { StyleSheet } from 'react-native';
 import { colors, fontFamily, spacing, textSizes } from '@/shared/config';
+import { Badge } from '@/shared/ui/Badge';
 import { Icon } from '@/shared/ui/Icon';
 import { gameSurface, gameText, legendSwatch } from '@/features/game/config';
 
@@ -9,6 +10,7 @@ type Props = {
   roundIndex: number;
   totalTurns: number;
   isDrawer: boolean;
+  isCustomRound?: boolean;
   word: string | null;
   promptHint: string | null;
   durationSec: number;
@@ -37,6 +39,7 @@ export function GameHeader({
   roundIndex,
   totalTurns,
   isDrawer,
+  isCustomRound = false,
   word,
   promptHint,
   durationSec,
@@ -51,7 +54,7 @@ export function GameHeader({
   useEffect(() => {
     setTimeLeft(durationSec);
     const id = setInterval(() => {
-      setTimeLeft((t) => Math.max(0, t - 1));
+      setTimeLeft(t => Math.max(0, t - 1));
     }, 1000);
     return () => clearInterval(id);
   }, [roundIndex, durationSec]);
@@ -88,12 +91,13 @@ export function GameHeader({
         >
           {wordDisplay ?? ''}
         </Text>
+        {isCustomRound && <Badge label="커스텀" />}
         <Text style={[styles.timer, isUrgent && styles.timerUrgent]}>{timeLeft}</Text>
       </View>
 
       {/* ③ 상태 범례 (+ 오른쪽 끝 액션 슬롯) */}
       <View style={styles.legendRow}>
-        {LEGEND.map((item) => (
+        {LEGEND.map(item => (
           <View key={item.label} style={styles.legendItem}>
             <View style={[styles.legendSwatch, { backgroundColor: item.color }]} />
             <Text sx={{ fontFamily: fontFamily.REGULAR, fontSize: 11, color: gameText.MUTED }}>{item.label}</Text>
