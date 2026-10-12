@@ -266,18 +266,18 @@ export default function FriendsScreen() {
 
         <AddFriendModal visible={addModalOpen} onClose={() => setAddModalOpen(false)} />
 
-        {deleteTarget !== null && (
-          <DeleteFriendModal
-            visible={true}
-            onClose={() => setDeleteTarget(null)}
-            friendNickname={deleteTarget.nickname}
-            friendUserId={deleteTarget.userId}
-          />
-        )}
+        <DeleteFriendModal
+          visible={deleteTarget !== null}
+          onClose={() => setDeleteTarget(null)}
+          friendNickname={deleteTarget?.nickname ?? ''}
+          friendUserId={deleteTarget?.userId ?? ''}
+        />
 
-        {joinTarget !== null && (
-          <FriendPasswordModal visible={true} onClose={() => setJoinTarget(null)} roomCode={joinTarget.room.code} />
-        )}
+        <FriendPasswordModal
+          visible={joinTarget !== null}
+          onClose={() => setJoinTarget(null)}
+          roomCode={joinTarget?.room.code ?? ''}
+        />
       </SafeAreaView>
     </View>
   );

@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useState } from 'react';
-import { Alert, StyleSheet } from 'react-native';
+import { Alert, Keyboard, KeyboardAvoidingView, Platform, StyleSheet } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { CLIENT_EVENT } from '@sketch-catch/shared';
@@ -7,8 +7,7 @@ import { Text, View } from 'dripsy';
 import { useHardwareBack } from '@/shared/lib';
 import { useAuthStore, useRoomStore } from '@/shared/model';
 import { colors, spacing, textSizes } from '@/shared/config';
-import { PixelInput } from '@/shared/ui/PixelInput';
-import { DrawingCanvas, ToolbarRow, WordBanner } from '@/features/game/ui';
+import { ChatInputBar, CustomPromptModal, DrawingCanvas, ToolbarRow, WordBanner } from '@/features/game/ui';
 import {
   ReferenceCanvas,
   SheetRotationHeader,
@@ -29,7 +28,6 @@ export default function Mode2Screen() {
   const myStrokesLength = useMode2Store(s => s.myStrokes.length);
   const { submitPrompt, submitDraw, submitAnswer } = useMode2Sender();
 
-  const [text, setText] = useState('');
   const [submitted, setSubmitted] = useState(false);
 
   // 모드2 이벤트 리스너·스토어 초기화는 room/[code]/_layout과 gameId 변경 시점에 처리된다
@@ -45,7 +43,6 @@ export default function Mode2Screen() {
   // 단계 전환 시 로컬 입력/제출 상태 초기화 — myStrokes도 비워 이전 DRAW 단계의 stroke가
   // 제출되는 것을 막는다 (DrawingCanvas는 key로 remount되지만 store는 유지되므로)
   useEffect(() => {
-    setText('');
     setSubmitted(false);
     useMode2Store.getState().setMyStrokes([]);
   }, [step?.stepIndex]);
@@ -74,24 +71,20 @@ export default function Mode2Screen() {
   const isAssignee = step.assigneeId === myId;
   const showWaiting = !isAssignee || submitted;
 
-  const handleSubmit = (): void => {
-    if (step.phase === 'PROMPT') {
-      submitPrompt(step.sheetId, text);
-    } else if (step.phase === 'DRAW') {
-      submitDraw(step.sheetId, useMode2Store.getState().myStrokes);
-    } else {
-      submitAnswer(step.sheetId, text);
+  const handleTextSubmit = (text: string): boolean => {
+    if (submitted || !isAssignee) return false;
+    const sent = step.phase === 'PROMPT' ? submitPrompt(step.sheetId, text) : submitAnswer(step.sheetId, text);
+    if (sent) {
+      Keyboard.dismiss();
+      setSubmitted(true);
     }
-    setText('');
-    setSubmitted(true);
+    return sent;
   };
 
-  const isTextPhase = step.phase === 'PROMPT' || step.phase === 'ANSWER';
-  const submitDisabled = (() => {
-    if (isTextPhase) return text.trim().length === 0;
-    if (step.phase === 'DRAW') return myStrokesLength === 0;
-    return false;
-  })();
+  const handleSubmitDrawing = (): void => {
+    if (submitted || !isAssignee) return;
+    if (submitDraw(step.sheetId, useMode2Store.getState().myStrokes)) setSubmitted(true);
+  };
 
   const renderContent = () => {
     if (showWaiting) {
@@ -104,17 +97,8 @@ export default function Mode2Screen() {
 
     if (step.phase === 'PROMPT') {
       return (
-        <View sx={styles2.content}>
-          <Text sx={{ ...textSizes.B1, color: colors.LIGHT_100, marginBottom: spacing.MD }}>
-            제시어를 직접 입력해 주세요
-          </Text>
-          <PixelInput
-            value={text}
-            onChangeText={setText}
-            maxLength={MAX_TEXT_LENGTH}
-            showCounter
-            placeholder="그림으로 그려질 문장을 적어주세요"
-          />
+        <View sx={styles2.waiting}>
+          <Text sx={{ color: colors.LIGHT_100 }}>친구들이 그릴 제시어를 정해 주세요</Text>
         </View>
       );
     }
@@ -122,6 +106,9 @@ export default function Mode2Screen() {
     if (step.phase === 'DRAW') {
       return (
         <View sx={styles2.drawArea}>
+          <Text sx={{ ...textSizes.B2, color: colors.LIGHT_100, padding: spacing.SM }}>
+            아래 제시어를 그림으로 표현해 주세요
+          </Text>
           {step.previousContent?.kind === 'TEXT' && <WordBanner word={step.previousContent.text} />}
           <View sx={{ flex: 1 }}>
             <DrawingCanvas
@@ -130,7 +117,7 @@ export default function Mode2Screen() {
               onStrokesChange={useMode2Store.getState().setMyStrokes}
             />
           </View>
-          <ToolbarRow />
+          <ToolbarRow realtime={false} />
         </View>
       );
     }
@@ -139,32 +126,48 @@ export default function Mode2Screen() {
     return (
       <View sx={styles2.drawArea}>
         <ReferenceCanvas strokes={step.previousContent?.kind === 'DRAW' ? step.previousContent.strokes : []} />
-        <View sx={styles2.content}>
-          <PixelInput
-            value={text}
-            onChangeText={setText}
-            maxLength={MAX_TEXT_LENGTH}
-            showCounter
-            placeholder="정답을 적어주세요"
-          />
-        </View>
+        <Text sx={{ ...textSizes.B2, color: colors.LIGHT_100, padding: spacing.SM }}>
+          이 그림이 무엇인지 아래에 입력하고 전송해 주세요
+        </Text>
       </View>
     );
   };
 
   return (
     <SafeAreaView style={styles.container} edges={['top', 'bottom', 'left', 'right']}>
-      <SheetRotationHeader
-        stepIndex={step.stepIndex}
-        totalSteps={step.totalSteps}
-        phase={step.phase}
-        durationSec={step.durationSec}
-        onBack={handleExitAttempt}
+      <KeyboardAvoidingView style={{ flex: 1 }} behavior={Platform.OS === 'ios' ? 'padding' : 'height'}>
+        <SheetRotationHeader
+          stepIndex={step.stepIndex}
+          totalSteps={step.totalSteps}
+          phase={step.phase}
+          durationSec={step.durationSec}
+          endsAt={step.endsAt}
+          onBack={handleExitAttempt}
+        />
+
+        <View sx={{ flex: 1 }}>{renderContent()}</View>
+
+        {step.phase === 'ANSWER' && (
+          <ChatInputBar
+            isDrawer={false}
+            resetKey={`${step.sheetId}-${step.stepIndex}`}
+            onSend={handleTextSubmit}
+            maxLength={MAX_TEXT_LENGTH}
+            disabled={showWaiting}
+            placeholder={submitted ? '제출 완료! 친구들을 기다리는 중' : '이 그림은 뭘까요?'}
+          />
+        )}
+        {!showWaiting && step.phase === 'DRAW' && (
+          <SubmitStepButton phase="DRAW" disabled={myStrokesLength === 0} onSubmit={handleSubmitDrawing} />
+        )}
+      </KeyboardAvoidingView>
+      <CustomPromptModal
+        visible={!showWaiting && step.phase === 'PROMPT'}
+        title="제시어를 입력하세요"
+        maxLength={MAX_TEXT_LENGTH}
+        endsAt={step.endsAt}
+        onSubmit={handleTextSubmit}
       />
-
-      <View sx={{ flex: 1 }}>{renderContent()}</View>
-
-      {!showWaiting && <SubmitStepButton phase={step.phase} disabled={submitDisabled} onSubmit={handleSubmit} />}
     </SafeAreaView>
   );
 }
@@ -182,10 +185,6 @@ const styles2 = {
     alignItems: 'center' as const,
     justifyContent: 'center' as const,
     paddingHorizontal: spacing.MD,
-  },
-  content: {
-    flex: 1,
-    padding: spacing.MD,
   },
   drawArea: {
     flex: 1,

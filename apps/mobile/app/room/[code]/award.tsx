@@ -1,4 +1,4 @@
-import { useMemo } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { KeyboardAvoidingView, StyleSheet, useWindowDimensions } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Text, View } from 'dripsy';
@@ -10,43 +10,54 @@ import { PodiumSlot, ChatStream, ChatInputBar } from '@/features/game/ui';
 import { AudienceCheer } from '@/features/game/ui/AudienceCheer';
 import { useAwardSession } from '@/features/room/lib';
 import { Button } from '@/shared/ui/Button';
+import { Dialog } from '@/shared/ui/Dialog';
 import { colors, spacing, textSizes, fontFamily } from '@/shared/config';
 
 export default function AwardScreen() {
   const { code } = useLocalSearchParams<{ code: string }>();
   const { width } = useWindowDimensions();
-  const result = useGameStore((s) => s.result);
-  const chatMessages = useGameStore((s) => s.chatMessages);
-  const roomState = useRoomStore((s) => s.roomState);
+  const [result, setResult] = useState(() => useGameStore.getState().result);
+  const incomingMessages = useGameStore(s => s.chatMessages);
+  const incomingGameId = useGameStore(s => s.gameId);
+  const [chatMessages, setChatMessages] = useState(() => useGameStore.getState().chatMessages);
+  const liveRoomState = useRoomStore(s => s.roomState);
+  const [roomState] = useState(() => useRoomStore.getState().roomState);
   const { sendChat } = useChatSender();
+  const incomingResult = useGameStore(s => s.result);
+  useEffect(() => {
+    if (incomingResult?.gameId === roomState?.gameId) setResult(incomingResult);
+  }, [incomingResult, roomState?.gameId]);
 
-  // 시상식: 한번 더!(대기실 복귀) / 나가기 / 만료 시 자동 퇴장 — 방 재입장은 room/[code]/_layout이 처리
-  const { secondsLeft, rematch, exit } = useAwardSession(code ?? '', roomState?.mode ?? 1);
+  useEffect(() => {
+    if (incomingGameId === roomState?.gameId) setChatMessages(incomingMessages);
+  }, [incomingGameId, incomingMessages, roomState?.gameId]);
+  const canChat = liveRoomState?.status === 'AWARD' && liveRoomState.gameId === roomState?.gameId;
+
+  // 시상식 결과는 이후 대기실·새 게임 상태가 도착해도 유지한다.
+  const { rematch, exit, rematching, rematchError } = useAwardSession(code ?? '');
 
   const ranking = result?.ranking ?? [];
   const players = roomState?.players ?? [];
 
   // userId → characterId 맵
-  const characterMap = Object.fromEntries(
-    players.map((p) => [p.id, p.characterId])
-  );
+  const characterMap = Object.fromEntries(players.map(p => [p.id, p.characterId]));
 
   // ranking 항목을 PodiumPlayer 형태로 변환 — 중도 퇴장 여부(left)도 함께 전달
   const toPodiumPlayer = (item: { userId: string; rank: number; score: number }) => ({
     userId: item.userId,
-    nickname: players.find((p) => p.id === item.userId)?.nickname ?? item.userId,
+    nickname: players.find(p => p.id === item.userId)?.nickname ?? item.userId,
     characterId: characterMap[item.userId] ?? 'cat',
     score: item.score,
-    left: players.find((p) => p.id === item.userId)?.left === true,
+    left: players.find(p => p.id === item.userId)?.left === true,
   });
 
-  const rank1 = ranking.find((r) => r.rank === 1);
-  const rank2 = ranking.find((r) => r.rank === 2);
-  const rank3 = ranking.find((r) => r.rank === 3);
+  const rank1 = ranking.find(r => r.rank === 1);
+  const rank2 = ranking.find(r => r.rank === 2);
+  const rank3 = ranking.find(r => r.rank === 3);
   // 4위 이하 — 인원이 4명 이상일 때만 방청석 연출로 노출
-  const restRanking = ranking.length >= 4 ? ranking.filter((r) => r.rank >= 4) : [];
+  const restRanking = ranking.length >= 4 ? ranking.filter(r => r.rank >= 4) : [];
   const audiencePlayers = useMemo(
-    () => restRanking.map((item) => ({ ...toPodiumPlayer(item), rank: item.rank })),
+    () => restRanking.map(item => ({ ...toPodiumPlayer(item), rank: item.rank })),
     // eslint-disable-next-line react-hooks/exhaustive-deps
     [restRanking, players],
   );
@@ -54,7 +65,7 @@ export default function AwardScreen() {
   // 채팅 스트림 — 게임 진행 중과 동일하게 우상단에 말풍선으로 표시 (정답 판정 없는 자유 채팅)
   const streamItems = useMemo(
     () =>
-      chatMessages.slice(-5).map((m) => ({
+      chatMessages.slice(-5).map(m => ({
         id: m.id,
         nickname: m.nickname,
         text: m.text,
@@ -85,15 +96,10 @@ export default function AwardScreen() {
           게임 종료
         </Text>
         <View sx={{ flexDirection: 'row', gap: spacing.XS }}>
-          <Button label="한번 더!" color="primary" height={32} onPress={rematch} />
+          <Button label="한번 더!" color="primary" height={32} onPress={rematch} loading={rematching} />
           <Button label="나가기" color="light" height={32} onPress={exit} />
         </View>
       </View>
-
-      {/* 자동 종료 안내 — 버튼을 누르지 않으면 만료 시 퇴장 처리된다 */}
-      <Text sx={{ ...textSizes.B4, color: colors.GRAY, textAlign: 'center', paddingTop: spacing.XS }}>
-        {secondsLeft}초 후 자동으로 나가져요
-      </Text>
 
       {/* 인원 부족 조기 종료 안내 배너 (D-05, OFFL-03) */}
       {result?.endReason === 'INSUFFICIENT_PLAYERS' && (
@@ -121,9 +127,7 @@ export default function AwardScreen() {
           ) : (
             <View sx={{ width: Math.round(baseCardWidth * 1.1) }} />
           )}
-          {rank1 != null && (
-            <PodiumSlot rank={1} player={toPodiumPlayer(rank1)} baseCardWidth={baseCardWidth} />
-          )}
+          {rank1 != null && <PodiumSlot rank={1} player={toPodiumPlayer(rank1)} baseCardWidth={baseCardWidth} />}
           {rank3 != null ? (
             <PodiumSlot rank={3} player={toPodiumPlayer(rank3)} baseCardWidth={baseCardWidth} />
           ) : (
@@ -140,8 +144,20 @@ export default function AwardScreen() {
 
       {/* 하단바 — 게임 진행 때와 동일한 채팅 입력창 (자동 종료 안내/나가기 버튼은 두지 않는다) */}
       <KeyboardAvoidingView behavior="padding">
-        <ChatInputBar isDrawer={false} onSend={sendChat} placeholder="채팅을 입력하세요" />
+        <ChatInputBar
+          isDrawer={false}
+          onSend={sendChat}
+          disabled={!canChat}
+          placeholder={canChat ? '채팅을 입력하세요' : '한번 더 또는 나가기를 선택해 주세요'}
+        />
       </KeyboardAvoidingView>
+      <Dialog
+        visible={rematchError !== null}
+        onClose={() => {}}
+        dismissible={false}
+        title={rematchError ?? ''}
+        buttons={[{ label: '홈으로', color: 'primary', onPress: exit }]}
+      />
     </SafeAreaView>
   );
 }

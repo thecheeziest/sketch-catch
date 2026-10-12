@@ -74,7 +74,7 @@ export async function handleRoomJoin(game: GameNamespace, socket: GameSocket, co
         return { ok: false, code: 'GAME_IN_PROGRESS', message: '이미 게임이 진행 중인 방이에요.' };
       }
       // 인원 초과 검사
-      if (state.players.length >= state.config.playerCountMax) {
+      if (state.players.filter(p => !p.inAward).length >= state.config.playerCountMax) {
         return { ok: false, code: 'ROOM_FULL', message: '방이 가득 찼습니다.' };
       }
 
@@ -190,7 +190,7 @@ export async function handleRoomStart(game: GameNamespace, socket: GameSocket): 
 
   // 모드별 최소 인원 미달이면 시작 거부 — 인원 부족 상태로 시작되면 출제 순서가 꼬여 게임이 멈춘다
   const minPlayers = state.mode === 2 ? MODE2_PLAYER_MIN : ROOM_PLAYER_MIN;
-  if (state.players.filter(p => p.connected).length < minPlayers) {
+  if (state.players.filter(p => p.connected && !p.inAward).length < minPlayers) {
     socket.emit(SERVER_EVENT.ERROR, {
       code: 'INSUFFICIENT_PLAYERS',
       message: `최소 ${minPlayers}명이 모여야 시작할 수 있어요.`,
@@ -198,12 +198,15 @@ export async function handleRoomStart(game: GameNamespace, socket: GameSocket): 
     return;
   }
 
+  // 시상식에 남은 유저는 새 판의 출제·시트 순서에 포함하지 않는다.
+  state.players = state.players.filter(p => !p.inAward && !p.left);
+
   // 게임 1판의 식별자 발급 — 이후 타이머·이벤트는 이 값으로 지난 게임과 구분된다
   state.gameId = randomUUID();
   state.startedAt = Date.now();
   state.scoreboard = {};
   state.allReady = false;
-  const activePlayers = state.players.filter(p => p.connected);
+  const activePlayers = state.players.filter(p => p.connected && !p.inAward);
 
   // Pitfall 4: 모드 2는 시트 로테이션 상태 머신(startMode2)으로 분기 — initTurnSchedule(모드1 전용) 미호출
   if (state.mode === 2) {

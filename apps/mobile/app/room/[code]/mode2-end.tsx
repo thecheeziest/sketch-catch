@@ -7,7 +7,7 @@ import { useAuthStore, useRoomStore, useToastStore } from '@/shared/model';
 import { useMode2Store, useGifDownload, SheetGifTabs, SaveGifButton } from '@/features/mode2';
 import { useAwardSession } from '@/features/room/lib';
 import type { SheetGifTabItem } from '@/features/mode2/ui/SheetGifTabs';
-import { GifPreviewPlayer, PixelFrame, Button } from '@/shared/ui';
+import { GifPreviewPlayer, PixelFrame, Button, Dialog } from '@/shared/ui';
 import { colors, spacing, textSizes, fontFamily } from '@/shared/config';
 
 // api/client.ts, shared/model/room.ts와 동일한 Android 에뮬레이터 호스트 대체 패턴
@@ -16,23 +16,27 @@ const BASE_URL = (process.env.EXPO_PUBLIC_API_URL ?? 'http://localhost:3000').re
 
 export default function Mode2EndScreen() {
   const { code } = useLocalSearchParams<{ code: string }>();
-  const roomState = useRoomStore((s) => s.roomState);
-  const review = useMode2Store((s) => s.review);
-  const gifs = useMode2Store((s) => s.gifs);
-  const accessToken = useAuthStore((s) => s.accessToken);
+  const [roomState] = useState(() => useRoomStore.getState().roomState);
+  const [review] = useState(() => useMode2Store.getState().review);
+  const incomingGifs = useMode2Store(s => s.gifs);
+  const [gifs, setGifs] = useState(() => useMode2Store.getState().gifs);
+  useEffect(() => {
+    setGifs(previous => ({ ...previous, ...incomingGifs }));
+  }, [incomingGifs]);
+  const accessToken = useAuthStore(s => s.accessToken);
   const { saveGif } = useGifDownload();
 
   const [selectedSheetId, setSelectedSheetId] = useState<string | null>(null);
   const [saveFailed, setSaveFailed] = useState(false);
 
-  // 시상식 규칙(모드2는 30초): 한번 더!(대기실 복귀) / 나가기 / 만료 시 자동 퇴장.
+  // 종료 화면은 한번 더 / 나가기 선택까지 유지한다.
   // 방 재입장·cookie:ready 수신은 room/[code]/_layout이 처리한다.
-  const { secondsLeft, rematch, exit } = useAwardSession(code ?? '', 2);
+  const { rematch, exit, rematching, rematchError } = useAwardSession(code ?? '');
 
   const sheets: SheetGifTabItem[] = useMemo(
     () =>
       (review?.sheets ?? []).map((sheet, index) => {
-        const owner = roomState?.players.find((p) => p.id === sheet.ownerId);
+        const owner = roomState?.players.find(p => p.id === sheet.ownerId);
         return {
           sheetId: sheet.sheetId,
           nickname: owner?.nickname ?? '',
@@ -40,7 +44,7 @@ export default function Mode2EndScreen() {
           label: `${index + 1}번째 시트`,
         };
       }),
-    [review, roomState]
+    [review, roomState],
   );
 
   useEffect(() => {
@@ -97,10 +101,17 @@ export default function Mode2EndScreen() {
       </View>
 
       <View sx={sxStyles.footer}>
-        <Text sx={{ ...textSizes.B4, color: colors.GRAY, flex: 1 }}>{secondsLeft}초 후 자동으로 나가져요</Text>
-        <Button label="한번 더!" color="primary" height={36} onPress={rematch} />
+        <View sx={{ flex: 1 }} />
+        <Button label="한번 더!" color="primary" height={36} onPress={rematch} loading={rematching} />
         <Button label="나가기" color="light" height={36} onPress={exit} />
       </View>
+      <Dialog
+        visible={rematchError !== null}
+        onClose={() => {}}
+        dismissible={false}
+        title={rematchError ?? ''}
+        buttons={[{ label: '홈으로', color: 'primary', onPress: exit }]}
+      />
     </SafeAreaView>
   );
 }

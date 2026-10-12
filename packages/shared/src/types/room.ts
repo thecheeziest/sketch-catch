@@ -22,7 +22,7 @@ export type Player = UserPublic & {
   isReady: boolean;
   connected: boolean;
   left?: boolean; // 게임 중 자발적 퇴장
-  // 시상식(AWARD)에 아직 머무는 중 — [한번 더!]를 누르면 false, 시상식 만료 시 true인 유저는 퇴장 처리
+  // 시상식(AWARD)에 아직 머무는 중 — [한번 더!]를 누르면 false, true인 유저는 다음 게임 참가 명단에서 제외
   inAward?: boolean;
 };
 
@@ -52,6 +52,6 @@ export type RoomState = {
   turnSchedule?: string[];
   // 게임 1판의 식별자 — 시작마다 새로 발급, 대기실 복귀 시 제거. 지난 게임의 타이머·이벤트를 걸러내는 기준
   gameId?: string;
-  // 시상식 종료 시각 (epoch ms) — 클라이언트 카운트다운 표시용, 실제 만료는 서버 타이머가 처리
+  // 이전 서버가 저장한 시상식 종료 시각 — 새 시상식 시작 시 제거 (자동 퇴장 없음)
   awardEndsAt?: number;
 };

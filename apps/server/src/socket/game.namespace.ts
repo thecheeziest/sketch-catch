@@ -65,7 +65,7 @@ export function registerGameNamespace(io: Server<ClientEvents, ServerEvents>): v
   });
 
   game.on('connection', socket => {
-    // 유저 개인 채널 — 시상식 만료 시 해당 유저의 소켓을 방 채널에서 빼는 데 쓴다(award.ts detachUser)
+    // 유저 개인 채널 — 역할별 제시어와 개인 응답을 전달하는 데 쓴다
     void socket.join(`user:${socket.data.userId}`);
 
     // 현재 소켓이 속한 방의 작업 줄에서 실행 (방에 없으면 핸들러가 스스로 무시한다)
@@ -102,9 +102,11 @@ export function registerGameNamespace(io: Server<ClientEvents, ServerEvents>): v
     // GAME-01/MD1-02/MD1-03: 채팅 + 정답 판정
     socket.on('chat:send', payload => inRoom('chat:send', () => handleChatSend(game, socket, payload)));
     socket.on('answer:accept', payload => inRoom('answer:accept', () => handleAnswerAccept(game, socket, payload)));
-    socket.on('game:custom:prompt', payload =>
-      inRoom('game:custom:prompt', () => handleCustomPromptSubmit(game, socket, payload)),
-    );
+    socket.on('game:custom:prompt', payload => {
+      // 방 작업 줄에서 기다린 시간 때문에 유효한 제출이 시간 초과로 바뀌지 않도록 수신 시각을 보관한다.
+      const receivedAt = Date.now();
+      inRoom('game:custom:prompt', () => handleCustomPromptSubmit(game, socket, payload, receivedAt));
+    });
 
     // MD2-01/02: 모드2 시트 로테이션 — 리터럴 이벤트명 직접 사용 (Phase 4 결정)
     socket.on('mode2:prompt', payload => inRoom('mode2:prompt', () => handleMode2Prompt(game, socket, payload)));

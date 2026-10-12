@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { StyleSheet, useWindowDimensions } from 'react-native';
+import { StyleSheet } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Image, ScrollView, Text, View } from 'dripsy';
 import { useLocalSearchParams, useRouter } from 'expo-router';
@@ -13,8 +13,8 @@ import { ReviewProgressHeader } from '@/features/mode2/ui/ReviewProgressHeader';
 import { FinalJudgeButton } from '@/features/mode2/ui/FinalJudgeButton';
 import { BestSheetVoteList, type VoteSheet } from '@/features/mode2/ui/BestSheetVoteList';
 import { SparkleBadge } from '@/features/mode2/ui/SparkleBadge';
-import { DrawingCanvas, WordBanner } from '@/features/game/ui';
-import { useGameStore } from '@/features/game/model/useGameStore';
+import { WordBanner } from '@/features/game/ui';
+import { ReferenceCanvas } from '@/features/mode2/ui/ReferenceCanvas';
 import { Button } from '@/shared/ui/Button';
 import { Dialog } from '@/shared/ui/Dialog';
 import { PixelFrame } from '@/shared/ui/PixelFrame';
@@ -31,7 +31,6 @@ export default function Mode2ReviewScreen() {
   const roomState = useRoomStore(s => s.roomState);
   const review = useMode2Store(s => s.review);
   const { judgeFinal, voteBest } = useMode2Sender();
-  const { height: windowHeight } = useWindowDimensions();
 
   const [selectedVoteId, setSelectedVoteId] = useState<string | null>(null);
   const [hasJudged, setHasJudged] = useState(false);
@@ -83,34 +82,10 @@ export default function Mode2ReviewScreen() {
     return null;
   })();
 
-  // DrawingCanvas(isDrawer=false)는 useGameStore.remoteStrokes를 읽는다 — 정적 리뷰 프레임을 그 형식으로 동기화
-  useEffect(() => {
-    if (displayContent?.kind === 'DRAW') {
-      useGameStore.setState({
-        remoteStrokes: displayContent.strokes.map(s => ({
-          strokeId: s.id,
-          authorId: s.authorId,
-          color: s.color,
-          width: s.width,
-          points: s.points,
-          ended: true,
-        })),
-      });
-    } else {
-      useGameStore.setState({ remoteStrokes: [] });
-    }
-  }, [displayContent]);
-
-  const referenceHeight = Math.round(windowHeight * 0.4);
-
   const renderReferenceContent = (content: Mode2StepContent | null) => {
     if (!content) return null;
     if (content.kind === 'DRAW') {
-      return (
-        <View style={{ height: referenceHeight }}>
-          <DrawingCanvas isDrawer={false} />
-        </View>
-      );
+      return <ReferenceCanvas strokes={content.strokes} label="전달된 그림" />;
     }
     return <WordBanner word={content.text} />;
   };

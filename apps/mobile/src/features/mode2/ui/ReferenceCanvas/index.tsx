@@ -9,11 +9,12 @@ import { buildPaintPath, buildStrokePath } from '@/shared/lib/strokePath';
 
 type Props = {
   strokes: Stroke[];
+  label?: string;
 };
 
 // ANSWER 단계 참고용 — 이전 DRAW 단계 stroke를 읽기 전용으로 렌더.
 // DrawingCanvas는 useGameStore(모드1 전용) 기반이라 prop 주입이 불가능해 별도 렌더러로 구현.
-export function ReferenceCanvas({ strokes }: Props) {
+export function ReferenceCanvas({ strokes, label = '이 그림은 뭘까요?' }: Props) {
   const { height: screenHeight } = useWindowDimensions();
   const [canvasSize, setCanvasSize] = useState({ width: 0, height: 0 });
 
@@ -28,8 +29,8 @@ export function ReferenceCanvas({ strokes }: Props) {
       <PixelFrame borderColor={colors.SECONDARY_300} style={StyleSheet.absoluteFill}>
         <View style={StyleSheet.absoluteFill} />
       </PixelFrame>
-      <View style={styles.body} onLayout={handleLayout}>
-        <Canvas style={styles.canvas}>
+      <View style={styles.body} onLayout={handleLayout} collapsable={false}>
+        <Canvas style={StyleSheet.absoluteFill}>
           {canvasSize.width > 0 &&
             strokes.map(s => {
               const path = s.paintSpans
@@ -49,9 +50,12 @@ export function ReferenceCanvas({ strokes }: Props) {
               );
             })}
         </Canvas>
+        {strokes.length === 0 && (
+          <Text sx={{ textAlign: 'center', color: colors.DARK_300, marginTop: 24 }}>제출된 그림이 없어요</Text>
+        )}
         <View style={styles.labelBar}>
           <Text sx={{ ...textSizes.T3, fontFamily: 'Galmuri11', color: colors.LIGHT_100, textAlign: 'center' }}>
-            이 그림은 뭘까요?
+            {label}
           </Text>
         </View>
       </View>
@@ -63,9 +67,6 @@ const styles = StyleSheet.create({
   body: {
     flex: 1,
     backgroundColor: '#FFFFFF',
-  },
-  canvas: {
-    flex: 1,
   },
   labelBar: {
     position: 'absolute',

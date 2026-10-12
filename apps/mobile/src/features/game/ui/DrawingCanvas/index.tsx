@@ -38,7 +38,7 @@ export function DrawingCanvas({ isDrawer, drawingEnabled = isDrawer, onStrokesCh
   const { color, width, eraser, paint, remoteStrokes } = useGameStore();
   const drawerClearNonce = useGameStore(s => s.drawerClearNonce);
   const drawerUndoNonce = useGameStore(s => s.drawerUndoNonce);
-  const sender = useStrokeSender(isDrawer);
+  const sender = useStrokeSender(isDrawer && !onStrokesChange);
   const myId = useAuthStore(s => s.user?.id) ?? '';
 
   // 캔버스 크기 (onLayout으로 측정). 일부 시뮬레이터/기기에서 onLayout이 늦거나 0을 주는

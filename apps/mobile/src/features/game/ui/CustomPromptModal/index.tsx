@@ -9,11 +9,19 @@ const COUNTDOWN_SEC = PROMPT_DURATION_SEC;
 
 type Props = {
   visible: boolean;
+  maxLength?: number;
+  title?: string;
   endsAt?: number | null;
   onSubmit: (text: string) => boolean;
 };
 
-export function CustomPromptModal({ visible, endsAt, onSubmit }: Props) {
+export function CustomPromptModal({
+  visible,
+  endsAt,
+  onSubmit,
+  maxLength = 20,
+  title = '제시어를 직접 입력해 주세요',
+}: Props) {
   const [text, setText] = useState('');
   const [remaining, setRemaining] = useState(COUNTDOWN_SEC);
   useEffect(() => {
@@ -41,7 +49,7 @@ export function CustomPromptModal({ visible, endsAt, onSubmit }: Props) {
       visible={visible}
       onClose={() => {}}
       dismissible={false}
-      title="제시어를 직접 입력해 주세요"
+      title={title}
       buttons={
         isExpired
           ? []
@@ -66,7 +74,7 @@ export function CustomPromptModal({ visible, endsAt, onSubmit }: Props) {
             placeholder="예: 빨간 사과"
             value={text}
             onChangeText={setText}
-            maxLength={20}
+            maxLength={maxLength}
             showCounter
             color="SECONDARY"
           />

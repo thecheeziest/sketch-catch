@@ -39,7 +39,7 @@ function LabeledButton({ label, icon, bg, ring, labelColor, active = false, onPr
   );
 }
 
-export function ToolbarRow() {
+export function ToolbarRow({ realtime = true }: { realtime?: boolean }) {
   const {
     color,
     width,
@@ -53,7 +53,7 @@ export function ToolbarRow() {
     requestDrawerClear,
     requestDrawerUndo,
   } = useGameStore();
-  const sender = useStrokeSender(true); // ToolbarRow는 출제자 전용
+  const sender = useStrokeSender(realtime); // ToolbarRow는 출제자 전용
 
   const handleClear = (): void => {
     sender.clear();

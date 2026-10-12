@@ -268,7 +268,7 @@ async function finalizeReview(game: GameNamespace, code: string, expectedGameId?
   );
 
   state.status = 'AWARD';
-  // 시상식 시작 — inAward 표시 + 시상식 만료 타이머 등록 후 저장
+  // 시상식 시작 — inAward 표시 + 선택 전까지 결과 유지
   await beginAward(game, state);
   game.to(roomName(code)).emit(SERVER_EVENT.ROOM_STATE, state);
 }

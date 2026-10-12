@@ -255,9 +255,9 @@ describe('mode2', () => {
       const ctl = makeStatefulMocks(initial);
       const game = makeNamespace();
 
-      await startMode2(game as any, 'ABC123'); // PROMPT durationSec=20
+      await startMode2(game as any, 'ABC123'); // PROMPT durationSec=30
 
-      await vi.advanceTimersByTimeAsync(20 * 1000);
+      await vi.advanceTimersByTimeAsync(30 * 1000);
 
       expect(ctl.state.status).toBe('MODE2_DRAW_PHASE');
       const current = ctl.state.current as any;

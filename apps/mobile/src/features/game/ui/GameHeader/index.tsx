@@ -1,33 +1,21 @@
-import { type ReactNode, useEffect, useState } from 'react';
+import { type ReactNode } from 'react';
 import { Text, View } from 'dripsy';
 import { StyleSheet } from 'react-native';
 import { colors, fontFamily, spacing, textSizes } from '@/shared/config';
-import { Badge } from '@/shared/ui/Badge';
 import { Icon } from '@/shared/ui/Icon';
 import { gameSurface, gameText, legendSwatch } from '@/features/game/config';
 
 type Props = {
   roundIndex: number;
   totalTurns: number;
-  isDrawer: boolean;
-  isCustomRound?: boolean;
-  word: string | null;
-  promptHint: string | null;
-  durationSec: number;
+  timeLeft: number;
+  playerGrid: ReactNode;
   playerCount: number;
   maxPlayers: number;
-  /** 정답 공개 — 라운드가 정답으로 종료되면 역할 무관하게 실제 제시어를 초록색으로 노출 */
-  revealedWord?: string | null;
   /** 범례 라인 오른쪽 끝 슬롯 (예: 정답 인정 버튼) */
   legendAction?: ReactNode;
   onBack: () => void;
 };
-
-function getWordColor(revealed: boolean, isDrawer: boolean): string {
-  if (revealed) return legendSwatch.SOLVED;
-  if (isDrawer) return gameText.WORD;
-  return gameText.PRIMARY;
-}
 
 const LEGEND = [
   { color: legendSwatch.DRAWER, label: '출제자' },
@@ -38,29 +26,13 @@ const LEGEND = [
 export function GameHeader({
   roundIndex,
   totalTurns,
-  isDrawer,
-  isCustomRound = false,
-  word,
-  promptHint,
-  durationSec,
+  timeLeft,
+  playerGrid,
   playerCount,
   maxPlayers,
-  revealedWord = null,
   legendAction,
   onBack,
 }: Props) {
-  const [timeLeft, setTimeLeft] = useState(durationSec);
-
-  useEffect(() => {
-    setTimeLeft(durationSec);
-    const id = setInterval(() => {
-      setTimeLeft(t => Math.max(0, t - 1));
-    }, 1000);
-    return () => clearInterval(id);
-  }, [roundIndex, durationSec]);
-
-  const wordDisplay = revealedWord ?? (isDrawer ? word : promptHint);
-  const wordColor = getWordColor(revealedWord != null, isDrawer);
   const isUrgent = timeLeft <= 10;
 
   return (
@@ -76,22 +48,8 @@ export function GameHeader({
         </Text>
       </View>
 
-      {/* ② 제시어 + 타이머 */}
-      <View style={styles.wordRow}>
-        <Text
-          sx={{
-            flex: 1,
-            fontFamily: fontFamily.REGULAR,
-            fontSize: 25,
-            lineHeight: 30,
-            color: wordColor,
-            letterSpacing: 2,
-          }}
-          numberOfLines={1}
-        >
-          {wordDisplay ?? ''}
-        </Text>
-        {isCustomRound && <Badge label="커스텀" />}
+      <View style={styles.playerRow}>
+        <View sx={{ flex: 1 }}>{playerGrid}</View>
         <Text style={[styles.timer, isUrgent && styles.timerUrgent]}>{timeLeft}</Text>
       </View>
 
@@ -117,12 +75,10 @@ const styles = StyleSheet.create({
     paddingHorizontal: spacing.MD,
     paddingVertical: 13,
   },
-  wordRow: {
+  playerRow: {
     flexDirection: 'row',
-    alignItems: 'baseline',
-    justifyContent: 'space-between',
-    paddingHorizontal: spacing.MD,
-    paddingVertical: spacing.SM,
+    alignItems: 'center',
+    paddingRight: spacing.MD,
   },
   timer: {
     fontFamily: fontFamily.BOLD,
@@ -130,6 +86,8 @@ const styles = StyleSheet.create({
     lineHeight: 30,
     color: gameText.PRIMARY,
     minWidth: 36,
+    alignSelf: 'flex-start',
+    marginTop: 3,
     textAlign: 'right',
   },
   timerUrgent: {

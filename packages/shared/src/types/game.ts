@@ -66,6 +66,7 @@ export type Mode2Step = {
   previousContent?: // 이전 단계 참고 콘텐츠 (PROMPT 단계에서는 없음)
     { kind: 'TEXT'; text: string } | { kind: 'DRAW'; strokes: Stroke[] };
   durationSec: number;
+  endsAt?: number;
   totalSteps: number; // = N (참가자 수)
 };
 

@@ -1,11 +1,11 @@
 import type { Namespace } from 'socket.io';
 import type { ClientEvents, ServerEvents, RoomState } from '@sketch-catch/shared';
-import { AWARD_DURATION_SEC, SERVER_EVENT } from '@sketch-catch/shared';
+import { SERVER_EVENT } from '@sketch-catch/shared';
 import { getRoomState, saveRoomState } from '../../services/rooms.service.js';
-import { clearRoomTimers, setRoomTimer } from '../../services/roomTimers.js';
+import { clearRoomTimers } from '../../services/roomTimers.js';
 import { clearRoomChat } from '../../services/chatStore.js';
 import { ensureHost, resetToLobby } from '../../services/roomRules.js';
-import { redis, setPresence, getUserRoom, clearUserRoom } from '../../db/redis.js';
+import { redis, setPresence } from '../../db/redis.js';
 import { broadcastPresenceUpdate } from '../presence.namespace.js';
 
 type GameNamespace = Namespace<ClientEvents, ServerEvents>;
@@ -19,36 +19,21 @@ export async function destroyRoom(code: string): Promise<void> {
 
 /**
  * 시상식 시작 — 호출 측이 status=AWARD로 바꾼 state를 받아 시상식 정보를 채우고 저장한다.
- * 남아 있는 유저는 전원 inAward=true. [한번 더!]를 누르면 대기실로, 만료까지 안 누르면 퇴장 처리.
+ * 남아 있는 유저는 전원 inAward=true. [한번 더!]를 누르면 대기실로, 선택 전까지 시상식 유지.
  */
-export async function beginAward(game: GameNamespace, state: RoomState): Promise<void> {
-  const durationSec = AWARD_DURATION_SEC[state.mode];
-  state.awardEndsAt = Date.now() + durationSec * 1000;
+export async function beginAward(_game: GameNamespace, state: RoomState): Promise<void> {
+  delete state.awardEndsAt;
   state.allReady = false;
   for (const p of state.players) {
     p.inAward = !p.left;
     p.isReady = false;
   }
   await saveRoomState(state);
-
-  const { code, gameId } = state;
-  setRoomTimer(code, 'award', durationSec * 1000, () => finishAward(game, code, gameId));
-}
-
-// 방에서 제거되는 유저의 소켓을 room 채널에서 빼고, 아직 이 방을 가리키는 presence만 정리한다
-// (그 사이 다른 방을 만든 유저의 상태를 덮어쓰지 않도록 userRoom이 이 방일 때만)
-async function detachUser(game: GameNamespace, code: string, userId: string): Promise<void> {
-  game.to(`user:${userId}`).emit('room:removed', { code, reason: 'AWARD_EXPIRED' });
-  game.in(`user:${userId}`).socketsLeave(`room:${code}`);
-  if ((await getUserRoom(userId)) !== code) return;
-  await clearUserRoom(userId);
-  await setPresence(userId, 'ONLINE');
-  broadcastPresenceUpdate(userId, 'ONLINE');
 }
 
 /**
- * 시상식 종료 — 만료 타이머 또는 남은 시상식 유저가 0명이 됐을 때 호출.
- * inAward(미선택)·left 유저를 제거하고, 남은 유저로 대기실(LOBBY)을 다시 연다. 아무도 없으면 방 삭제.
+ * 시상식에서 첫 재참여 시 대기실을 연다.
+ * 미선택 참가자는 inAward를 유지해 다음 게임 참가 명단에서 제외한다.
  */
 export async function finishAward(game: GameNamespace, code: string, expectedGameId?: string): Promise<void> {
   const state = await getRoomState(code);
@@ -57,10 +42,8 @@ export async function finishAward(game: GameNamespace, code: string, expectedGam
 
   clearRoomTimers(code);
 
-  const removed = state.players.filter(p => p.inAward || p.left);
-  const remaining = state.players.filter(p => !p.inAward && !p.left);
-
-  for (const p of removed) await detachUser(game, code, p.id);
+  const removed = state.players.filter(p => p.left);
+  const remaining = state.players.filter(p => !p.left);
 
   if (remaining.length === 0) {
     await destroyRoom(code);
@@ -68,8 +51,10 @@ export async function finishAward(game: GameNamespace, code: string, expectedGam
   }
 
   state.players = remaining;
-  ensureHost(state, removed);
+  const viewers = new Set(remaining.filter(p => p.inAward).map(p => p.id));
   resetToLobby(state);
+  for (const p of remaining) p.inAward = viewers.has(p.id);
+  ensureHost(state, removed);
   await saveRoomState(state);
 
   const roomName = `room:${code}`;
@@ -77,10 +62,14 @@ export async function finishAward(game: GameNamespace, code: string, expectedGam
   for (const p of removed) game.to(roomName).emit(SERVER_EVENT.ROOM_PLAYER_LEAVE, { userId: p.id });
 }
 
-// 시상식에서 [한번 더!] — 해당 유저만 대기실로 복귀. 남은 시상식 유저가 없으면 즉시 대기실 전환
+// 시상식에서 [한번 더!] — 선택한 유저만 대기실로 복귀, 다른 유저는 시상식 유지
 export async function handleRematch(
   game: GameNamespace,
-  socket: { rooms: Set<string>; data: { userId: string } },
+  socket: {
+    rooms: Set<string>;
+    data: { userId: string };
+    emit: (event: 'error', payload: { code: string; message: string }) => void;
+  },
 ): Promise<void> {
   const roomName = Array.from(socket.rooms).find(r => r.startsWith('room:'));
   if (!roomName) return;
@@ -88,9 +77,23 @@ export async function handleRematch(
   const userId = socket.data.userId;
 
   const state = await getRoomState(code);
-  if (!state || state.status !== 'AWARD') return;
+  if (!state) {
+    socket.emit('error', { code: 'ROOM_NOT_FOUND', message: '방이 종료되었어요' });
+    return;
+  }
+  if (state.status !== 'AWARD' && state.status !== 'LOBBY') {
+    socket.emit('error', { code: 'GAME_IN_PROGRESS', message: '이미 게임이 시작됐어요!' });
+    return;
+  }
   const player = state.players.find(p => p.id === userId);
-  if (!player || !player.inAward) return;
+  if (!player) {
+    socket.emit('error', { code: 'GAME_IN_PROGRESS', message: '이미 게임이 시작됐어요!' });
+    return;
+  }
+  if (!player.inAward) {
+    game.to(`user:${userId}`).emit(SERVER_EVENT.ROOM_STATE, state);
+    return;
+  }
 
   player.inAward = false;
   player.isReady = false;
@@ -99,7 +102,7 @@ export async function handleRematch(
   await setPresence(userId, 'IN_LOBBY');
   broadcastPresenceUpdate(userId, 'IN_LOBBY');
 
-  if (!state.players.some(p => p.inAward)) {
+  if (state.status === 'AWARD') {
     await finishAward(game, code);
     return;
   }

@@ -21,9 +21,10 @@ type Props = {
   cardWidth: number;
   isLeft?: boolean; // 게임 강제종료 시 중도 퇴장 플레이어 표시
   onPress?: () => void;
+  statusLabel?: string;
 };
 
-export function SlotCard({ player, isMe, cardWidth, isLeft = false, onPress }: Props) {
+export function SlotCard({ player, isMe, cardWidth, isLeft = false, onPress, statusLabel }: Props) {
   const shineProgress = useSharedValue(0);
 
   useEffect(() => {
@@ -73,6 +74,13 @@ export function SlotCard({ player, isMe, cardWidth, isLeft = false, onPress }: P
   const imageSource = getCharacterImageSource(player.characterId);
   // 좁은 그리드(4열 등)에서 캐릭터 이미지가 카드 높이를 넘겨 닉네임과 겹치지 않도록 카드 폭에 비례
   const charSize = Math.max(28, Math.min(44, Math.round(cardWidth * 0.5)));
+  const secondaryLabel = (() => {
+    if (isLeft) return '나감';
+    if (statusLabel !== undefined) return statusLabel;
+    if (player.isReady) return '준비 완료';
+    return '대기 중';
+  })();
+
 
   return (
     <Pressable onPress={onPress} disabled={!onPress}>
@@ -119,7 +127,7 @@ export function SlotCard({ player, isMe, cardWidth, isLeft = false, onPress }: P
           </Text>
           {!isHost && (
             <Text variant="B4" sx={{ color: isLeft ? colors.GRAY : player.isReady ? colors.LIGHT_100 : colors.DARK_100, textAlign: 'center' }} numberOfLines={1}>
-              {isLeft ? '나감' : player.isReady ? '준비 완료' : '대기 중'}
+              {secondaryLabel}
             </Text>
           )}
         </View>

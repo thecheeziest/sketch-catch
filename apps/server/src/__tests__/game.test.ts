@@ -344,7 +344,7 @@ describe('answer detect (MD1-02)', () => {
       status: 'MODE1_ROUND_START',
       current: {
         roundIndex: 0,
-        drawerId: 'userA',
+        drawerId: 'u1',
         prompt: '강아지',
         startedAt: Date.now() - 5000,
       } satisfies Mode1RoundCurrent,
@@ -357,12 +357,12 @@ describe('answer detect (MD1-02)', () => {
     // endRound 내부에서 getRoomState 재호출
     mockGetRoomState.mockResolvedValueOnce(makeChatRoomState({ status: 'MODE1_ROUND_START' }));
     const game = makeNamespace();
-    const socket = { data: { userId: 'userB' }, rooms: new Set(['room:ABC123']), emit: vi.fn() };
+    const socket = { data: { userId: 'u2' }, rooms: new Set(['room:ABC123']), emit: vi.fn() };
     await handleChatSend(game as any, socket as any, { text: '  강아지 ' });
     // chat:message broadcast
-    expect(game._broadcastEmit).toHaveBeenCalledWith('chat:message', expect.objectContaining({ userId: 'userB' }));
+    expect(game._broadcastEmit).toHaveBeenCalledWith('chat:message', expect.objectContaining({ userId: 'u2' }));
     // chat:correct broadcast
-    expect(game._broadcastEmit).toHaveBeenCalledWith('chat:correct', expect.objectContaining({ userId: 'userB' }));
+    expect(game._broadcastEmit).toHaveBeenCalledWith('chat:correct', expect.objectContaining({ userId: 'u2' }));
     // saveRoomState 호출 (endRound가 실행됨)
     expect(mockSaveRoomState).toHaveBeenCalled();
   });
@@ -370,7 +370,7 @@ describe('answer detect (MD1-02)', () => {
   it('answer detect: 부분 일치는 오답 — chat:correct 미발생, answer:wrong은 제출자에게만 전달', async () => {
     mockGetRoomState.mockResolvedValueOnce(makeChatRoomState());
     const game = makeNamespace();
-    const socket = { data: { userId: 'userB' }, rooms: new Set(['room:ABC123']), emit: vi.fn() };
+    const socket = { data: { userId: 'u2' }, rooms: new Set(['room:ABC123']), emit: vi.fn() };
     await handleChatSend(game as any, socket as any, { text: '강아지다' });
     // chat:message는 broadcast됨
     expect(game._broadcastEmit).toHaveBeenCalledWith('chat:message', expect.anything());
@@ -395,7 +395,7 @@ describe('answer accept (MD1-03)', () => {
       status: 'MODE1_ROUND_START',
       current: {
         roundIndex: 0,
-        drawerId: 'userA',
+        drawerId: 'u1',
         prompt: '강아지',
         startedAt: Date.now() - 3000,
       } satisfies Mode1RoundCurrent,
@@ -406,7 +406,7 @@ describe('answer accept (MD1-03)', () => {
     // 먼저 chat:send로 메시지 생성 (recentMessages에 저장됨)
     mockGetRoomState.mockResolvedValueOnce(makeAcceptRoomState());
     const game = makeNamespace();
-    const socketB = { data: { userId: 'userB' }, rooms: new Set(['room:ABC123']), emit: vi.fn() };
+    const socketB = { data: { userId: 'u2' }, rooms: new Set(['room:ABC123']), emit: vi.fn() };
     await handleChatSend(game as any, socketB as any, { text: '고양이' });
 
     // broadcast된 chat:message의 id 추출
@@ -420,10 +420,10 @@ describe('answer accept (MD1-03)', () => {
     mockSaveRoomState.mockResolvedValue(undefined);
     mockGetRoomState.mockResolvedValueOnce(makeAcceptRoomState());
     mockGetRoomState.mockResolvedValueOnce(makeAcceptRoomState());
-    const socketA = { data: { userId: 'userA' }, rooms: new Set(['room:ABC123']), emit: vi.fn() };
+    const socketA = { data: { userId: 'u1' }, rooms: new Set(['room:ABC123']), emit: vi.fn() };
     await handleAnswerAccept(game as any, socketA as any, { messageId });
 
-    expect(game._broadcastEmit).toHaveBeenCalledWith('chat:correct', expect.objectContaining({ userId: 'userB' }));
+    expect(game._broadcastEmit).toHaveBeenCalledWith('chat:correct', expect.objectContaining({ userId: 'u2' }));
     expect(mockSaveRoomState).toHaveBeenCalled();
   });
 

@@ -41,6 +41,8 @@ export async function handleChatSend(
   }
 
   if (state.status !== 'MODE1_ROUND_START') return;
+  const participant = state.players.find(p => p.id === socket.data.userId);
+  if (!participant || participant.left || participant.inAward) return;
 
   // 라운드 정보가 아직 없으면 무시 — null 접근으로 서버가 죽던 문제(R8) 방어
   const current = state.current as Mode1RoundCurrent | null;

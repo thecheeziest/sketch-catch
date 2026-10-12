@@ -92,7 +92,7 @@ export default function LobbyScreen() {
     (screenWidth - spacing.MD * 2 - spacing.XS * 2 * numColumns - spacing.SM * (numColumns - 1)) / numColumns,
   );
 
-  const connectedPlayers = roomState?.players ?? [];
+  const connectedPlayers = roomState?.players.filter(p => !p.inAward) ?? [];
   const slots: SlotItem[] = [
     ...connectedPlayers,
     ...Array<null>(Math.max(0, maxPlayers - connectedPlayers.length)).fill(null),
@@ -103,15 +103,11 @@ export default function LobbyScreen() {
   const allReady = roomState?.allReady ?? false;
   // 다른 참가자가 아직 시상식에 있는 동안(status=AWARD)은 준비·시작 불가
   const isAwardInProgress = roomState?.status === 'AWARD';
-  const connectedPlayerCount = roomState?.players.filter(p => p.connected).length ?? 0;
+  const connectedPlayerCount = roomState?.players.filter(p => p.connected && !p.inAward).length ?? 0;
   const minPlayers = roomState?.mode === 2 ? MODE2_PLAYER_MIN : ROOM_PLAYER_MIN;
   const hasEnoughPlayers = connectedPlayerCount >= minPlayers;
   const canStartGame = allReady && hasEnoughPlayers && !isAwardInProgress;
-  const startButtonLabel = (() => {
-    if (isAwardInProgress) return '시상 진행 중..';
-    if (!hasEnoughPlayers) return `최소 ${minPlayers}명 필요`;
-    return '게임 시작';
-  })();
+  const startButtonLabel = '게임 시작';
 
   const handleCopyCode = (): Promise<void> => copyToClipboard(code ?? '', '코드가 복사되었습니다');
 

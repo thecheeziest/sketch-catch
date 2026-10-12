@@ -35,7 +35,7 @@ export type Mode2Current = {
   startedAt: number;
 };
 
-// PROMPT 단계는 고정 20초 (UI-SPEC). DRAW/ANSWER는 RoomConfig 값 사용.
+// PROMPT 단계는 고정 30초 (UI-SPEC). DRAW/ANSWER는 RoomConfig 값 사용.
 
 // 클라이언트 입력 절대 신뢰 금지 — mobile MAX_TEXT_LENGTH(mode2.tsx)와 동일한 상한
 const MAX_TEXT_LENGTH = 40;
@@ -108,6 +108,7 @@ function buildStepPayloads(state: RoomState, current: Mode2Current): Mode2Step[]
       previousContent: toPreviousContent(sheet.steps[sheet.steps.length - 1]),
       durationSec: durationForPhase(current.phase, state.config),
       totalSteps,
+      endsAt: current.startedAt + durationForPhase(current.phase, state.config) * 1000,
     };
   });
 }

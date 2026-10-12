@@ -15,6 +15,7 @@ type Props = {
   /** 결과 오버레이와 함께 바뀌는 입력창 테두리 색 (오답: 핑크, 종료: 비활성 톤) */
   ringColor?: string;
   placeholderColor?: string;
+  maxLength?: number;
 };
 
 export function ChatInputBar({
@@ -25,6 +26,7 @@ export function ChatInputBar({
   disabled = false,
   ringColor = toolbar.ERASER_RING,
   placeholderColor = colors.GRAY,
+  maxLength = 30,
 }: Props) {
   const [text, setText] = useState('');
 
@@ -49,7 +51,7 @@ export function ChatInputBar({
           style={styles.input}
           value={text}
           onChangeText={setText}
-          maxLength={30}
+          maxLength={maxLength}
           placeholder={placeholder}
           placeholderTextColor={placeholderColor}
           editable={!disabled}

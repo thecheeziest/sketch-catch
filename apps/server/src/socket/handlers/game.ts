@@ -24,7 +24,7 @@ function pickRoundCategory(categories: Category[]): Category {
 type GameNamespace = Namespace<ClientEvents, ServerEvents>;
 
 const CUSTOM_PROMPT_TIMEOUT_MS = PROMPT_DURATION_SEC * 1000;
-const NEXT_ROUND_DELAY_MS = 3000;
+const NEXT_ROUND_DELAY_MS = 5000;
 
 // D-01: answeredAt 누적 Map (동점자 정렬용 — score DESC, answeredAt ASC)
 const answerTimestamps = new Map<string, Map<string, number>>();
@@ -91,7 +91,7 @@ export async function startRound(
   const roomName = `room:${code}`;
 
   if (roundCategory === 'CUSTOM') {
-    // 커스텀 모드: 제시어 없이 시작, 출제자가 20초 내 직접 입력
+    // 커스텀 모드: 제시어 없이 시작, 출제자가 30초 내 직접 입력
     state.status = 'MODE1_ROUND_START';
     state.current = {
       roundIndex,
@@ -148,7 +148,7 @@ export async function startRound(
   return true;
 }
 
-// 커스텀 제시어 20초 초과 → 출제자 점수 차감 후 다음 턴
+// 커스텀 제시어 30초 초과 → 출제자 점수 차감 후 다음 턴
 async function handleCustomPromptTimeout(
   game: GameNamespace,
   code: string,
@@ -170,6 +170,7 @@ export async function handleCustomPromptSubmit(
   game: GameNamespace,
   socket: { rooms: Set<string>; data: { userId: string } },
   payload: { text: string },
+  receivedAt = Date.now(),
 ): Promise<void> {
   const roomName = Array.from(socket.rooms).find(r => r.startsWith('room:'));
   if (!roomName) return;
@@ -180,7 +181,8 @@ export async function handleCustomPromptSubmit(
 
   const current = state.current as Mode1RoundCurrent | null;
   if (!current || current.drawerId !== socket.data.userId) return;
-  if (current.prompt !== '') return; // 이미 제시어가 설정된 경우 무시
+  if (current.prompt !== '' || !current.isCustomRound) return;
+  if (receivedAt >= current.startedAt + CUSTOM_PROMPT_TIMEOUT_MS) return;
 
   const prompt = payload.text.trim().slice(0, 20);
   if (prompt.length === 0) return;
@@ -289,7 +291,11 @@ export async function endRound(
       await startRound(game, code, roundIndex + 1, gameId);
     });
   } else {
-    await endGame(game, code);
+    setRoomTimer(code, 'nextRound', NEXT_ROUND_DELAY_MS, async () => {
+      const ended = await getRoomState(code);
+      if (!ended || ended.gameId !== gameId || ended.status !== 'MODE1_ROUND_END') return;
+      await endGame(game, code);
+    });
   }
 }
 
@@ -368,7 +374,7 @@ export async function endGame(game: GameNamespace, code: string, reason?: 'INSUF
 
   answerTimestamps.delete(code);
 
-  // 시상식 시작 — inAward 표시 + 시상식 만료 타이머 등록 후 저장
+  // 시상식 시작 — inAward 표시 + 선택 전까지 결과 유지
   await beginAward(game, state);
 
   // AWARD 상태를 클라이언트에 전파해 시상식 화면으로 이동하도록 함

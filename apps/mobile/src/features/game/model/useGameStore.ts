@@ -29,7 +29,7 @@ type RemoteStroke = {
 type GameStore = {
   // 지금 진행 중인 게임 1판의 식별자 (room:state 기준). 다른 gameId의 이벤트는 지난 게임 것으로 보고 버린다
   gameId: string | null;
-  round: { roundIndex: number; drawerId: string; durationSec: number } | null;
+  round: { roundIndex: number; drawerId: string; durationSec: number; endsAt: number } | null;
   promptForDrawer: string | null;
   promptHint: string | null;
   needsCustomPrompt: boolean;
@@ -149,6 +149,7 @@ export const useGameStore = create<GameStore>()(
             roundIndex: payload.roundIndex,
             drawerId: payload.drawerId,
             durationSec: payload.durationSec,
+            endsAt: Date.now() + payload.durationSec * 1000,
           };
           if (isNewRound) {
             st.isCustomRound = payload.isCustomRound ?? payload.needsCustomPrompt === true;

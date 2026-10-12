@@ -1,7 +1,7 @@
 // 배포 테스트에서 발견된 동시성·게임 세션 문제의 재현 테스트 (docs/RELEASE_QA_ISSUES.md A-1~A-5, R1~R9)
 // rooms.service는 Redis 대신 JSON 직렬화 Map으로 흉내 내고, 핸들러·작업 줄·타이머 레지스트리는 실제 코드를 사용한다.
 import { describe, it, vi, expect, beforeEach, afterEach } from 'vitest';
-import type { RoomState, Player, Mode1RoundCurrent } from '@sketch-catch/shared';
+import type { RoomState, Player, Mode1RoundCurrent, Mode2ReviewState } from '@sketch-catch/shared';
 
 const store = vi.hoisted(() => new Map<string, string>());
 
@@ -50,7 +50,10 @@ const { runInRoom } = await import('../services/roomQueue.js');
 const { handleRoomJoin, handleRoomReady, handleRoomStart, handleRoomLeave } =
   await import('../socket/handlers/room.js');
 const { handleChatSend } = await import('../socket/handlers/chat.js');
-const { handleCustomPromptSubmit, handlePlayerLeft } = await import('../socket/handlers/game.js');
+const { handleCustomPromptSubmit, handlePlayerLeft, startRound } = await import('../socket/handlers/game.js');
+const { startMode2, handleMode2Prompt, handleMode2DrawDone, handleMode2Answer, currentAssignee, sortedPlayers } =
+  await import('../socket/handlers/mode2.js');
+const { clearRoomTimers } = await import('../services/roomTimers.js');
 const { handleRematch } = await import('../socket/handlers/award.js');
 const { handleStrokeFill } = await import('../socket/handlers/stroke.js');
 
@@ -151,10 +154,33 @@ describe('게임 세션·동시성', () => {
     expect(Object.keys(scoreboard).filter(id => id !== 'u1')).toEqual(['u2']);
 
     // 다음 라운드도 한 번만 시작된다
-    await vi.advanceTimersByTimeAsync(3000);
+    await vi.advanceTimersByTimeAsync(5000);
     const roundStarts = eventsOf(ns, 'game:round:start') as Array<{ roundIndex: number }>;
     expect(roundStarts.filter(r => r.roundIndex === 1)).toHaveLength(1);
   });
+
+  it.each(['correct', 'timeout'] as const)(
+    '마지막 라운드 %s 결과가 5초 유지된 후 시상식으로 이동한다',
+    async outcome => {
+      seedLobby();
+      const ns = makeNamespace();
+      await startGame(ns);
+      await runInRoom(CODE, () => startRound(ns as never, CODE, 2));
+      if (outcome === 'correct') {
+        await runInRoom(CODE, () => handleChatSend(ns as never, makeSocket('u2') as never, { text: '사과' }));
+      } else {
+        await vi.advanceTimersByTimeAsync(30_000);
+      }
+      expect(readState().status).toBe('MODE1_ROUND_END');
+      expect(eventsOf(ns, 'game:round:end')).toHaveLength(1);
+      expect(eventsOf(ns, 'game:end')).toHaveLength(0);
+      await vi.advanceTimersByTimeAsync(4999);
+      expect(readState().status).toBe('MODE1_ROUND_END');
+      await vi.advanceTimersByTimeAsync(1);
+      expect(readState().status).toBe('AWARD');
+      expect(eventsOf(ns, 'game:end')).toHaveLength(1);
+    },
+  );
 
   it('A-1: 게임이 시작된 방에 새 유저가 들어오면 거부된다', async () => {
     seedLobby();
@@ -225,7 +251,7 @@ describe('게임 세션·동시성', () => {
     await runInRoom(CODE, () => handlePlayerLeft(ns as never, CODE, 'u3'));
     expect(readState().status).toBe('AWARD');
 
-    await vi.advanceTimersByTimeAsync(3000);
+    await vi.advanceTimersByTimeAsync(5000);
     expect(readState().status).toBe('AWARD');
     const roundStarts = eventsOf(ns, 'game:round:start') as Array<{ roundIndex: number }>;
     expect(roundStarts.some(r => r.roundIndex === 1)).toBe(false);
@@ -291,7 +317,7 @@ describe('시상식 → 대기실 복귀', () => {
       const { drawerId } = readState().current as Mode1RoundCurrent;
       const guesser = drawerId === 'u2' ? 'u3' : 'u2';
       await runInRoom(CODE, () => handleChatSend(ns as never, makeSocket(guesser) as never, { text: '사과' }));
-      if (turn < 2) await vi.advanceTimersByTimeAsync(3000);
+      await vi.advanceTimersByTimeAsync(5000);
     }
     const state = readState();
     expect(state.status).toBe('AWARD');
@@ -302,26 +328,47 @@ describe('시상식 → 대기실 복귀', () => {
     const ns = makeNamespace();
     const state = await reachAward(ns);
     expect(state.players.every(p => p.inAward === true && p.isReady === false)).toBe(true);
-    expect(state.awardEndsAt).toBeTypeOf('number');
+    expect(state.awardEndsAt).toBeUndefined();
   });
 
-  it('[한번 더!]를 누른 유저만 남고, 30초 만료 시 누르지 않은 유저는 제거된 뒤 대기실로 전환된다', async () => {
+  it('시상식은 시간이 지나도 유지되고 첫 재참여자는 대기실로 복귀한다', async () => {
     const ns = makeNamespace();
     await reachAward(ns);
+    await vi.advanceTimersByTimeAsync(120_000);
+    expect(readState().status).toBe('AWARD');
+    expect(readState().players.every(p => p.inAward)).toBe(true);
 
     await runInRoom(CODE, () => handleRematch(ns as never, makeSocket('u2')));
-    expect(readState().status).toBe('AWARD');
-    expect(readState().players.find(p => p.id === 'u2')?.inAward).toBe(false);
-
-    await vi.advanceTimersByTimeAsync(30_000);
-
+    await vi.advanceTimersByTimeAsync(120_000);
     const state = readState();
     expect(state.status).toBe('LOBBY');
-    expect(state.players.map(p => p.id)).toEqual(['u2']);
-    // 방장(u1)이 제거됐으므로 u2가 승계
+    expect(state.players).toHaveLength(3);
+    expect(state.players.find(p => p.id === 'u2')?.inAward).toBe(false);
+    expect(state.players.find(p => p.id === 'u1')?.inAward).toBe(true);
     expect(state.hostId).toBe('u2');
     expect(state.gameId).toBeUndefined();
-    expect(state.scoreboard).toEqual({});
+  });
+
+  it('시상식 관람자는 새 게임 참가 순서에서 제외되고 뒤늦은 재참여는 거부된다', async () => {
+    const ns = makeNamespace();
+    await reachAward(ns);
+    await handleRematch(ns as never, makeSocket('u2'));
+    await handleRoomJoin(ns as never, makeSocket('u4', []) as never, CODE);
+    await handleRoomJoin(ns as never, makeSocket('u5', []) as never, CODE);
+    await handleRoomReady(ns as never, makeSocket('u4') as never, true);
+    await handleRoomReady(ns as never, makeSocket('u5') as never, true);
+    await handleRoomStart(ns as never, makeSocket('u2') as never);
+    expect(readState().players.map(p => p.id)).toEqual(['u2', 'u4', 'u5']);
+    expect(readState().turnSchedule).not.toContain('u1');
+    await handleChatSend(ns as never, makeSocket('u1') as never, { text: '사과' });
+    expect(readState().status).toBe('MODE1_ROUND_START');
+    expect(readState().scoreboard['u1']).toBeUndefined();
+    const spectator = makeSocket('u1');
+    await handleRematch(ns as never, spectator);
+    expect(spectator.emit).toHaveBeenCalledWith('error', {
+      code: 'GAME_IN_PROGRESS',
+      message: '이미 게임이 시작됐어요!',
+    });
   });
 
   it('한 명만 복귀하고 나머지가 퇴장하면 즉시 대기실로 전환된다', async () => {
@@ -357,7 +404,7 @@ describe('시상식 → 대기실 복귀', () => {
     const state = readState();
     expect(state.status).toBe('LOBBY');
     expect(state.players).toHaveLength(3);
-    expect(state.players.every(p => !p.isReady && p.inAward === undefined)).toBe(true);
+    expect(state.players.every(p => !p.isReady && !p.inAward)).toBe(true);
   });
 
   it('남은 유저가 모두 [나가기]하면 방이 삭제된다', async () => {
@@ -401,11 +448,11 @@ describe('커스텀 제시어 안내', () => {
     vi.useFakeTimers();
   });
   afterEach(() => vi.useRealTimers());
-  it('출제 대기는 20초이며 제출 후 답안자는 글자 수와 커스텀 여부만 받는다', async () => {
+  it('출제 대기는 30초이며 제출 후 답안자는 글자 수와 커스텀 여부만 받는다', async () => {
     seedLobby({ config: { roundCount: 2, drawTimer: 30, answerTimer: 10, categories: ['CUSTOM'], playerCountMax: 6 } });
     const ns = makeNamespace();
     await startGame(ns);
-    expect(eventsOf(ns, 'game:round:start')[0]).toMatchObject({ durationSec: 20, needsCustomPrompt: true });
+    expect(eventsOf(ns, 'game:round:start')[0]).toMatchObject({ durationSec: 30, needsCustomPrompt: true });
     await vi.advanceTimersByTimeAsync(10_000);
     expect(readState().status).toBe('MODE1_ROUND_START');
     await runInRoom(CODE, () => handleCustomPromptSubmit(ns as never, makeSocket('u1'), { text: '빨간 사과' }));
@@ -415,6 +462,36 @@ describe('커스텀 제시어 안내', () => {
     expect(guesser).toMatchObject({ promptHint: 'ㅇㅇ ㅇㅇ', isCustomRound: true, durationSec: 30 });
     expect(guesser).toHaveProperty('promptForDrawer', undefined);
     expect(readState().current).toMatchObject({ prompt: '빨간 사과' });
+  });
+  it('29초에 제시어를 제출하면 별도의 30초 그림 시간을 보장한다', async () => {
+    seedLobby({ config: { roundCount: 1, drawTimer: 30, answerTimer: 10, categories: ['CUSTOM'], playerCountMax: 6 } });
+    const ns = makeNamespace();
+    await startGame(ns);
+    await vi.advanceTimersByTimeAsync(29_000);
+    await runInRoom(CODE, () => handleCustomPromptSubmit(ns as never, makeSocket('u1'), { text: '고양이' }));
+    await vi.advanceTimersByTimeAsync(29_999);
+    expect(readState().status).toBe('MODE1_ROUND_START');
+    expect(readState().current).toMatchObject({ roundIndex: 0, prompt: '고양이' });
+    await vi.advanceTimersByTimeAsync(1);
+    expect(readState().status).toBe('MODE1_ROUND_END');
+  });
+
+  it('수신 시각이 29초면 방 작업 줄의 처리 지연이 있어도 제출을 인정한다', async () => {
+    seedLobby({ config: { roundCount: 1, drawTimer: 30, answerTimer: 10, categories: ['CUSTOM'], playerCountMax: 6 } });
+    const ns = makeNamespace();
+    await startGame(ns);
+    const startedAt = (readState().current as Mode1RoundCurrent).startedAt;
+    vi.setSystemTime(startedAt + 30_500);
+    await handleCustomPromptSubmit(ns as never, makeSocket('u1'), { text: '고양이' }, startedAt + 29_000);
+    expect(readState().current).toMatchObject({ prompt: '고양이', startedAt: startedAt + 30_500 });
+  });
+
+  it('제시어를 제출하지 않으면 30초 뒤 라운드가 종료된다', async () => {
+    seedLobby({ config: { roundCount: 1, drawTimer: 30, answerTimer: 10, categories: ['CUSTOM'], playerCountMax: 6 } });
+    const ns = makeNamespace();
+    await startGame(ns);
+    await vi.advanceTimersByTimeAsync(30_000);
+    expect(readState().status).toBe('MODE1_ROUND_END');
   });
 });
 
@@ -452,6 +529,100 @@ describe('페인트 전송 권한', () => {
     store.set(CODE, JSON.stringify(state));
     await handleStrokeFill(ns as never, socket as never, payload);
     expect(eventsOf(ns, 'stroke:remote')).toEqual([]);
+  });
+});
+
+describe('모드2 콘텐츠 전달', () => {
+  beforeEach(() => {
+    store.clear();
+    vi.clearAllMocks();
+    vi.useFakeTimers();
+  });
+  afterEach(() => {
+    clearRoomTimers(CODE);
+    vi.useRealTimers();
+  });
+  it('4인 게임에서 제시어·그림·페인트·답안이 JSON 저장을 거쳐 다음 사람과 리뷰까지 전달된다', async () => {
+    seedLobby({
+      mode: 2,
+      gameId: 'mode2-game',
+      players: ['u1', 'u2', 'u3', 'u4'].map((id, index) => makePlayer(id, index)),
+    });
+    const ns = makeNamespace();
+    await startMode2(ns as never, CODE);
+    for (let stepIndex = 0; stepIndex <= 4; stepIndex++) {
+      const state = readState();
+      const current = state.current as import('../socket/handlers/mode2.js').Mode2Current;
+      expect(current.step).toBe(stepIndex);
+      for (const sheet of current.sheets) {
+        const userId = currentAssignee(sortedPlayers(state), sheet.ownerIndex, stepIndex).id;
+        const socket = makeSocket(userId);
+        if (current.phase === 'PROMPT') {
+          await runInRoom(CODE, () =>
+            handleMode2Prompt(ns as never, socket, { sheetId: sheet.sheetId, text: `제시어 ${sheet.sheetId}` }),
+          );
+        } else if (current.phase === 'DRAW') {
+          await runInRoom(CODE, () =>
+            handleMode2DrawDone(ns as never, socket, {
+              sheetId: sheet.sheetId,
+              strokes: [
+                {
+                  id: 'line',
+                  authorId: 'forged',
+                  color: '#FF0000',
+                  width: 0.02,
+                  startTime: 0,
+                  points: [
+                    { x: 0.2, y: 0.3, t: 0 },
+                    { x: 0.8, y: 0.7, t: 100 },
+                  ],
+                },
+                {
+                  id: 'paint',
+                  authorId: 'forged',
+                  color: '#00FFFF',
+                  width: 0,
+                  startTime: 1,
+                  points: [],
+                  paintSpans: [{ x: 0.1, y: 0.1, width: 0.5, height: 0.1 }],
+                },
+              ],
+            }),
+          );
+        } else {
+          const step = [...ns.emitted]
+            .reverse()
+            .find(
+              e => e.event === 'mode2:step' && (e.payload as { assigneeId: string }).assigneeId === userId,
+            )?.payload;
+          expect(step).toMatchObject({
+            previousContent: {
+              kind: 'DRAW',
+              strokes: [
+                expect.objectContaining({ width: 0.02 }),
+                expect.objectContaining({ paintSpans: expect.any(Array) }),
+              ],
+            },
+          });
+          await runInRoom(CODE, () =>
+            handleMode2Answer(ns as never, socket, { sheetId: sheet.sheetId, text: `답안 ${stepIndex}` }),
+          );
+        }
+      }
+    }
+    expect(readState().status).toBe('MODE2_REVIEW');
+    const review = readState().current as Mode2ReviewState;
+    expect(review.sheets).toHaveLength(4);
+    for (const sheet of review.sheets) {
+      expect(sheet.steps.map(step => step.content.kind)).toEqual(['PROMPT', 'DRAW', 'ANSWER', 'DRAW', 'ANSWER']);
+      expect(sheet.steps[0]?.content).toMatchObject({ text: `제시어 ${sheet.sheetId}` });
+      expect(sheet.steps[1]?.content).toMatchObject({
+        strokes: [
+          expect.objectContaining({ authorId: sheet.ownerId, width: 0.02 }),
+          expect.objectContaining({ paintSpans: expect.any(Array) }),
+        ],
+      });
+    }
   });
 });
 

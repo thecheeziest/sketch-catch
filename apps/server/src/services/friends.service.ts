@@ -139,12 +139,12 @@ export async function getFriendRoomView(
     const roomState = await getRoomState(roomCode);
     const player = roomState?.players.find(p => p.id === friendId);
     if (roomState && player?.connected && !player.left && fallbackStatus !== 'OFFLINE') {
-      presenceStatus = getRoomPresenceStatus(roomState.status) ?? presenceStatus;
+      presenceStatus = player.inAward ? 'IN_GAME' : (getRoomPresenceStatus(roomState.status) ?? presenceStatus);
 
       if (presenceStatus === 'IN_LOBBY') {
         const storedPw = await getRoomPassword(roomCode);
         const hasPassword = storedPw !== null;
-        const playerCount = roomState.players.length;
+        const playerCount = roomState.players.filter(p => !p.inAward && !p.left).length;
         const playerCountMax = roomState.config.playerCountMax;
         const locked = roomState.locked ?? false;
         room = {

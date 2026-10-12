@@ -1,12 +1,12 @@
 import type { Player, RoomState } from '@sketch-catch/shared';
 
 // allReady는 서버에서만 계산 — 방장은 준비 버튼이 없으므로 제외 (LBBY-02).
-// 대기실(LOBBY)이 아니거나, 아직 시상식에 머무는 유저가 있으면 시작 불가.
+// 대기실(LOBBY)에서 재참여한 참가자만 준비 여부를 계산한다.
 export function computeAllReady(state: RoomState): boolean {
   if (state.status !== 'LOBBY') return false;
-  const others = state.players.filter(p => !p.isHost && !p.left);
+  const others = state.players.filter(p => !p.isHost && !p.left && !p.inAward);
   if (others.length === 0) return false;
-  return others.every(p => p.isReady && !p.inAward);
+  return others.every(p => p.isReady);
 }
 
 // 방 생성 시 자동으로 붙는 기본 제목 형식 (REST 생성: "OO님의 방", 매칭 생성: "OO의 방")
@@ -18,8 +18,8 @@ const DEFAULT_TITLE_SUFFIXES = ['님의 방', '의 방'] as const;
  * @param departedPlayers 이번에 방에서 빠진 플레이어 — 이전 방장의 닉네임을 찾는 데 쓴다
  */
 export function ensureHost(state: RoomState, departedPlayers: Player[] = []): void {
-  if (state.players.some(p => p.id === state.hostId)) return;
-  const next = [...state.players].sort((a, b) => a.slot - b.slot)[0];
+  if (state.players.some(p => p.id === state.hostId && !p.inAward)) return;
+  const next = state.players.filter(p => !p.inAward && !p.left).sort((a, b) => a.slot - b.slot)[0];
   if (!next) return;
 
   const previousHost = departedPlayers.find(p => p.id === state.hostId);

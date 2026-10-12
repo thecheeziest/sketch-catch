@@ -125,28 +125,27 @@ export function Button({
           <PixelFrame borderColor={getBorderColor(pressed)} style={StyleSheet.absoluteFill}>
             <View style={[StyleSheet.absoluteFill, { backgroundColor: getBg(pressed) }]} />
           </PixelFrame>
-          {loading ? (
-            <View style={styles.centerContent}>
+          <View style={[iconOnly ? styles.centerContent : styles.rowContent, loading && { opacity: 0 }]}>
+            {icon && (
+              <Image
+                source={icon}
+                sx={{ width: iconSize, height: iconSize }}
+                resizeMode="contain"
+                style={{ tintColor: getTextColor(pressed) }}
+              />
+            )}
+            {label && (
+              <Text
+                variants={fontVariant === 'BOLD' ? ['bold'] : undefined}
+                sx={{ ...textSize, color: getTextColor(pressed) }}
+              >
+                {label}
+              </Text>
+            )}
+          </View>
+          {loading && (
+            <View style={[StyleSheet.absoluteFill, styles.centerContent]}>
               <PixelLoadingSpinner size={Math.round(height * 0.5)} accessibilityLabel="처리 중" />
-            </View>
-          ) : (
-            <View style={iconOnly ? styles.centerContent : styles.rowContent}>
-              {icon && (
-                <Image
-                  source={icon}
-                  sx={{ width: iconSize, height: iconSize }}
-                  resizeMode="contain"
-                  style={{ tintColor: getTextColor(pressed) }}
-                />
-              )}
-              {label && (
-                <Text
-                  variants={fontVariant === 'BOLD' ? ['bold'] : undefined}
-                  sx={{ ...textSize, color: getTextColor(pressed) }}
-                >
-                  {label}
-                </Text>
-              )}
             </View>
           )}
         </>

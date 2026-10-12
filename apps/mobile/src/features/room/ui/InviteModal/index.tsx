@@ -6,7 +6,7 @@ import { useInvite } from '@/features/room/api/useInvite';
 import { colors, getCharacterImageSource, spacing } from '@/shared/config';
 import { handleApiError } from '@/shared/lib';
 import type { Friend } from '@/shared/model';
-import { useToastStore } from '@/shared/model';
+import { useRoomStore, useToastStore } from '@/shared/model';
 import { Button, Dialog, FlatList, SketchbookLoadingSpinner } from '@/shared/ui';
 
 type Props = {
@@ -37,6 +37,8 @@ function isBusy(friend: Friend): boolean {
 export function InviteModal({ visible, onClose, code }: Props) {
   const { data: friends = [], isLoading } = useFriends();
   const invite = useInvite(code);
+  const players = useRoomStore(s => s.roomState?.players);
+  const availableFriends = friends.filter(friend => !isBusy(friend) && !players?.some(p => p.id === friend.userId));
   // 이 대기실에서 초대를 보낸 친구 — 모달을 닫았다 열어도 유지된다
   const [invitedIds, setInvitedIds] = useState<ReadonlySet<string>>(() => new Set());
 
@@ -45,12 +47,15 @@ export function InviteModal({ visible, onClose, code }: Props) {
       { target: friend.userId },
       {
         onSuccess: () => {
-          setInvitedIds((prev) => new Set(prev).add(friend.userId));
+          setInvitedIds(prev => new Set(prev).add(friend.userId));
           useToastStore.getState().show('초대를 보냈어요');
         },
-        onError: (err) =>
-          handleApiError(err, { fallbackType: 'toast', fallbackMessage: '초대를 보낼 수 없어요. 잠시 후 다시 시도해주세요.' }),
-      }
+        onError: err =>
+          handleApiError(err, {
+            fallbackType: 'toast',
+            fallbackMessage: '초대를 보낼 수 없어요. 잠시 후 다시 시도해주세요.',
+          }),
+      },
     );
   };
 
@@ -58,8 +63,8 @@ export function InviteModal({ visible, onClose, code }: Props) {
     <Dialog visible={visible} onClose={onClose} title="친구 초대" dismissible>
       <View sx={{ maxHeight: 360 }}>
         <FlatList
-          data={friends}
-          keyExtractor={(item) => item.friendshipId}
+          data={availableFriends}
+          keyExtractor={item => item.friendshipId}
           renderItem={({ item }) => {
             const imageSource = getCharacterImageSource(item.characterId);
             return (

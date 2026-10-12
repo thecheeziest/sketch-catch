@@ -1,8 +1,10 @@
 import { useEffect } from 'react';
 import { Image, ScrollView, Text, View } from 'dripsy';
 import { StyleSheet } from 'react-native';
+import { Blur, Canvas, Circle, RoundedRect } from '@shopify/react-native-skia';
 import Animated, {
   Easing,
+  cancelAnimation,
   useAnimatedStyle,
   useSharedValue,
   withDelay,
@@ -26,14 +28,6 @@ type Props = {
   players: AudiencePlayer[];
 };
 
-const STICK_COLORS = [
-  colors.PRIMARY_300,
-  colors.INFO_300,
-  colors.ACCENT_300,
-  colors.WARNING_300,
-  colors.SECONDARY_300,
-];
-
 function CheerStick({ index, dimmed }: { index: number; dimmed: boolean }) {
   const swing = useSharedValue(0);
 
@@ -50,15 +44,26 @@ function CheerStick({ index, dimmed }: { index: number; dimmed: boolean }) {
         true,
       ),
     );
-    return undefined;
+    return () => cancelAnimation(swing);
   }, [swing, index, dimmed]);
 
-  const style = useAnimatedStyle(() => ({ transform: [{ rotate: `${swing.value * 22}deg` }] }));
+  // 손잡이 끝을 회전축으로 두어 캐릭터 옆에서 응원봉을 흔든다.
+  const style = useAnimatedStyle(() => ({ transform: [{ rotate: `${18 + swing.value * 18}deg` }] }));
 
   return (
-    <Animated.View
-      style={[styles.stick, style, { backgroundColor: STICK_COLORS[index % STICK_COLORS.length] }]}
-    />
+    <Animated.View style={[styles.stick, style, { opacity: dimmed ? 0.35 : 1 }]} pointerEvents="none">
+      <Canvas style={StyleSheet.absoluteFill}>
+        <Circle cx={18} cy={17} r={10} color="#72D8FF">
+          <Blur blur={5} />
+        </Circle>
+        <Circle cx={18} cy={17} r={9} color="#69CFFF" />
+        <Circle cx={18} cy={17} r={6.5} color="#D5F8FF" />
+        <Circle cx={15} cy={14} r={2} color="#FFFFFF" />
+        <RoundedRect x={12} y={24} width={12} height={5} r={2} color="#FFFFFF" />
+        <RoundedRect x={15} y={27} width={6} height={15} r={2} color="#F5F7FF" />
+        <Circle cx={18} cy={31} r={1} color="#A8B6CE" />
+      </Canvas>
+    </Animated.View>
   );
 }
 
@@ -71,7 +76,7 @@ function AudienceCard({ player, index }: { player: AudiencePlayer; index: number
       index * 90,
       withRepeat(withSequence(withTiming(-4, { duration: 420 }), withTiming(0, { duration: 420 })), -1, true),
     );
-    return undefined;
+    return () => cancelAnimation(bob);
   }, [bob, index, player.left]);
 
   const bobStyle = useAnimatedStyle(() => ({ transform: [{ translateY: bob.value }] }));
@@ -79,8 +84,7 @@ function AudienceCard({ player, index }: { player: AudiencePlayer; index: number
 
   return (
     <View sx={{ alignItems: 'center', width: 64, marginHorizontal: spacing.XS }}>
-      <CheerStick index={index} dimmed={player.left} />
-      <Animated.View style={bobStyle}>
+      <Animated.View style={[{ width: 56, height: 52, justifyContent: 'flex-end', alignItems: 'center' }, bobStyle]}>
         {imageSource !== null ? (
           <Image
             source={imageSource}
@@ -88,11 +92,19 @@ function AudienceCard({ player, index }: { player: AudiencePlayer; index: number
             resizeMode="contain"
           />
         ) : (
-          <View sx={{ width: 40, height: 40, backgroundColor: colors.SECONDARY_400, opacity: player.left ? 0.35 : 1 }} />
+          <View
+            sx={{ width: 40, height: 40, backgroundColor: colors.SECONDARY_400, opacity: player.left ? 0.35 : 1 }}
+          />
         )}
+        <CheerStick index={index} dimmed={player.left} />
       </Animated.View>
       <Text
-        sx={{ fontFamily: fontFamily.REGULAR, fontSize: 10, color: player.left ? colors.GRAY : colors.LIGHT_100, marginTop: 2 }}
+        sx={{
+          fontFamily: fontFamily.REGULAR,
+          fontSize: 10,
+          color: player.left ? colors.GRAY : colors.LIGHT_100,
+          marginTop: 2,
+        }}
         numberOfLines={1}
       >
         {player.rank}위 {player.nickname}
@@ -110,7 +122,7 @@ export function AudienceCheer({ players }: Props) {
     <ScrollView
       horizontal
       showsHorizontalScrollIndicator={false}
-      sx={{ height: 100 }}
+      sx={{ flexGrow: 0, height: 106 }}
       contentContainerSx={{ alignItems: 'flex-end', paddingHorizontal: spacing.MD }}
     >
       {players.map((p, i) => (
@@ -122,9 +134,11 @@ export function AudienceCheer({ players }: Props) {
 
 const styles = StyleSheet.create({
   stick: {
-    width: 4,
-    height: 20,
-    borderRadius: 2,
-    marginBottom: 2,
+    position: 'absolute',
+    right: -10,
+    bottom: 6,
+    width: 36,
+    height: 48,
+    transformOrigin: '18px 40px',
   },
 });

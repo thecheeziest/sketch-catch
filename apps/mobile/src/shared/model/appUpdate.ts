@@ -7,9 +7,13 @@ type AppUpdateStatus = 'checking' | 'ok' | 'required';
 type AppUpdateState = {
   status: AppUpdateStatus;
   updateUrl: string | null;
+  otaStatus: 'idle' | 'downloading' | 'applying';
+  splashIntroDone: boolean;
 };
 
 type AppUpdateActions = {
+  setOtaStatus: (status: AppUpdateState['otaStatus']) => void;
+  finishSplashIntro: () => void;
   setChecked: (updateUrl: string | null) => void;
   /** updateUrl을 생략하면 스플래시에서 받아 둔 링크를 그대로 쓴다 (사용 중 426 응답을 받은 경우) */
   requireUpdate: (updateUrl?: string | null) => void;
@@ -19,6 +23,16 @@ export const useAppUpdateStore = create<AppUpdateState & AppUpdateActions>()(
   immer(set => ({
     status: 'checking',
     updateUrl: null,
+    otaStatus: 'idle',
+    splashIntroDone: false,
+    setOtaStatus: status =>
+      set(s => {
+        s.otaStatus = status;
+      }),
+    finishSplashIntro: () =>
+      set(s => {
+        s.splashIntroDone = true;
+      }),
     setChecked: updateUrl =>
       set(s => {
         // 확인 중에 426을 먼저 받아 required가 된 경우 되돌리지 않는다

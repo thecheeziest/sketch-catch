@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { Alert, Keyboard, StyleSheet } from 'react-native';
-import { View } from 'dripsy';
+import { Alert, Keyboard, StyleSheet, useWindowDimensions } from 'react-native';
+import { Text, View } from 'dripsy';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { CLIENT_EVENT } from '@sketch-catch/shared';
@@ -26,7 +26,7 @@ import { ResultOverlay } from '@/features/game/ui/ResultOverlay';
 import { useGameKeyboardLayout } from '@/features/game/lib/useGameKeyboardLayout';
 import { PromptWaitingOverlay } from '@/features/game/ui/PromptWaitingOverlay';
 
-// 라운드 종료 후 다음 라운드(서버 3초 대기)가 이 시간 안에 오지 않으면 서버에 현재 상태를 다시 요청한다
+// 라운드 종료 후 다음 라운드(서버 5초 대기)가 이 시간 안에 오지 않으면 서버에 현재 상태를 다시 요청한다
 const ROUND_RESYNC_DELAY_MS = 8000;
 
 type InputBarState = {
@@ -38,19 +38,19 @@ type InputBarState = {
 
 // 결과 오버레이(overlay)와 라운드 종료 상태(roundResult)에 맞춰 채팅 입력창의 테두리·문구를 정한다.
 // README-result-overlay.md "부수 상태 변화" 표를 그대로 반영.
-function getInputBarState(roundEnded: boolean, isCorrectEnd: boolean): InputBarState {
+function getInputBarState(roundEnded: boolean, isCorrectEnd: boolean, answer: string): InputBarState {
   if (roundEnded) {
     if (isCorrectEnd) {
       return {
         disabled: true,
-        placeholder: '정답! 다음 라운드 준비중',
+        placeholder: `정답은 ${answer}!`,
         ringColor: playerDot.SOLVED,
         placeholderColor: playerDot.SOLVED,
       };
     }
     return {
       disabled: true,
-      placeholder: '라운드 종료',
+      placeholder: `정답은 ${answer}!`,
       ringColor: toolbar.ERASER_RING,
       placeholderColor: resultOverlay.INPUT_ENDED_FG,
     };
@@ -72,13 +72,20 @@ export default function GameScreen() {
   const socket = useRoomStore(s => s.socket);
   const roomState = useRoomStore(s => s.roomState);
   const round = useGameStore(s => s.round);
-  const promptForDrawer = useGameStore(s => s.promptForDrawer);
   const promptHint = useGameStore(s => s.promptHint);
   const chatMessages = useGameStore(s => s.chatMessages);
   const correct = useGameStore(s => s.correct);
   const waitingForPrompt = useGameStore(s => s.waitingForPrompt);
   const promptInputEndsAt = useGameStore(s => s.promptInputEndsAt);
   const keyboardLayout = useGameKeyboardLayout();
+  const { width: screenWidth } = useWindowDimensions();
+  const [timeLeft, setTimeLeft] = useState(0);
+  useEffect(() => {
+    const tick = () => setTimeLeft(Math.max(0, Math.ceil(((round?.endsAt ?? 0) - Date.now()) / 1000)));
+    tick();
+    const timer = setInterval(tick, 250);
+    return () => clearInterval(timer);
+  }, [round?.endsAt]);
   const roundResult = useGameStore(s => s.roundResult);
   const needsCustomPrompt = useGameStore(s => s.needsCustomPrompt);
   const isCustomRound = useGameStore(s => s.isCustomRound);
@@ -110,7 +117,11 @@ export default function GameScreen() {
       setOverlay(null);
       setSelectedUserId(null);
     }
-  }, [round?.roundIndex]);
+  }, [round?.roundIndex, waitingForPrompt]);
+
+  useEffect(() => {
+    if (!waitingForPrompt) roundStartRef.current = Date.now();
+  }, [waitingForPrompt]);
 
   const overlaySeqRef = useRef(0);
 
@@ -212,7 +223,7 @@ export default function GameScreen() {
 
   const roundEnded = roundResult != null;
   const isCorrectEnd = roundResult?.correctUserId != null;
-  const inputBarState = getInputBarState(roundEnded, isCorrectEnd);
+  const inputBarState = getInputBarState(roundEnded, isCorrectEnd, roundResult?.answer ?? '');
 
   return (
     <SafeAreaView
@@ -229,14 +240,22 @@ export default function GameScreen() {
         <GameHeader
           roundIndex={roundIndex}
           totalTurns={totalTurns}
-          isDrawer={isDrawer}
-          isCustomRound={isCustomRound}
-          word={promptForDrawer}
-          promptHint={promptHint}
-          durationSec={round?.durationSec ?? 0}
+          timeLeft={timeLeft}
           playerCount={players.length}
           maxPlayers={maxPlayers}
-          revealedWord={isCorrectEnd ? (roundResult?.answer ?? null) : null}
+          playerGrid={
+            <PlayerGrid
+              players={players}
+              availableWidth={screenWidth - 64}
+              myId={myId}
+              drawerId={drawerId}
+              solvedUserId={solvedUserId}
+              guessedUserIds={guessedUserIds}
+              isDrawerView={canManualApprove && !roundEnded && !waitingForPrompt}
+              selectedUserId={selectedUserId}
+              onSelectPlayer={setSelectedUserId}
+            />
+          }
           legendAction={
             canManualApprove ? (
               <AnswerApprovalButton
@@ -251,16 +270,11 @@ export default function GameScreen() {
           onBack={handleExitAttempt}
         />
 
-        <PlayerGrid
-          players={players}
-          myId={myId}
-          drawerId={drawerId}
-          solvedUserId={solvedUserId}
-          guessedUserIds={guessedUserIds}
-          isDrawerView={canManualApprove}
-          selectedUserId={selectedUserId}
-          onSelectPlayer={setSelectedUserId}
-        />
+        {!isDrawer && !waitingForPrompt && !roundEnded && timeLeft <= 10 && promptHint != null && (
+          <Text sx={{ color: colors.LIGHT_100, paddingHorizontal: 12, paddingVertical: 6 }}>
+            {promptHint.replace(/ㅇ/gu, 'O')}
+          </Text>
+        )}
 
         {/* 캔버스 + 추측 스트림 + 결과 오버레이 (모두 캔버스 영역에 겹쳐 쌓인다) */}
         <View sx={{ flex: 1, position: 'relative' }}>

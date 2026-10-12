@@ -109,7 +109,7 @@ export async function withRoomLock<T>(code: string, fn: () => Promise<T>): Promi
 }
 
 export async function assertJoinable(state: RoomState, password?: string): Promise<void> {
-  if (state.players.length >= state.config.playerCountMax) throw new RoomFullError();
+  if (state.players.filter(p => !p.inAward && !p.left).length >= state.config.playerCountMax) throw new RoomFullError();
   if (state.locked) {
     const storedPw = await getRoomPassword(state.code);
     if (storedPw === null) throw new RoomLockedError();

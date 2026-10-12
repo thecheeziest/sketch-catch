@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState, type ReactNode } from 'react';
 import { Image, Text, View } from 'dripsy';
-import { AccessibilityInfo, Pressable, StyleSheet } from 'react-native';
+import { AccessibilityInfo, StyleSheet } from 'react-native';
 import Animated, {
   useSharedValue,
   useAnimatedStyle,
@@ -23,9 +23,9 @@ type Props = {
   onDismiss?: () => void;
 };
 
-// 노출 예산 = fade in 0.2s + hold 1.5s + fade out 0.3s = 정확히 2.0s
+// 노출 예산 = fade in 0.2s + hold 4.5s + fade out 0.3s = 정확히 5.0s
 const FADE_IN_MS = 200;
-const HOLD_MS = 1500;
+const HOLD_MS = 4500;
 const FADE_OUT_MS = 300;
 const TOTAL_MS = FADE_IN_MS + HOLD_MS + FADE_OUT_MS;
 
@@ -295,7 +295,7 @@ function ConfettiParticle({ piece }: { piece: ConfettiPieceData }) {
 /**
  * 출제 화면 위에 얹히는 결과 레이어 — 정답 / 오답 / 게임오버 (확정안 8b).
  * 캔버스 영역(position: relative) 안에 절대 배치해 헤더·그리드·툴바는 계속 보이게 한다.
- * 결과는 2.0s 후 사라지거나 탭으로 종료된다. 제시어 대기는 입력 완료까지 유지된다.
+ * 결과는 5초 유지되며 탭으로 종료되지 않는다. 제시어 대기는 입력 완료까지 유지된다.
  */
 export function ResultOverlay({ data, onDismiss }: Props) {
   const isWaiting = data.kind === 'waiting';
@@ -330,7 +330,11 @@ export function ResultOverlay({ data, onDismiss }: Props) {
     }
 
     const timer = setTimeout(() => onDismissRef.current?.(), TOTAL_MS);
-    return () => clearTimeout(timer);
+    return () => {
+      clearTimeout(timer);
+      cancelAnimation(opacity);
+      cancelAnimation(scale);
+    };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [isWaiting]);
 
@@ -344,12 +348,10 @@ export function ResultOverlay({ data, onDismiss }: Props) {
   const confetti = reduced ? [] : CONFETTI_BY_KIND[data.kind]();
 
   return (
-    <Pressable
+    <View
       style={StyleSheet.absoluteFill}
-      onPress={onDismiss}
       pointerEvents={isWaiting ? 'none' : 'auto'}
-      accessibilityRole={isWaiting ? undefined : 'button'}
-      accessibilityLabel={isWaiting ? '출제자가 제시어를 입력하고 있어요' : '결과 오버레이 닫기'}
+      accessibilityLabel={TITLE[data.kind]}
       accessibilityLiveRegion={isWaiting ? 'polite' : 'none'}
     >
       <Animated.View
@@ -402,7 +404,7 @@ export function ResultOverlay({ data, onDismiss }: Props) {
           <PetGlyph characterId={data.characterId} kind={data.kind} reduced={reduced} />
         )}
       </Animated.View>
-    </Pressable>
+    </View>
   );
 }
 

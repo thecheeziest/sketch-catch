@@ -17,6 +17,7 @@ type Props = {
   totalSteps: number;
   phase: Mode2Phase;
   durationSec: number;
+  endsAt?: number;
   onBack: () => void;
 };
 
@@ -26,18 +27,18 @@ const PHASE_LABEL: Record<Mode2Phase, string> = {
   ANSWER: '정답 맞히는 중',
 };
 
-export function SheetRotationHeader({ stepIndex, totalSteps, phase, durationSec, onBack }: Props) {
+export function SheetRotationHeader({ stepIndex, totalSteps, phase, durationSec, endsAt, onBack }: Props) {
   const [timeLeft, setTimeLeft] = useState(durationSec);
   const isUrgent = timeLeft <= 10;
   const blink = useSharedValue(1);
 
   useEffect(() => {
-    setTimeLeft(durationSec);
-    const id = setInterval(() => {
-      setTimeLeft((t) => Math.max(0, t - 1));
-    }, 1000);
+    const deadline = endsAt ?? Date.now() + durationSec * 1000;
+    const tick = () => setTimeLeft(Math.max(0, Math.ceil((deadline - Date.now()) / 1000)));
+    tick();
+    const id = setInterval(tick, 250);
     return () => clearInterval(id);
-  }, [stepIndex, durationSec]);
+  }, [stepIndex, durationSec, endsAt]);
 
   useEffect(() => {
     if (isUrgent) {
@@ -58,9 +59,7 @@ export function SheetRotationHeader({ stepIndex, totalSteps, phase, durationSec,
         <View style={styles.side}>
           <Icon name="BACK" size={24} onPress={onBack} />
         </View>
-        <Text
-          sx={{ flex: 1, ...textSizes.B2, color: colors.LIGHT_100, fontFamily: fontFamily.BOLD }}
-        >
+        <Text sx={{ flex: 1, ...textSizes.B2, color: colors.LIGHT_100, fontFamily: fontFamily.BOLD }}>
           {`단계 ${stepIndex + 1}/${totalSteps}`}
         </Text>
         <Text sx={{ ...textSizes.B3, color: colors.GRAY }}>{PHASE_LABEL[phase]}</Text>
@@ -72,16 +71,11 @@ export function SheetRotationHeader({ stepIndex, totalSteps, phase, durationSec,
           {Array.from({ length: totalSteps }).map((_, i) => (
             <View
               key={i}
-              style={[
-                styles.dot,
-                { backgroundColor: i === stepIndex ? colors.PRIMARY_400 : colors.DARK_100 },
-              ]}
+              style={[styles.dot, { backgroundColor: i === stepIndex ? colors.PRIMARY_400 : colors.DARK_100 }]}
             />
           ))}
         </View>
-        <Animated.Text
-          style={[styles.timer, isUrgent && styles.timerUrgent, timerAnimatedStyle]}
-        >
+        <Animated.Text style={[styles.timer, isUrgent && styles.timerUrgent, timerAnimatedStyle]}>
           {timeLeft}
         </Animated.Text>
       </View>
