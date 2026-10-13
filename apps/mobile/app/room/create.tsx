@@ -60,15 +60,13 @@ export default function RoomCreateScreen() {
           </View>
         </View>
         {mode === 1 && (
-          <>
-            <StepperField label="턴" value={roundCount} min={1} max={5} onChange={setRoundCount} />
-            <View sx={{ gap: spacing.SM }}>
-              <Text sx={{ color: colors.LIGHT_500 }}>카테고리</Text>
-              <CategorySelector value={categories} onChange={setCategories} />
-            </View>
-          </>
+          <View sx={{ gap: spacing.SM }}>
+            <Text sx={{ color: colors.LIGHT_500 }}>카테고리</Text>
+            <CategorySelector value={categories} onChange={setCategories} />
+          </View>
         )}
         <StepperField label="인원" value={playerCountMax} min={playerMin} max={12} onChange={setPlayerCountMax} />
+        {mode === 1 && <StepperField label="턴" value={roundCount} min={1} max={5} onChange={setRoundCount} />}
         <StepperField label="타이머" value={drawTimer} min={10} max={60} step={5} onChange={setDrawTimer} />
         <View sx={{ flexDirection: 'row', alignItems: 'center', gap: spacing.SM }}>
           <Text sx={{ flex: 1, color: colors.LIGHT_500 }}>잠금</Text>

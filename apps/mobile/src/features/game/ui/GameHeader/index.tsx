@@ -4,12 +4,18 @@ import { StyleSheet } from 'react-native';
 import { colors, fontFamily, spacing, textSizes } from '@/shared/config';
 import { Icon } from '@/shared/ui/Icon';
 import { gameSurface, gameText, legendSwatch } from '@/features/game/config';
+import { Collapse } from '../Collapse';
+import { WordBar } from '../WordBar';
 
 type Props = {
   roundIndex: number;
   totalTurns: number;
   timeLeft: number;
   playerGrid: ReactNode;
+  word: string | null;
+  wordColor: string;
+  /** 키보드가 올라온 동안 라운드 바·참가자 리스트·범례를 접어 스케치북 영역을 확보한다 */
+  collapsed: boolean;
   playerCount: number;
   maxPlayers: number;
   /** 범례 라인 오른쪽 끝 슬롯 (예: 정답 인정 버튼) */
@@ -28,6 +34,9 @@ export function GameHeader({
   totalTurns,
   timeLeft,
   playerGrid,
+  word,
+  wordColor,
+  collapsed,
   playerCount,
   maxPlayers,
   legendAction,
@@ -37,32 +46,39 @@ export function GameHeader({
 
   return (
     <View sx={{ backgroundColor: gameSurface.PANEL }}>
-      {/* ① 라운드 스트립 + 인원 카운터 */}
-      <View style={styles.roundStrip}>
-        <Icon name="BACK" size={18} color={gameText.PRIMARY} onPress={onBack} />
-        <Text sx={{ ...textSizes.B2, color: gameText.PRIMARY, fontFamily: fontFamily.BOLD, letterSpacing: 1 }}>
-          {`ROUND ${roundIndex + 1} (${roundIndex + 1}/${totalTurns})`}
-        </Text>
-        <Text sx={{ marginLeft: 'auto', ...textSizes.B3, color: gameText.MUTED, fontFamily: fontFamily.BOLD }}>
-          {`${playerCount}/${maxPlayers}`}
-        </Text>
-      </View>
+      <Collapse collapsed={collapsed}>
+        {/* ① 라운드 스트립 + 인원 카운터 */}
+        <View style={styles.roundStrip}>
+          <Icon name="BACK" size={18} color={gameText.PRIMARY} onPress={onBack} />
+          <Text sx={{ ...textSizes.B2, color: gameText.PRIMARY, fontFamily: fontFamily.BOLD, letterSpacing: 1 }}>
+            {`ROUND ${roundIndex + 1} (${roundIndex + 1}/${totalTurns})`}
+          </Text>
+          <Text sx={{ marginLeft: 'auto', ...textSizes.B3, color: gameText.MUTED, fontFamily: fontFamily.BOLD }}>
+            {`${playerCount}/${maxPlayers}`}
+          </Text>
+        </View>
+      </Collapse>
 
-      <View style={styles.playerRow}>
-        <View sx={{ flex: 1 }}>{playerGrid}</View>
-        <Text style={[styles.timer, isUrgent && styles.timerUrgent]}>{timeLeft}</Text>
-      </View>
+      <WordBar
+        word={word}
+        color={wordColor}
+        right={<Text style={[styles.timer, isUrgent && styles.timerUrgent]}>{timeLeft}</Text>}
+      />
 
-      {/* ③ 상태 범례 (+ 오른쪽 끝 액션 슬롯) */}
-      <View style={styles.legendRow}>
-        {LEGEND.map(item => (
-          <View key={item.label} style={styles.legendItem}>
-            <View style={[styles.legendSwatch, { backgroundColor: item.color }]} />
-            <Text sx={{ fontFamily: fontFamily.REGULAR, fontSize: 11, color: gameText.MUTED }}>{item.label}</Text>
-          </View>
-        ))}
-        {legendAction != null && <View sx={{ marginLeft: 'auto' }}>{legendAction}</View>}
-      </View>
+      <Collapse collapsed={collapsed}>
+        {playerGrid}
+
+        {/* ③ 상태 범례 (+ 오른쪽 끝 액션 슬롯) */}
+        <View style={styles.legendRow}>
+          {LEGEND.map(item => (
+            <View key={item.label} style={styles.legendItem}>
+              <View style={[styles.legendSwatch, { backgroundColor: item.color }]} />
+              <Text sx={{ fontFamily: fontFamily.REGULAR, fontSize: 11, color: gameText.MUTED }}>{item.label}</Text>
+            </View>
+          ))}
+          {legendAction != null && <View sx={{ marginLeft: 'auto' }}>{legendAction}</View>}
+        </View>
+      </Collapse>
     </View>
   );
 }
@@ -75,19 +91,11 @@ const styles = StyleSheet.create({
     paddingHorizontal: spacing.MD,
     paddingVertical: 13,
   },
-  playerRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    paddingRight: spacing.MD,
-  },
   timer: {
     fontFamily: fontFamily.BOLD,
     fontSize: 23,
     lineHeight: 30,
     color: gameText.PRIMARY,
-    minWidth: 36,
-    alignSelf: 'flex-start',
-    marginTop: 3,
     textAlign: 'right',
   },
   timerUrgent: {

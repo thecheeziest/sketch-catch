@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import { Image, Text, View } from 'dripsy';
-import { StyleSheet, useWindowDimensions } from 'react-native';
+import { StyleSheet } from 'react-native';
 import Animated, { FadeInDown, FadeOut, LinearTransition } from 'react-native-reanimated';
 import { fontFamily, getCharacterColor, getCharacterImageSource } from '@/shared/config';
 import { PixelFrame } from '@/shared/ui/PixelFrame';
@@ -33,10 +33,6 @@ const CHIP_SIZE = 16;
  * (흰 캔버스 위에서 글자가 배경과 함께 흰색으로 수렴해 대비가 붕괴).
  */
 export function ChatStream({ items }: Props) {
-  const { width } = useWindowDimensions();
-  const columnWidth = Math.floor(width * 0.72);
-  const maxRowWidth = Math.floor(width * 0.7);
-
   // 5초 만료는 시간 경과만으로도 재렌더가 필요 — items가 안 바뀌어도 틱을 돌리다가,
   // 살아있는 메시지가 없어지면 인터벌을 스스로 정리한다(무한 리렌더 방지).
   const [, setTick] = useState(0);
@@ -52,7 +48,7 @@ export function ChatStream({ items }: Props) {
   const visible = items.filter((i) => Date.now() - i.createdAt < DISPLAY_MS);
 
   return (
-    <View pointerEvents="none" style={[styles.container, { width: columnWidth }]}>
+    <View pointerEvents="none" style={styles.container}>
       {visible.map((item, index) => {
         const ageBg = AGE_STEPS[AGE_STEPS.length - visible.length + index] ?? AGE_STEPS[AGE_STEPS.length - 1];
         const bg = item.isCorrect ? chatStream.CORRECT_BG : ageBg;
@@ -77,7 +73,7 @@ export function ChatStream({ items }: Props) {
                 gap: 7,
                 paddingHorizontal: 10,
                 paddingVertical: 7,
-                maxWidth: maxRowWidth,
+                maxWidth: '100%',
               }}
             >
               {imageSource !== null ? (
@@ -113,6 +109,7 @@ export function ChatStream({ items }: Props) {
 const styles = StyleSheet.create({
   container: {
     position: 'absolute',
+    width: '72%',
     top: 10,
     right: 10,
     alignItems: 'flex-end',

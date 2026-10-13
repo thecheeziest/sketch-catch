@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { Alert, Keyboard, StyleSheet, useWindowDimensions } from 'react-native';
+import { Alert, Keyboard, StyleSheet } from 'react-native';
 import { Text, View } from 'dripsy';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useLocalSearchParams, useRouter } from 'expo-router';
@@ -7,7 +7,7 @@ import { CLIENT_EVENT } from '@sketch-catch/shared';
 import { colors } from '@/shared/config';
 import { useHardwareBack } from '@/shared/lib';
 import { useAuthStore, useRoomStore } from '@/shared/model';
-import { gameSurface, playerDot, resultOverlay, toolbar } from '@/features/game/config';
+import { gameSurface, gameText, legendSwatch, playerDot, resultOverlay, toolbar } from '@/features/game/config';
 import { useGameStore } from '@/features/game/model/useGameStore';
 import type { GameResultOverlayData } from '@/features/game/model/resultOverlay';
 import { useChatSender } from '@/features/game/api/useChatSender';
@@ -20,6 +20,7 @@ import {
   ChatStream,
   AnswerApprovalButton,
   CustomPromptModal,
+  CanvasStage,
 } from '@/features/game/ui';
 import { ResultOverlay } from '@/features/game/ui/ResultOverlay';
 
@@ -63,6 +64,22 @@ function getInputBarState(roundEnded: boolean, isCorrectEnd: boolean, answer: st
   };
 }
 
+type WordDisplay = { text: string | null; color: string };
+
+// 제시어 표시 우선순위: 정답 공개 > 출제자 제시어 > 맞히는 사람의 글자 수 힌트(남은 10초 이하)
+function getWordDisplay(params: {
+  isDrawer: boolean;
+  roundEnded: boolean;
+  isCorrectEnd: boolean;
+  answer: string;
+  word: string | null;
+  hint: string | null;
+}): WordDisplay {
+  if (params.roundEnded && params.isCorrectEnd) return { text: params.answer, color: legendSwatch.SOLVED };
+  if (params.isDrawer) return { text: params.word, color: gameText.WORD };
+  return { text: params.hint?.replace(/ㅇ/gu, 'O') ?? null, color: gameText.PRIMARY };
+}
+
 export default function GameScreen() {
   // 게임 이벤트 리스너·스토어 초기화는 room/[code]/_layout과 gameId 변경 시점에 처리된다 —
   // 여기서 reset하면 화면 전환 중 먼저 도착한 첫 라운드를 지워 화면이 멈춘다.
@@ -72,13 +89,13 @@ export default function GameScreen() {
   const socket = useRoomStore(s => s.socket);
   const roomState = useRoomStore(s => s.roomState);
   const round = useGameStore(s => s.round);
+  const promptForDrawer = useGameStore(s => s.promptForDrawer);
   const promptHint = useGameStore(s => s.promptHint);
   const chatMessages = useGameStore(s => s.chatMessages);
   const correct = useGameStore(s => s.correct);
   const waitingForPrompt = useGameStore(s => s.waitingForPrompt);
   const promptInputEndsAt = useGameStore(s => s.promptInputEndsAt);
   const keyboardLayout = useGameKeyboardLayout();
-  const { width: screenWidth } = useWindowDimensions();
   const [timeLeft, setTimeLeft] = useState(0);
   useEffect(() => {
     const tick = () => setTimeLeft(Math.max(0, Math.ceil(((round?.endsAt ?? 0) - Date.now()) / 1000)));
@@ -223,6 +240,14 @@ export default function GameScreen() {
 
   const roundEnded = roundResult != null;
   const isCorrectEnd = roundResult?.correctUserId != null;
+  const wordDisplay = getWordDisplay({
+    isDrawer,
+    roundEnded,
+    isCorrectEnd,
+    answer: roundResult?.answer ?? '',
+    word: promptForDrawer,
+    hint: !waitingForPrompt && timeLeft <= 10 ? promptHint : null,
+  });
   const inputBarState = getInputBarState(roundEnded, isCorrectEnd, roundResult?.answer ?? '');
 
   return (
@@ -233,20 +258,22 @@ export default function GameScreen() {
     >
       <View
         style={{
-          height: keyboardLayout.contentHeight,
-          transform: [{ translateY: isDrawer ? 0 : -keyboardLayout.keyboardOffset }],
+          // 키보드가 가리는 만큼 레이아웃 높이 자체를 줄여, 화면의 시작점이 '키보드 위 영역'이 되게 한다
+          height: keyboardLayout.contentHeight - (isDrawer ? 0 : keyboardLayout.keyboardOffset),
         }}
       >
         <GameHeader
           roundIndex={roundIndex}
           totalTurns={totalTurns}
           timeLeft={timeLeft}
+          word={wordDisplay.text}
+          wordColor={wordDisplay.color}
+          collapsed={!isDrawer && keyboardLayout.keyboardVisible}
           playerCount={players.length}
           maxPlayers={maxPlayers}
           playerGrid={
             <PlayerGrid
               players={players}
-              availableWidth={screenWidth - 64}
               myId={myId}
               drawerId={drawerId}
               solvedUserId={solvedUserId}
@@ -270,23 +297,19 @@ export default function GameScreen() {
           onBack={handleExitAttempt}
         />
 
-        {!isDrawer && !waitingForPrompt && !roundEnded && timeLeft <= 10 && promptHint != null && (
-          <Text sx={{ color: colors.LIGHT_100, paddingHorizontal: 12, paddingVertical: 6 }}>
-            {promptHint.replace(/ㅇ/gu, 'O')}
-          </Text>
-        )}
-
         {/* 캔버스 + 추측 스트림 + 결과 오버레이 (모두 캔버스 영역에 겹쳐 쌓인다) */}
         <View sx={{ flex: 1, position: 'relative' }}>
-          {/* key를 roundIndex로 고정해 턴 전환 시 캔버스 초기화 */}
-          <DrawingCanvas
-            isDrawer={isDrawer}
-            drawingEnabled={isDrawer && !waitingForPrompt && !roundEnded}
-            key={`canvas-${roundIndex}`}
-            onTouchCanvas={Keyboard.dismiss}
-          />
+          <CanvasStage>
+            {/* key를 roundIndex로 고정해 턴 전환 시 캔버스 초기화 */}
+            <DrawingCanvas
+              isDrawer={isDrawer}
+              drawingEnabled={isDrawer && !waitingForPrompt && !roundEnded}
+              key={`canvas-${roundIndex}`}
+              onTouchCanvas={Keyboard.dismiss}
+            />
+            <ChatStream items={streamItems} />
+          </CanvasStage>
           {waitingForPrompt && !isDrawer && <PromptWaitingOverlay />}
-          <ChatStream items={streamItems} />
           {overlay != null && <ResultOverlay key={overlay.id} data={overlay} onDismiss={handleDismissOverlay} />}
         </View>
 
