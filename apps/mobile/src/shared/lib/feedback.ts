@@ -147,7 +147,8 @@ export function initializeFeedback(): () => void {
     if (id !== lifecycleId) return;
     try {
       await setAudioModeAsync({
-        playsInSilentMode: false,
+        // iOS는 무음 스위치를 존중하고, Android는 진동 모드에서도 효과음이 나야 한다
+        playsInSilentMode: Platform.OS === 'android',
         interruptionMode: 'mixWithOthers',
         allowsRecording: false,
         shouldPlayInBackground: false,
@@ -207,15 +208,6 @@ export function initializeFeedback(): () => void {
 
 function haptic(name: FeedbackName): Promise<void> {
   const { haptic: pattern } = getFeedbackDefinition(name);
-  if (Platform.OS === 'android') {
-    if (pattern === 'tvOn') return Haptics.performAndroidHapticsAsync(Haptics.AndroidHaptics.Toggle_On);
-    if (pattern === 'tvOff') return Haptics.performAndroidHapticsAsync(Haptics.AndroidHaptics.Toggle_Off);
-    if (pattern === 'success') return Haptics.performAndroidHapticsAsync(Haptics.AndroidHaptics.Confirm);
-    if (pattern === 'heavy') return Haptics.performAndroidHapticsAsync(Haptics.AndroidHaptics.Confirm);
-    if (pattern === 'error' || pattern === 'warning')
-      return Haptics.performAndroidHapticsAsync(Haptics.AndroidHaptics.Reject);
-    return Haptics.performAndroidHapticsAsync(Haptics.AndroidHaptics.Clock_Tick);
-  }
   if (pattern === 'success') return Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
   if (pattern === 'warning') return Haptics.notificationAsync(Haptics.NotificationFeedbackType.Warning);
   if (pattern === 'selection') return Haptics.selectionAsync();

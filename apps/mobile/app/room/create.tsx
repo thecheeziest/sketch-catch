@@ -22,7 +22,7 @@ export default function RoomCreateScreen() {
   const [mode, setMode] = useState<1 | 2>(1)
   const [playerCountMax, setPlayerCountMax] = useState(6)
   const [roundCount, setRoundCount] = useState(3)
-  const [drawTimer, setDrawTimer] = useState(30)
+  const [drawTimer, setDrawTimer] = useState(60)
   const [categories, setCategories] = useState<Category[]>(['CUSTOM', ...ALL_CATEGORIES])
   const [locked, setLocked] = useState(false)
   const [password, setPassword] = useState('')
@@ -69,7 +69,7 @@ export default function RoomCreateScreen() {
         )}
         <StepperField label="인원" value={playerCountMax} min={playerMin} max={12} onChange={setPlayerCountMax} />
         {mode === 1 && <StepperField label="턴" value={roundCount} min={1} max={5} onChange={setRoundCount} />}
-        <StepperField label="타이머" value={drawTimer} min={10} max={60} step={5} onChange={setDrawTimer} />
+        <StepperField label="타이머" value={drawTimer} min={40} max={90} step={5} onChange={setDrawTimer} />
         <View sx={{ flexDirection: 'row', alignItems: 'center', gap: spacing.SM }}>
           <Text sx={{ flex: 1, color: colors.LIGHT_500 }}>잠금</Text>
           <Icon name={locked ? 'LOCK' : 'LOCK_OPEN'} size={20} />

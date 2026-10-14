@@ -23,7 +23,7 @@ export function RoomEditModal({ visible, onClose, roomCode }: Props) {
   const [title, setTitle] = useState('')
   const [playerCountMax, setPlayerCountMax] = useState(6)
   const [roundCount, setRoundCount] = useState(5)
-  const [drawTimer, setDrawTimer] = useState(30)
+  const [drawTimer, setDrawTimer] = useState(60)
   const [categories, setCategories] = useState<Category[]>(['CUSTOM', ...ALL_CATEGORIES])
   const [locked, setLocked] = useState(false)
   const playerMin = roomState?.mode === 2 ? MODE2_PLAYER_MIN : ROOM_PLAYER_MIN
@@ -55,7 +55,7 @@ export function RoomEditModal({ visible, onClose, roomCode }: Props) {
         <AppInput label="방 제목" placeholder={roomState?.title ?? '방 제목'} value={title} onChangeText={setTitle} maxLength={20} showCounter />
         <StepperField label="인원" value={playerCountMax} min={playerMin} max={12} onChange={setPlayerCountMax} />
         <StepperField label="턴" value={roundCount} min={1} max={10} onChange={setRoundCount} />
-        <StepperField label="타이머" value={drawTimer} min={10} max={60} step={5} onChange={setDrawTimer} />
+        <StepperField label="타이머" value={drawTimer} min={40} max={90} step={5} onChange={setDrawTimer} />
         <View sx={{ gap: spacing.SM }}>
           <Text sx={{ color: colors.DARK_100 }}>카테고리</Text>
           <CategorySelector value={categories} onChange={setCategories} />

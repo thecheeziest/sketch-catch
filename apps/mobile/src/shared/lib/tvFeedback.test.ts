@@ -182,15 +182,12 @@ describe('TV 효과음·햅틱', () => {
     expect(native.impact).not.toHaveBeenCalled();
   });
 
-  it('Android는 전원 토글 햅틱을 사용한다', () => {
+  it('Android도 iOS와 같은 진동 경로를 사용한다', () => {
     native.os = 'android';
     feedback.playTvFeedback('on');
     vi.advanceTimersByTime(90);
-    expect(native.androidHaptic).toHaveBeenCalledWith('toggle-on');
-    feedback.playTvFeedback('off');
-    vi.advanceTimersByTime(160);
-    expect(native.androidHaptic).toHaveBeenCalledWith('toggle-off');
-    expect(native.impact).not.toHaveBeenCalled();
+    expect(native.impact).toHaveBeenCalled();
+    expect(native.androidHaptic).not.toHaveBeenCalled();
   });
 
   it('준비되지 않은 음원은 재생하지 않고 예약된 햅틱도 해제 시 취소한다', () => {

@@ -166,7 +166,7 @@ async function finalizeMatch(mode: GameMode): Promise<void> {
     userIds,
     config: {
       roundCount: 5,
-      drawTimer: 30,
+      drawTimer: 60,
       answerTimer: 10,
       categories: ['ANIMAL', 'FOOD', 'OBJECT', 'NATURE', 'PLACE', 'ACTION', 'JOB'],
       playerCountMax: ROOM_PLAYER_MAX,

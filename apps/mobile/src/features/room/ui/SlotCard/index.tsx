@@ -22,13 +22,14 @@ type Props = {
   isMe: boolean;
   cardWidth: number;
   isLeft?: boolean; // 게임 강제종료 시 중도 퇴장 플레이어 표시
+  isWaiting?: boolean; // 시상식에서 [한번 더!]로 대기실에 재입장해 다음 게임을 기다리는 플레이어
   onPress?: () => void;
   statusLabel?: string;
   // 시상식에 남은 방장에게 돌아오라고 재촉 - 시상식 중인 유저 카드 위에 버튼으로 표시
   onNudge?: () => void;
 };
 
-export function SlotCard({ player, isMe, cardWidth, isLeft = false, onPress, statusLabel, onNudge }: Props) {
+export function SlotCard({ player, isMe, cardWidth, isLeft = false, isWaiting = false, onPress, statusLabel, onNudge }: Props) {
   const shineProgress = useSharedValue(0);
 
   useEffect(() => {
@@ -111,12 +112,12 @@ export function SlotCard({ player, isMe, cardWidth, isLeft = false, onPress, sta
               source={imageSource}
               sx={{ width: charSize, height: charSize }}
               resizeMode="contain"
-              style={isLeft ? styles.dimmedImage : undefined}
+              style={isLeft || isWaiting ? styles.dimmedImage : undefined}
             />
           ) : (
             <View
               sx={{ width: charSize, height: charSize, backgroundColor: colors.SECONDARY_400 }}
-              style={isLeft ? styles.dimmedImage : undefined}
+              style={isLeft || isWaiting ? styles.dimmedImage : undefined}
             />
           )}
         </View>
@@ -136,6 +137,13 @@ export function SlotCard({ player, isMe, cardWidth, isLeft = false, onPress, sta
           )}
         </View>
         {isHost && !isLeft && <Animated.View style={[styles.shine, shineStyle]} pointerEvents="none" />}
+        {isWaiting && !isLeft && (
+          <View style={styles.awardOverlay} pointerEvents="none">
+            <Text variant="B4" sx={{ color: colors.LIGHT_100, textAlign: 'center' }}>
+              게임 대기 중
+            </Text>
+          </View>
+        )}
         {/* 시상식에서 아직 [한번 더!]를 누르지 않은 유저 */}
         {player.inAward === true && (
           <View style={styles.awardOverlay} pointerEvents="box-none">

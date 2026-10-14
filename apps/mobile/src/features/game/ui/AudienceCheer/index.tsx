@@ -23,6 +23,7 @@ export type AudiencePlayer = {
   rank: number;
   score: number;
   left: boolean;
+  waiting?: boolean;
 };
 
 type Props = {
@@ -71,15 +72,16 @@ function CheerStick({ index, dimmed }: { index: number; dimmed: boolean }) {
 
 function AudienceCard({ player, index }: { player: AudiencePlayer; index: number }) {
   const bob = useSharedValue(0);
+  const dimmed = player.left || player.waiting === true;
 
   useEffect(() => {
-    if (player.left) return undefined;
+    if (dimmed) return undefined;
     bob.value = withDelay(
       index * 90,
       withRepeat(withSequence(withTiming(-4, { duration: 420 }), withTiming(0, { duration: 420 })), -1, true),
     );
     return () => cancelAnimation(bob);
-  }, [bob, index, player.left]);
+  }, [bob, index, dimmed]);
 
   const bobStyle = useAnimatedStyle(() => ({ transform: [{ translateY: bob.value }] }));
   const imageSource = getCharacterImageSource(player.characterId);
@@ -90,28 +92,30 @@ function AudienceCard({ player, index }: { player: AudiencePlayer; index: number
         {imageSource !== null ? (
           <Image
             source={imageSource}
-            sx={{ width: 40, height: 40, opacity: player.left ? 0.35 : 1 }}
+            sx={{ width: 40, height: 40, opacity: dimmed ? 0.35 : 1 }}
             resizeMode="contain"
           />
         ) : (
           <View
-            sx={{ width: 40, height: 40, backgroundColor: colors.SECONDARY_400, opacity: player.left ? 0.35 : 1 }}
+            sx={{ width: 40, height: 40, backgroundColor: colors.SECONDARY_400, opacity: dimmed ? 0.35 : 1 }}
           />
         )}
-        <CheerStick index={index} dimmed={player.left} />
+        <CheerStick index={index} dimmed={dimmed} />
       </Animated.View>
       <Text
         sx={{
           fontFamily: fontFamily.REGULAR,
           fontSize: 10,
-          color: player.left ? colors.GRAY : colors.LIGHT_100,
+          color: dimmed ? colors.GRAY : colors.LIGHT_100,
           marginTop: 2,
         }}
         numberOfLines={1}
       >
         {player.rank}위 {player.nickname}
       </Text>
-      <Text sx={{ ...textSizes.B4, color: player.left ? colors.GRAY : colors.ACCENT_300 }}>{player.score}점</Text>
+      <Text sx={{ ...textSizes.B4, color: dimmed ? colors.GRAY : colors.ACCENT_300 }}>
+        {player.waiting === true && !player.left ? '게임 대기 중' : `${player.score}점`}
+      </Text>
     </View>
   );
 }

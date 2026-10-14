@@ -26,7 +26,7 @@ export const createRoomSchema = z
     mode: z.union([z.literal(1), z.literal(2)]),
     playerCountMax: z.number().int().min(3).max(12),
     roundCount: z.number().int().min(1).max(20),
-    drawTimer: z.number().int().min(10).max(60).multipleOf(5), // MD1-05
+    drawTimer: z.number().int().min(40).max(90).multipleOf(5), // MD1-05
     answerTimer: z.number().int().min(5).max(30).optional(),
     categories: z.array(categorySchema),
     title: z.string().max(20).optional(),

@@ -26,6 +26,7 @@ type PodiumPlayer = {
   characterId: string;
   score: number;
   left?: boolean;
+  waiting?: boolean;
 };
 
 type Props = {
@@ -218,6 +219,7 @@ export function PodiumSlot({ rank, player, baseCardWidth }: Props) {
           isMe={false}
           cardWidth={cardWidth}
           isLeft={player.left === true}
+          isWaiting={player.waiting === true}
           statusLabel={`${player.score}점`}
         />
       </Animated.View>

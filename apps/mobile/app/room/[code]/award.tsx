@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from 'react';
-import { KeyboardAvoidingView, StyleSheet, useWindowDimensions } from 'react-native';
+import { Keyboard, KeyboardAvoidingView, Pressable, StyleSheet, useWindowDimensions } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Text, View } from 'dripsy';
 import { useLocalSearchParams } from 'expo-router';
@@ -46,6 +46,13 @@ export default function AwardScreen() {
   // userId → characterId 맵
   const characterMap = Object.fromEntries(players.map(p => [p.id, p.characterId]));
 
+  // [한번 더!]로 대기실에 재입장한 유저 - 실시간 방 상태 기준 (퇴장자 제외)
+  const waitingIds = new Set(
+    liveRoomState?.status === 'LOBBY'
+      ? liveRoomState.players.filter(p => p.inAward !== true && p.left !== true).map(p => p.id)
+      : [],
+  );
+
   // ranking 항목을 PodiumPlayer 형태로 변환 — 중도 퇴장 여부(left)도 함께 전달
   const toPodiumPlayer = (item: { userId: string; rank: number; score: number }) => ({
     userId: item.userId,
@@ -53,6 +60,7 @@ export default function AwardScreen() {
     characterId: characterMap[item.userId] ?? 'cat',
     score: item.score,
     left: players.find(p => p.id === item.userId)?.left === true,
+    waiting: waitingIds.has(item.userId),
   });
 
   const rank1 = ranking.find(r => r.rank === 1);
@@ -120,7 +128,7 @@ export default function AwardScreen() {
       )}
 
       {/* 시상대 + 방청석 + 채팅 말풍선 */}
-      <View sx={{ flex: 1, position: 'relative' }}>
+      <Pressable style={styles.stage} onPress={Keyboard.dismiss} accessible={false}>
         {/* 시상대 — 2위(왼쪽 하단), 1위(가운데 상단), 3위(오른쪽 최하단) */}
         <View
           sx={{
@@ -151,7 +159,7 @@ export default function AwardScreen() {
 
         {/* 채팅 말풍선 — 게임 진행 화면과 동일하게 우상단에 겹쳐 표시 */}
         <ChatStream items={streamItems} />
-      </View>
+      </Pressable>
 
       {/* 하단바 — 게임 진행 때와 동일한 채팅 입력창 (자동 종료 안내/나가기 버튼은 두지 않는다) */}
       <KeyboardAvoidingView behavior="padding">
@@ -174,6 +182,10 @@ export default function AwardScreen() {
 }
 
 const styles = StyleSheet.create({
+  stage: {
+    flex: 1,
+    position: 'relative',
+  },
   container: {
     flex: 1,
     backgroundColor: colors.DARK_200,
