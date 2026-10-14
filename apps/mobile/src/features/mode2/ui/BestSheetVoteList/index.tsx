@@ -1,6 +1,7 @@
+import { FeedbackPressable } from '@/shared/ui/FeedbackPressable';
 import { useState } from 'react';
 import { Image, Text, View } from 'dripsy';
-import { type LayoutChangeEvent, Pressable, StyleSheet } from 'react-native';
+import { type LayoutChangeEvent, StyleSheet } from 'react-native';
 import { colors, getCharacterImageSource, spacing, textSizes } from '@/shared/config';
 import { FlatList } from '@/shared/ui/FlatList';
 import { PixelFrame } from '@/shared/ui/PixelFrame';
@@ -44,7 +45,7 @@ export function BestSheetVoteList({ sheets, myId, selectedId, onSelect }: Props)
         const selected = item.sheetId === selectedId;
         const source = getCharacterImageSource(item.characterId);
         return (
-          <Pressable onPress={() => onSelect(item.sheetId)} style={styles.card}>
+          <FeedbackPressable onPress={() => onSelect(item.sheetId)} style={styles.card}>
             <PixelFrame
               borderColor={selected ? colors.PRIMARY_400 : colors.SECONDARY_300}
               style={StyleSheet.absoluteFill}
@@ -63,7 +64,7 @@ export function BestSheetVoteList({ sheets, myId, selectedId, onSelect }: Props)
                 {item.nickname}
               </Text>
             </View>
-          </Pressable>
+          </FeedbackPressable>
         );
       }}
     />

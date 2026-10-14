@@ -50,7 +50,7 @@ export async function refreshAccessToken(): Promise<string | null> {
     const errorBody = await refreshRes.json().catch(() => ({}));
     if ((errorBody as { error?: string }).error === 'SESSION_REPLACED') {
       // D-06: 다른 기기 로그인 토스트
-      useToastStore.getState().show('다른 기기에서 로그인되었습니다');
+      useToastStore.getState().show('다른 기기에서 로그인되었습니다', 'error');
     }
   }
 

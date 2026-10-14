@@ -12,7 +12,10 @@ export type ClientEvents = {
   'room:ready': (payload: { ready: boolean }) => void;
   'room:start': () => void;
   // 시상식에서 [한번 더!] — 같은 방 대기실로 복귀
-  'room:rematch': () => void;
+  // 소켓이 방에서 빠져 있어도 서버가 응답할 수 있도록 방 코드를 함께 보낸다
+  'room:rematch': (payload: { code: string }) => void;
+  // 대기실 인원이 시상식에 남은 방장에게 돌아오라고 재촉
+  'room:nudge': () => void;
   'stroke:start': (payload: { strokeId: string; color: string; width: number }) => void;
   'stroke:append': (payload: { strokeId: string; points: Point[] }) => void;
   'stroke:end': (payload: { strokeId: string }) => void;
@@ -31,12 +34,15 @@ export type ClientEvents = {
 
 // 서버 → 클라이언트 (Socket.io EventsMap: 각 이벤트를 함수 시그니처로 정의)
 export type ServerEvents = {
+  'room:nudged': () => void;
   'room:removed': (payload: { code: string; reason: 'AWARD_EXPIRED' }) => void;
   'room:state': (state: RoomState) => void;
   'room:player:join': (payload: { player: Player }) => void;
   'room:player:leave': (payload: { userId: string }) => void;
   'game:round:start': (payload: RoundStart) => void;
   'game:round:end': (payload: RoundEnd) => void;
+  // 남은 시간 10초 — 맞히는 사람에게 제시어 글자 수 공개
+  'game:hint': (payload: { gameId: string; roundIndex: number; promptHint: string }) => void;
   'game:end': (payload: GameResult) => void;
   'stroke:remote': (payload: StrokeEvent) => void;
   'chat:message': (payload: ChatMessage) => void;
@@ -65,6 +71,7 @@ export const CLIENT_EVENT = {
   ROOM_READY: 'room:ready',
   ROOM_START: 'room:start',
   ROOM_REMATCH: 'room:rematch',
+  ROOM_NUDGE: 'room:nudge',
   STROKE_START: 'stroke:start',
   STROKE_APPEND: 'stroke:append',
   STROKE_END: 'stroke:end',
@@ -82,10 +89,12 @@ export const CLIENT_EVENT = {
 
 export const SERVER_EVENT = {
   ROOM_STATE: 'room:state',
+  ROOM_NUDGED: 'room:nudged',
   ROOM_PLAYER_JOIN: 'room:player:join',
   ROOM_PLAYER_LEAVE: 'room:player:leave',
   GAME_ROUND_START: 'game:round:start',
   GAME_ROUND_END: 'game:round:end',
+  GAME_HINT: 'game:hint',
   GAME_END: 'game:end',
   STROKE_REMOTE: 'stroke:remote',
   CHAT_MESSAGE: 'chat:message',

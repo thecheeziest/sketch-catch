@@ -3,7 +3,7 @@ import { runInRoom } from './roomQueue.js';
 
 // 방 단위 타이머 레지스트리 — 라운드·다음 라운드·모드2 단계·리뷰·시상식 타이머를 한곳에서 관리한다.
 // 같은 key로 다시 걸면 이전 타이머는 취소되고, 게임 종료·방 삭제 시 clearRoomTimers로 일괄 정리한다.
-export type RoomTimerKey = 'round' | 'nextRound' | 'mode2Step' | 'review' | 'award';
+export type RoomTimerKey = 'round' | 'hint' | 'nextRound' | 'mode2Step' | 'review' | 'award';
 
 const timers = new Map<string, Map<RoomTimerKey, ReturnType<typeof setTimeout>>>();
 

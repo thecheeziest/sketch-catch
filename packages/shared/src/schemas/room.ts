@@ -13,6 +13,11 @@ export const categorySchema = z.enum([
   'PLACE',
   'ACTION',
   'JOB',
+  'PROVERB',
+  'IDIOM',
+  'MOVIE',
+  'DRAMA',
+  'MEME',
   'CUSTOM',
 ]);
 

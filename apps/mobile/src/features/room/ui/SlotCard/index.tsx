@@ -1,11 +1,13 @@
+import { FeedbackPressable } from '@/shared/ui/FeedbackPressable';
 import { colors, getCharacterImageSource, spacing, textSizes } from '@/shared/config';
 import { Badge } from '@/shared/ui/Badge';
+import { Button } from '@/shared/ui/Button';
 import { Icon } from '@/shared/ui/Icon';
 import { PixelFrame } from '@/shared/ui/PixelFrame';
 import type { Player } from '@sketch-catch/shared';
 import { Image, Text, View } from 'dripsy';
 import { useEffect } from 'react';
-import { Pressable, StyleSheet } from 'react-native';
+import { StyleSheet } from 'react-native';
 import Animated, {
   cancelAnimation,
   interpolate,
@@ -22,9 +24,11 @@ type Props = {
   isLeft?: boolean; // 게임 강제종료 시 중도 퇴장 플레이어 표시
   onPress?: () => void;
   statusLabel?: string;
+  // 시상식에 남은 방장에게 돌아오라고 재촉 - 시상식 중인 유저 카드 위에 버튼으로 표시
+  onNudge?: () => void;
 };
 
-export function SlotCard({ player, isMe, cardWidth, isLeft = false, onPress, statusLabel }: Props) {
+export function SlotCard({ player, isMe, cardWidth, isLeft = false, onPress, statusLabel, onNudge }: Props) {
   const shineProgress = useSharedValue(0);
 
   useEffect(() => {
@@ -83,7 +87,7 @@ export function SlotCard({ player, isMe, cardWidth, isLeft = false, onPress, sta
 
 
   return (
-    <Pressable onPress={onPress} disabled={!onPress}>
+    <FeedbackPressable onPress={onPress} disabled={!onPress}>
     <View sx={{ aspectRatio: 0.85, margin: spacing.XS, width: cardWidth }}>
       <PixelFrame
         borderColor={borderColor}
@@ -134,15 +138,20 @@ export function SlotCard({ player, isMe, cardWidth, isLeft = false, onPress, sta
         {isHost && !isLeft && <Animated.View style={[styles.shine, shineStyle]} pointerEvents="none" />}
         {/* 시상식에서 아직 [한번 더!]를 누르지 않은 유저 */}
         {player.inAward === true && (
-          <View style={styles.awardOverlay} pointerEvents="none">
+          <View style={styles.awardOverlay} pointerEvents="box-none">
             <Text variant="B4" sx={{ color: colors.LIGHT_100, textAlign: 'center' }}>
               시상 진행 중..
             </Text>
+            {onNudge !== undefined && (
+              <View sx={{ marginTop: spacing.XS }}>
+                <Button label="재촉하기" color="primary" height={26} onPress={onNudge} />
+              </View>
+            )}
           </View>
         )}
       </PixelFrame>
     </View>
-    </Pressable>
+    </FeedbackPressable>
   );
 }
 

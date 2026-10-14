@@ -46,6 +46,8 @@ export type ChatMessage = {
   text: string;
   masked: boolean;
   createdAt: number;
+  // 채팅이 오가는 장소 — 미지정이면 게임 중 채팅. 대기실·시상식 채팅은 해당 장소의 인원에게만 전달된다
+  channel?: 'LOBBY' | 'AWARD';
 };
 
 export type Mode2Phase = 'PROMPT' | 'DRAW' | 'ANSWER';

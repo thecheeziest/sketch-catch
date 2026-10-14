@@ -11,6 +11,7 @@ import { useStrokeSender } from '@/features/game/api/useStrokeSender';
 import { useAuthStore } from '@/shared/model/auth';
 import { createPaintSpans } from '@/features/game/lib/paint';
 import { useToastStore } from '@/shared/model/toast';
+import { playFeedback } from '@/shared/lib/feedback';
 import { buildPaintPath, buildStrokePath } from '@/shared/lib/strokePath';
 // 간단한 클라이언트용 stroke ID 생성 (서버가 authorId를 덮어쓰므로 충돌 무관)
 function makeStrokeId(): string {
@@ -93,9 +94,10 @@ export function DrawingCanvas({ isDrawer, drawingEnabled = isDrawer, onStrokesCh
           allStrokesRef.current = [...allStrokesRef.current, fillStroke];
           setLocalStrokes(allStrokesRef.current);
           sender.fill(fillStroke.strokeId, color, paintSpans);
+          playFeedback('fill');
           onStrokesChange?.(allStrokesRef.current.map(toSharedStroke));
         } catch (error) {
-          useToastStore.getState().show(error instanceof Error ? error.message : '페인트를 적용할 수 없어요');
+          useToastStore.getState().show(error instanceof Error ? error.message : '페인트를 적용할 수 없어요', 'error');
         }
         return;
       }

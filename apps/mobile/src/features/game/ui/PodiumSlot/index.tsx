@@ -17,6 +17,8 @@ import { SlotCard } from '@/features/room/ui/SlotCard';
 import { Icon } from '@/shared/ui/Icon';
 import { colors, spacing, textSizes, fontFamily } from '@/shared/config';
 import type { Player } from '@sketch-catch/shared';
+import { useGameStore } from '@/features/game/model/useGameStore';
+import { playFeedback } from '@/shared/lib/feedback';
 
 type PodiumPlayer = {
   userId: string;
@@ -178,6 +180,13 @@ function WinnerGlow({ cardWidth }: { cardWidth: number }) {
 
 export function PodiumSlot({ rank, player, baseCardWidth }: Props) {
   const cardWidth = Math.round(baseCardWidth * SCALE[rank]);
+  const gameId = useGameStore(s => s.result?.gameId);
+  useEffect(() => {
+    if (!gameId) return;
+    const delay = rank === 1 ? 150 : 1750 + (rank - 1) * 350;
+    const timer = setTimeout(() => playFeedback(rank === 1 ? 'podiumWinner' : 'podiumOther', { key: `${gameId}:podium:${rank}` }), delay);
+    return () => clearTimeout(timer);
+  }, [gameId, rank]);
 
   // 1위는 등장 시 통통 튀어 오르며 나타난다
   const entrance = useSharedValue(rank === 1 ? 0 : 1);

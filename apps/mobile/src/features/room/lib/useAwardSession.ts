@@ -24,13 +24,13 @@ export function useAwardSession(code: string) {
   const rematch = useCallback((): void => {
     if (decidedRef.current || pendingRef.current) return;
     if (!socket?.connected) {
-      useToastStore.getState().show('연결을 확인하고 다시 시도해 주세요');
+      useToastStore.getState().show('연결을 확인하고 다시 시도해 주세요', 'error');
       return;
     }
     pendingRef.current = true;
     setRematching(true);
-    socket.emit(CLIENT_EVENT.ROOM_REMATCH);
-  }, [socket]);
+    socket.emit(CLIENT_EVENT.ROOM_REMATCH, { code });
+  }, [socket, code]);
 
   // 뒤로가기로 시상식을 스킵하지 않는다. 퇴장은 명시적인 나가기 버튼으로만 한다.
   useHardwareBack(() => {});
@@ -81,7 +81,7 @@ export function useAwardSession(code: string) {
     const timeout = setTimeout(() => {
       pendingRef.current = false;
       setRematching(false);
-      useToastStore.getState().show('응답이 늦어지고 있어요. 다시 시도해 주세요');
+      useToastStore.getState().show('응답이 늦어지고 있어요. 다시 시도해 주세요', 'error');
     }, 8000);
     return () => clearTimeout(timeout);
   }, [rematching]);

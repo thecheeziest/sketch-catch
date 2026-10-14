@@ -1,4 +1,5 @@
-import { Pressable, StyleSheet, useWindowDimensions } from 'react-native';
+import { FeedbackPressable } from '@/shared/ui/FeedbackPressable';
+import { StyleSheet, useWindowDimensions } from 'react-native';
 import { View } from 'dripsy';
 import { PixelFrame } from '@/shared/ui/PixelFrame';
 import { drawingPalette, toolbar } from '@/features/game/config';
@@ -27,7 +28,7 @@ export function ColorPicker({ value, onChange }: Props) {
         if (swatch === '#14101C') borderColor = '#FFFFFF';
         if (isSelected) borderColor = toolbar.SWATCH_SELECTED;
         return (
-          <Pressable
+          <FeedbackPressable
             key={swatch}
             onPress={() => onChange(swatch)}
             accessibilityLabel={`색상 선택 ${swatch}`}
@@ -41,7 +42,7 @@ export function ColorPicker({ value, onChange }: Props) {
             >
               <View style={[StyleSheet.absoluteFill, { backgroundColor: swatch }]} />
             </PixelFrame>
-          </Pressable>
+          </FeedbackPressable>
         );
       })}
     </View>

@@ -1,4 +1,5 @@
-import { Pressable, StyleSheet } from 'react-native';
+import { FeedbackPressable } from '@/shared/ui/FeedbackPressable';
+import { StyleSheet } from 'react-native';
 import { Text, View } from 'dripsy';
 import { fontFamily } from '@/shared/config';
 import { Icon } from '@/shared/ui/Icon';
@@ -7,6 +8,7 @@ import { toolbar } from '@/features/game/config';
 import { useGameStore } from '@/features/game/model/useGameStore';
 import { useStrokeSender } from '@/features/game/api/useStrokeSender';
 import { ColorPicker } from '../ColorPicker';
+import { type FeedbackName } from '@/shared/config/audio';
 
 // 브러시 3단: 실제 stroke width(불변) / 도트 표시 크기(디자인값)
 const WIDTH_OPTIONS = [
@@ -26,8 +28,11 @@ type LabeledButtonProps = {
 };
 
 function LabeledButton({ label, icon, bg, ring, labelColor, active = false, onPress }: LabeledButtonProps) {
+  let feedback: FeedbackName = 'tool';
+  if (icon === 'UNDO') feedback = 'undo';
+  if (icon === 'TRASH') feedback = 'clear';
   return (
-    <Pressable onPress={onPress} accessibilityLabel={label} style={styles.labeledButton}>
+    <FeedbackPressable feedback={feedback} onPress={onPress} accessibilityLabel={label} style={styles.labeledButton}>
       <PixelFrame borderColor={active ? toolbar.SWATCH_SELECTED : ring} borderWidth={3} style={StyleSheet.absoluteFill}>
         <View style={[StyleSheet.absoluteFill, { backgroundColor: bg }]} />
       </PixelFrame>
@@ -35,7 +40,7 @@ function LabeledButton({ label, icon, bg, ring, labelColor, active = false, onPr
         <Icon name={icon} size={15} color={labelColor} />
         <Text sx={{ fontFamily: fontFamily.REGULAR, fontSize: 11, lineHeight: 13, color: labelColor }}>{label}</Text>
       </View>
-    </Pressable>
+    </FeedbackPressable>
   );
 }
 
@@ -75,7 +80,7 @@ export function ToolbarRow({ realtime = true }: { realtime?: boolean }) {
           {WIDTH_OPTIONS.map(opt => {
             const isSelected = !eraser && !paint && width === opt.width;
             return (
-              <Pressable
+              <FeedbackPressable
                 key={opt.width}
                 onPress={() => {
                   setWidth(opt.width);
@@ -104,7 +109,7 @@ export function ToolbarRow({ realtime = true }: { realtime?: boolean }) {
                     backgroundColor: toolbar.SIZE_DOT,
                   }}
                 />
-              </Pressable>
+              </FeedbackPressable>
             );
           })}
         </View>

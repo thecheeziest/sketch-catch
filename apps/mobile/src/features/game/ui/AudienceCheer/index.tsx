@@ -13,6 +13,8 @@ import Animated, {
   withTiming,
 } from 'react-native-reanimated';
 import { colors, fontFamily, getCharacterImageSource, spacing, textSizes } from '@/shared/config';
+import { useGameStore } from '@/features/game/model/useGameStore';
+import { playFeedback } from '@/shared/lib/feedback';
 
 export type AudiencePlayer = {
   userId: string;
@@ -116,6 +118,12 @@ function AudienceCard({ player, index }: { player: AudiencePlayer; index: number
 
 /** 순위권 밖 참가자를 관중석처럼 늘어세워 응원봉을 흔드는 애니메이션으로 보여준다. */
 export function AudienceCheer({ players }: Props) {
+  const gameId = useGameStore(s => s.result?.gameId);
+  useEffect(() => {
+    if (!gameId || players.length === 0) return;
+    const timer = setTimeout(() => playFeedback('cheer', { key: `${gameId}:cheer` }), 2900);
+    return () => clearTimeout(timer);
+  }, [gameId, players.length]);
   if (players.length === 0) return null;
 
   return (

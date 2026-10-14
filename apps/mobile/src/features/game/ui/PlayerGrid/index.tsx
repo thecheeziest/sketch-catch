@@ -1,5 +1,6 @@
+import { FeedbackPressable } from '@/shared/ui/FeedbackPressable';
 import { View } from 'dripsy';
-import { Pressable, useWindowDimensions } from 'react-native';
+import { useWindowDimensions } from 'react-native';
 import type { Player } from '@sketch-catch/shared';
 import { gameSurface } from '@/features/game/config';
 import { PlayerCell } from '../PlayerCell';
@@ -68,7 +69,7 @@ export function PlayerGrid({
       }}
     >
       {slotItems.map((player, index) => (
-        <Pressable
+        <FeedbackPressable
           key={player?.id ?? `spacer-${index}`}
           onPress={() => handleCellPress(player)}
           disabled={!isDrawerView || player === null || player?.id === myId}
@@ -83,7 +84,7 @@ export function PlayerGrid({
             isLeft={player?.left === true}
             cellWidth={cellWidth}
           />
-        </Pressable>
+        </FeedbackPressable>
       ))}
     </View>
   );

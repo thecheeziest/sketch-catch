@@ -14,5 +14,5 @@ const SUBMIT_LABEL: Record<Mode2Phase, string> = {
 };
 
 export function SubmitStepButton({ phase, disabled, onSubmit }: Props) {
-  return <Button height={48} color="primary" label={SUBMIT_LABEL[phase]} disabled={disabled} onPress={onSubmit} />;
+  return <Button feedback={false} height={48} color="primary" label={SUBMIT_LABEL[phase]} disabled={disabled} onPress={onSubmit} />;
 }

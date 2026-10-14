@@ -1,14 +1,16 @@
+import { FeedbackPressable } from '@/shared/ui/FeedbackPressable';
 import { useMe } from '@/features/auth/api';
 import { useLogout } from '@/features/auth/lib';
 import { DeleteAccountModal } from '@/features/profile/ui';
 import { colors, spacing, textSizes } from '@/shared/config';
 import { useFeedbackStore } from '@/shared/model/feedback';
+import { playFeedback } from '@/shared/lib/feedback';
 import { Button, Icon, PlatformBadge } from '@/shared/ui';
 import { ScrollView, Text, View } from 'dripsy';
 import * as Notifications from 'expo-notifications';
 import { useRouter } from 'expo-router';
 import { useEffect, useState } from 'react';
-import { Linking, Pressable, StyleSheet, Switch } from 'react-native';
+import { Linking, StyleSheet, Switch } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 export default function SettingsScreen() {
@@ -20,6 +22,8 @@ export default function SettingsScreen() {
   const soundEnabled = useFeedbackStore(s => s.soundEnabled);
   const hapticsEnabled = useFeedbackStore(s => s.hapticsEnabled);
   const soundVolume = useFeedbackStore(s => s.soundVolume);
+  const musicEnabled = useFeedbackStore(s => s.musicEnabled);
+  const musicVolume = useFeedbackStore(s => s.musicVolume);
   const feedbackHydrated = useFeedbackStore(s => s.hydrated);
   const updatePreferences = useFeedbackStore(s => s.updatePreferences);
 
@@ -32,9 +36,13 @@ export default function SettingsScreen() {
   return (
     <SafeAreaView style={{ flex: 1, backgroundColor: colors.DARK_200 }}>
       <View sx={sxStyles.header}>
-        <Pressable onPress={() => router.back()} style={({ pressed }) => [styles.iconBtn, pressed && { opacity: 0.7 }]}>
+        <FeedbackPressable
+          feedback="cancel"
+          onPress={() => router.back()}
+          style={({ pressed }) => [styles.iconBtn, pressed && { opacity: 0.7 }]}
+        >
           <Icon name="BACK" size={24} />
-        </Pressable>
+        </FeedbackPressable>
         <Text variants={['bold', 'T3']} sx={{ color: colors.LIGHT_100 }}>
           설정
         </Text>
@@ -54,13 +62,55 @@ export default function SettingsScreen() {
         <View sx={{ marginTop: spacing.XL, paddingHorizontal: spacing.XL, gap: spacing.SM }}>
           <View sx={sxStyles.feedbackRow}>
             <Text variants={['B2']} sx={{ color: colors.LIGHT_100 }}>
+              배경 음악
+            </Text>
+            <Switch
+              accessibilityLabel="배경 음악"
+              value={musicEnabled}
+              disabled={!feedbackHydrated}
+              onValueChange={value => {
+                updatePreferences({ musicEnabled: value });
+                playFeedback('select');
+              }}
+              trackColor={{ false: colors.DARK_100, true: colors.SECONDARY_300 }}
+            />
+          </View>
+          <View sx={sxStyles.feedbackRow}>
+            <Text
+              variants={['B2']}
+              sx={{ color: colors.LIGHT_100 }}
+            >{`배경 음악 볼륨 ${Math.round(musicVolume * 100)}%`}</Text>
+            <View sx={{ flexDirection: 'row', gap: spacing.SM }}>
+              <Button
+                label="-"
+                accessibilityLabel="배경 음악 볼륨 줄이기"
+                height={36}
+                color="dark"
+                disabled={!feedbackHydrated || !musicEnabled || musicVolume <= 0}
+                onPress={() => updatePreferences({ musicVolume: Math.round((musicVolume - 0.1) * 100) / 100 })}
+              />
+              <Button
+                label="+"
+                accessibilityLabel="배경 음악 볼륨 높이기"
+                height={36}
+                color="dark"
+                disabled={!feedbackHydrated || !musicEnabled || musicVolume >= 1}
+                onPress={() => updatePreferences({ musicVolume: Math.round((musicVolume + 0.1) * 100) / 100 })}
+              />
+            </View>
+          </View>
+          <View sx={sxStyles.feedbackRow}>
+            <Text variants={['B2']} sx={{ color: colors.LIGHT_100 }}>
               효과음
             </Text>
             <Switch
               accessibilityLabel="효과음"
               value={soundEnabled}
               disabled={!feedbackHydrated}
-              onValueChange={value => updatePreferences({ soundEnabled: value })}
+              onValueChange={value => {
+                updatePreferences({ soundEnabled: value });
+                playFeedback('select');
+              }}
               trackColor={{ false: colors.DARK_100, true: colors.SECONDARY_300 }}
             />
           </View>
@@ -72,7 +122,10 @@ export default function SettingsScreen() {
               accessibilityLabel="햅틱"
               value={hapticsEnabled}
               disabled={!feedbackHydrated}
-              onValueChange={value => updatePreferences({ hapticsEnabled: value })}
+              onValueChange={value => {
+                updatePreferences({ hapticsEnabled: value });
+                playFeedback('select');
+              }}
               trackColor={{ false: colors.DARK_100, true: colors.SECONDARY_300 }}
             />
           </View>

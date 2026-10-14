@@ -1,6 +1,7 @@
+import { FeedbackPressable } from '@/shared/ui/FeedbackPressable';
 import { useEffect, useState } from 'react';
 import { Text, TextInput, View } from 'dripsy';
-import { Pressable, StyleSheet } from 'react-native';
+import { StyleSheet } from 'react-native';
 import { colors, fontFamily, spacing, textSizes } from '@/shared/config';
 import { PixelFrame } from '@/shared/ui/PixelFrame';
 import { toolbar } from '@/features/game/config';
@@ -59,7 +60,8 @@ export function ChatInputBar({
           returnKeyType="send"
           submitBehavior="submit"
         />
-        <Pressable
+        <FeedbackPressable
+          feedback={false}
           onPress={handleSend}
           disabled={!canSend}
           style={[styles.sendButton, !canSend && styles.sendButtonDisabled]}
@@ -68,7 +70,7 @@ export function ChatInputBar({
           <Text style={[styles.sendIcon, !canSend && styles.sendIconDisabled]} pointerEvents="none">
             →
           </Text>
-        </Pressable>
+        </FeedbackPressable>
       </View>
     </View>
   );

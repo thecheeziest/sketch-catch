@@ -1,3 +1,4 @@
+import { useTimerFeedback } from '@/shared/lib/useTimerFeedback';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Alert, Keyboard, StyleSheet } from 'react-native';
 import { Text, View } from 'dripsy';
@@ -66,7 +67,7 @@ function getInputBarState(roundEnded: boolean, isCorrectEnd: boolean, answer: st
 
 type WordDisplay = { text: string | null; color: string };
 
-// 제시어 표시 우선순위: 정답 공개 > 출제자 제시어 > 맞히는 사람의 글자 수 힌트(남은 10초 이하)
+// 제시어 표시 우선순위: 정답 공개 > 출제자 제시어 > 맞히는 사람의 글자 수 힌트(서버가 남은 10초에 공개)
 function getWordDisplay(params: {
   isDrawer: boolean;
   roundEnded: boolean;
@@ -106,6 +107,7 @@ export default function GameScreen() {
   const roundResult = useGameStore(s => s.roundResult);
   const needsCustomPrompt = useGameStore(s => s.needsCustomPrompt);
   const isCustomRound = useGameStore(s => s.isCustomRound);
+  useTimerFeedback(timeLeft, `${roomState?.gameId}:${round?.roundIndex}:classic`, !waitingForPrompt && !roundResult && roomState?.status === 'MODE1_ROUND_START');
 
   const { sendChat, acceptAnswer, submitCustomPrompt } = useChatSender();
 
@@ -115,15 +117,6 @@ export default function GameScreen() {
   const players = roomState?.players ?? [];
   const drawerId = round?.drawerId ?? '';
 
-  useEffect(() => {
-    if (roomState?.status === 'AWARD') {
-      router.replace(`/room/${code}/award` as never);
-    } else if (roomState?.status === 'LOBBY') {
-      // 서버가 게임을 취소하고 대기실로 되돌린 경우 (예: 제시어 로드 실패) — 빈 캔버스에 멈춰 있지 않도록 복귀
-      router.replace(`/room/${code}` as never);
-    }
-  }, [roomState?.status, code, router]);
-
   // 라운드 시작 시각(클라이언트 기준) — 정답 결과 오버레이의 solveSeconds 계산용
   const roundStartRef = useRef<number>(Date.now());
   const prevRoundIndexRef = useRef<number | null>(null);
@@ -131,6 +124,7 @@ export default function GameScreen() {
     if (round?.roundIndex !== prevRoundIndexRef.current) {
       prevRoundIndexRef.current = round?.roundIndex ?? null;
       roundStartRef.current = Date.now();
+      overlayVisibleRef.current = false;
       setOverlay(null);
       setSelectedUserId(null);
     }
@@ -141,6 +135,8 @@ export default function GameScreen() {
   }, [waitingForPrompt]);
 
   const overlaySeqRef = useRef(0);
+  // 결과 오버레이가 화면에 떠 있는 동안 true — 마지막 라운드 결과를 끝까지 보여준 뒤 시상식으로 넘어가기 위한 기준
+  const overlayVisibleRef = useRef(false);
 
   // 정답 / 게임오버 결과 오버레이 — 라운드 종료(game:round:end) 시점에 판정
   const prevRoundResultRef = useRef<typeof roundResult>(null);
@@ -148,6 +144,7 @@ export default function GameScreen() {
     if (roundResult === null || roundResult === prevRoundResultRef.current) return;
     prevRoundResultRef.current = roundResult;
     overlaySeqRef.current += 1;
+    overlayVisibleRef.current = true;
 
     if (roundResult.correctUserId != null) {
       const winner = players.find(p => p.id === roundResult.correctUserId);
@@ -173,7 +170,23 @@ export default function GameScreen() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [roundResult]);
 
-  const handleDismissOverlay = useCallback((): void => setOverlay(null), []);
+  const handleDismissOverlay = useCallback((): void => {
+    overlayVisibleRef.current = false;
+    setOverlay(null);
+  }, []);
+
+  // 시상식 전환은 마지막 라운드의 정답/오답 모달이 닫힌 뒤에 한다. 이 effect는 결과 오버레이 effect 뒤에 두어야
+  // 같은 렌더에서 도착한 round:end와 AWARD 상태를 구분할 수 있다.
+  useEffect(() => {
+    if (roomState?.status === 'AWARD') {
+      const resultNotShownYet = roundResult !== null && roundResult !== prevRoundResultRef.current;
+      if (overlayVisibleRef.current || resultNotShownYet) return;
+      router.replace(`/room/${code}/award` as never);
+    } else if (roomState?.status === 'LOBBY') {
+      // 서버가 게임을 취소하고 대기실로 되돌린 경우 (예: 제시어 로드 실패) — 빈 캔버스에 멈춰 있지 않도록 복귀
+      router.replace(`/room/${code}` as never);
+    }
+  }, [roomState?.status, roundResult, overlay, code, router]);
 
   const handleApprove = (messageId: string): void => {
     acceptAnswer(messageId);
@@ -246,7 +259,7 @@ export default function GameScreen() {
     isCorrectEnd,
     answer: roundResult?.answer ?? '',
     word: promptForDrawer,
-    hint: !waitingForPrompt && timeLeft <= 10 ? promptHint : null,
+    hint: waitingForPrompt ? null : promptHint,
   });
   const inputBarState = getInputBarState(roundEnded, isCorrectEnd, roundResult?.answer ?? '');
 

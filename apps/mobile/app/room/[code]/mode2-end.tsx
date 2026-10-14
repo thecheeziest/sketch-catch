@@ -61,10 +61,10 @@ export default function Mode2EndScreen() {
     try {
       await saveGif(selectedSheetId);
       setSaveFailed(false);
-      useToastStore.getState().show('저장 완료! 갤러리에서 확인하세요');
+      useToastStore.getState().show('저장 완료! 갤러리에서 확인하세요', 'success');
     } catch {
       setSaveFailed(true);
-      useToastStore.getState().show('저장에 실패했어요. 사진 접근 권한을 확인해주세요');
+      useToastStore.getState().show('저장에 실패했어요. 사진 접근 권한을 확인해주세요', 'error');
     }
   };
 

@@ -7,7 +7,13 @@ import { verifyAccessToken } from '../auth/jwt.js';
 import { isOutdatedClient } from '../lib/appVersion.js';
 import { logger } from '../lib/logger.js';
 import { runInRooms } from '../services/roomQueue.js';
-import { handleRoomJoin, handleRoomLeave, handleRoomReady, handleRoomStart } from './handlers/room.js';
+import {
+  handleRoomJoin,
+  handleRoomLeave,
+  handleRoomNudge,
+  handleRoomReady,
+  handleRoomStart,
+} from './handlers/room.js';
 import {
   handleStrokeStart,
   handleStrokeAppend,
@@ -74,8 +80,13 @@ export function registerGameNamespace(io: Server<ClientEvents, ServerEvents>): v
     socket.on('room:join', ({ code }) => run(socket, 'room:join', [code], () => handleRoomJoin(game, socket, code)));
     socket.on('room:leave', () => inRoom('room:leave', () => handleRoomLeave(game, socket)));
     socket.on('room:ready', ({ ready }) => inRoom('room:ready', () => handleRoomReady(game, socket, ready)));
+    socket.on('room:nudge', () => inRoom('room:nudge', () => handleRoomNudge(game, socket)));
     socket.on('room:start', () => inRoom('room:start', () => handleRoomStart(game, socket)));
-    socket.on('room:rematch', () => inRoom('room:rematch', () => handleRematch(game, socket)));
+    socket.on('room:rematch', payload => {
+      const code = typeof payload?.code === 'string' ? payload.code : undefined;
+      const codes = code ? [code] : roomCodesOf(socket);
+      run(socket, 'room:rematch', codes, () => handleRematch(game, socket, code));
+    });
     // disconnecting 사용 — disconnect 시점에는 socket.rooms가 이미 비워지므로
     // disconnecting 시점(rooms 아직 유지)에 처리해야 방 코드를 찾을 수 있음
     socket.on('disconnecting', () => {

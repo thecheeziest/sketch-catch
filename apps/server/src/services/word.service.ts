@@ -2,7 +2,20 @@ import { prisma } from '../db/prisma.js';
 import { logger } from '../lib/logger.js';
 import type { Category } from '@sketch-catch/shared';
 
-const WORD_CATEGORIES: Category[] = ['ANIMAL', 'FOOD', 'OBJECT', 'NATURE', 'PLACE', 'ACTION', 'JOB'];
+const WORD_CATEGORIES: Category[] = [
+  'ANIMAL',
+  'FOOD',
+  'OBJECT',
+  'NATURE',
+  'PLACE',
+  'ACTION',
+  'JOB',
+  'PROVERB',
+  'IDIOM',
+  'MOVIE',
+  'DRAMA',
+  'MEME',
+];
 
 export async function pickWord(categories: Category[]): Promise<{ word: string; category: Category }> {
   const cats = categories.length > 0 ? categories : (['ANIMAL'] as Category[]);

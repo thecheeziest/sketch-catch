@@ -25,6 +25,42 @@ type GameNamespace = Namespace<ClientEvents, ServerEvents>;
 
 const CUSTOM_PROMPT_TIMEOUT_MS = PROMPT_DURATION_SEC * 1000;
 const NEXT_ROUND_DELAY_MS = 5000;
+// 남은 시간이 이 값에 도달하면 맞히는 사람에게 제시어 글자 수를 공개한다 (방 타이머가 30초든 60초든 동일)
+const HINT_REVEAL_REMAINING_SEC = 10;
+
+// 글자 수 힌트 — 공백은 유지하고 나머지 글자를 'ㅇ'으로 가린다
+function toPromptHint(prompt: string): string {
+  return prompt.replace(/[^ ]/gu, 'ㅇ');
+}
+
+// 라운드 시작(또는 커스텀 제시어 제출) 시점에 글자 수 공개 시각을 예약한다
+function scheduleHint(
+  game: GameNamespace,
+  code: string,
+  gameId: string | undefined,
+  roundIndex: number,
+  drawTimerSec: number,
+): void {
+  const delayMs = Math.max(0, drawTimerSec - HINT_REVEAL_REMAINING_SEC) * 1000;
+  setRoomTimer(code, 'hint', delayMs, () => revealHint(game, code, gameId, roundIndex));
+}
+
+async function revealHint(
+  game: GameNamespace,
+  code: string,
+  gameId: string | undefined,
+  roundIndex: number,
+): Promise<void> {
+  const state = await getRoomState(code);
+  if (!state || state.gameId !== gameId || state.status !== 'MODE1_ROUND_START') return;
+  const current = state.current as Mode1RoundCurrent | null;
+  if (!current || current.roundIndex !== roundIndex || current.prompt === '') return;
+  game.to(`room:${code}`).emit(SERVER_EVENT.GAME_HINT, {
+    gameId: gameId ?? '',
+    roundIndex,
+    promptHint: toPromptHint(current.prompt),
+  });
+}
 
 // D-01: answeredAt 누적 Map (동점자 정렬용 — score DESC, answeredAt ASC)
 const answerTimestamps = new Map<string, Map<string, number>>();
@@ -136,7 +172,6 @@ export async function startRound(
       roundIndex,
       drawerId,
       promptForDrawer: player.id === drawerId ? picked.word : undefined,
-      promptHint: picked.word.replace(/[^ ]/gu, 'ㅇ'),
       isCustomRound: false,
       durationSec: state.config.drawTimer,
     });
@@ -145,6 +180,7 @@ export async function startRound(
   setRoomTimer(code, 'round', state.config.drawTimer * 1000, () =>
     endRound(game, code, roundIndex, null, undefined, gameId),
   );
+  scheduleHint(game, code, gameId, roundIndex, state.config.drawTimer);
   return true;
 }
 
@@ -199,7 +235,6 @@ export async function handleCustomPromptSubmit(
       roundIndex: current.roundIndex,
       drawerId: current.drawerId,
       promptForDrawer: player.id === current.drawerId ? prompt : undefined,
-      promptHint: prompt.replace(/[^ ]/gu, 'ㅇ'),
       isCustomRound: true,
       durationSec: state.config.drawTimer,
     });
@@ -209,6 +244,7 @@ export async function handleCustomPromptSubmit(
   setRoomTimer(code, 'round', state.config.drawTimer * 1000, () =>
     endRound(game, code, current.roundIndex, null, undefined, gameId),
   );
+  scheduleHint(game, code, gameId, current.roundIndex, state.config.drawTimer);
 }
 
 // 진행 중 라운드에 (재)입장한 소켓에만 현재 라운드를 다시 보낸다 — 화면 전환 중 첫 round:start를
@@ -224,17 +260,19 @@ export function resendCurrentRound(
 
   const needsCustomPrompt = current.prompt === '';
   const elapsedSec = Math.floor((Date.now() - current.startedAt) / 1000);
+  const remainingSec = Math.max(0, state.config.drawTimer - elapsedSec);
   const payload: RoundStart = {
     gameId: state.gameId ?? '',
     roundIndex: current.roundIndex,
     drawerId: current.drawerId,
     durationSec: needsCustomPrompt
       ? Math.max(0, PROMPT_DURATION_SEC - elapsedSec)
-      : Math.max(0, state.config.drawTimer - elapsedSec),
+      : remainingSec,
     isCustomRound: current.isCustomRound === true,
-    promptHint: current.prompt.replace(/[^ ]/gu, 'ㅇ'),
     promptInputEndsAt: needsCustomPrompt ? current.startedAt + CUSTOM_PROMPT_TIMEOUT_MS : undefined,
   };
+  // 재접속한 시점에 이미 글자 수 공개 시각이 지났다면 함께 내려준다
+  if (!needsCustomPrompt && remainingSec <= HINT_REVEAL_REMAINING_SEC) payload.promptHint = toPromptHint(current.prompt);
   if (needsCustomPrompt) payload.needsCustomPrompt = true;
   if (!needsCustomPrompt && current.drawerId === userId) payload.promptForDrawer = current.prompt;
   socket.emit('game:round:start', payload);
@@ -257,6 +295,7 @@ export async function endRound(
   if (!current || current.roundIndex !== roundIndex) return;
 
   clearRoomTimer(code, 'round');
+  clearRoomTimer(code, 'hint');
   const scoreDelta: Record<string, number> = {};
 
   if (correctUserId) {

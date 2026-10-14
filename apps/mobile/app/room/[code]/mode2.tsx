@@ -137,6 +137,7 @@ export default function Mode2Screen() {
     <SafeAreaView style={styles.container} edges={['top', 'bottom', 'left', 'right']}>
       <KeyboardAvoidingView style={{ flex: 1 }} behavior={Platform.OS === 'ios' ? 'padding' : 'height'}>
         <SheetRotationHeader
+          submitted={submitted}
           stepIndex={step.stepIndex}
           totalSteps={step.totalSteps}
           phase={step.phase}

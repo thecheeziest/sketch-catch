@@ -5,7 +5,9 @@ import { Text, View } from 'dripsy';
 import { useLocalSearchParams } from 'expo-router';
 import { useGameStore } from '@/features/game/model/useGameStore';
 import { useChatSender } from '@/features/game/api/useChatSender';
+import { useAuthStore } from '@/shared/model/auth';
 import { useRoomStore } from '@/shared/model/room';
+import { useRoomChatStore } from '@/features/room/model/useRoomChatStore';
 import { PodiumSlot, ChatStream, ChatInputBar } from '@/features/game/ui';
 import { AudienceCheer } from '@/features/game/ui/AudienceCheer';
 import { useAwardSession } from '@/features/room/lib';
@@ -17,9 +19,8 @@ export default function AwardScreen() {
   const { code } = useLocalSearchParams<{ code: string }>();
   const { width } = useWindowDimensions();
   const [result, setResult] = useState(() => useGameStore.getState().result);
-  const incomingMessages = useGameStore(s => s.chatMessages);
-  const incomingGameId = useGameStore(s => s.gameId);
-  const [chatMessages, setChatMessages] = useState(() => useGameStore.getState().chatMessages);
+  const chatMessages = useRoomChatStore(s => s.awardMessages);
+  const myId = useAuthStore(s => s.user?.id);
   const liveRoomState = useRoomStore(s => s.roomState);
   const [roomState] = useState(() => useRoomStore.getState().roomState);
   const { sendChat } = useChatSender();
@@ -28,10 +29,13 @@ export default function AwardScreen() {
     if (incomingResult?.gameId === roomState?.gameId) setResult(incomingResult);
   }, [incomingResult, roomState?.gameId]);
 
-  useEffect(() => {
-    if (incomingGameId === roomState?.gameId) setChatMessages(incomingMessages);
-  }, [incomingGameId, incomingMessages, roomState?.gameId]);
-  const canChat = liveRoomState?.status === 'AWARD' && liveRoomState.gameId === roomState?.gameId;
+  // 시상식에 남아 있는 동안은 시간 제한 없이 채팅·한번 더가 가능하다.
+  // 다른 유저가 대기실을 열어도(status=LOBBY), 새 게임이 시작되어도 유지된다.
+  const isInAwardRoster = liveRoomState?.players.some(p => p.id === myId && p.inAward === true) ?? false;
+  // 새 게임이 시작되면 시상식 유저는 명단에서 빠져 awardViewers로 옮겨진다 - 채팅은 계속 가능, 한번 더는 불가
+  const isAwardViewer = liveRoomState?.awardViewers?.some(p => p.id === myId) ?? false;
+  const canChat = isInAwardRoster || isAwardViewer;
+  const canRematch = isInAwardRoster && (liveRoomState?.status === 'AWARD' || liveRoomState?.status === 'LOBBY');
 
   // 시상식 결과는 이후 대기실·새 게임 상태가 도착해도 유지한다.
   const { rematch, exit, rematching, rematchError } = useAwardSession(code ?? '');
@@ -96,7 +100,14 @@ export default function AwardScreen() {
           게임 종료
         </Text>
         <View sx={{ flexDirection: 'row', gap: spacing.XS }}>
-          <Button label="한번 더!" color="primary" height={32} onPress={rematch} loading={rematching} />
+          <Button
+            label="한번 더!"
+            color="primary"
+            height={32}
+            onPress={rematch}
+            loading={rematching}
+            disabled={!canRematch}
+          />
           <Button label="나가기" color="light" height={32} onPress={exit} />
         </View>
       </View>
@@ -148,7 +159,7 @@ export default function AwardScreen() {
           isDrawer={false}
           onSend={sendChat}
           disabled={!canChat}
-          placeholder={canChat ? '채팅을 입력하세요' : '한번 더 또는 나가기를 선택해 주세요'}
+          placeholder={canChat ? '채팅을 입력하세요' : '채팅할 수 없는 상태예요'}
         />
       </KeyboardAvoidingView>
       <Dialog

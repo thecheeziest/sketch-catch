@@ -47,7 +47,7 @@ vi.mock('../services/replay.service.js', () => ({ generateSheetGifs: vi.fn() }))
 
 const { pickRoundWord } = await import('../services/word.service.js');
 const { runInRoom } = await import('../services/roomQueue.js');
-const { handleRoomJoin, handleRoomReady, handleRoomStart, handleRoomLeave } =
+const { handleRoomJoin, handleRoomReady, handleRoomStart, handleRoomLeave, handleRoomNudge } =
   await import('../socket/handlers/room.js');
 const { handleChatSend } = await import('../socket/handlers/chat.js');
 const { handleCustomPromptSubmit, handlePlayerLeft, startRound } = await import('../socket/handlers/game.js');
@@ -345,30 +345,113 @@ describe('시상식 → 대기실 복귀', () => {
     expect(state.players).toHaveLength(3);
     expect(state.players.find(p => p.id === 'u2')?.inAward).toBe(false);
     expect(state.players.find(p => p.id === 'u1')?.inAward).toBe(true);
-    expect(state.hostId).toBe('u2');
+    // 방장(u1)이 나가기를 누르지 않았으므로 시상식에 남아 있어도 방장은 그대로다
+    expect(state.hostId).toBe('u1');
     expect(state.gameId).toBeUndefined();
+  });
+
+  it('방장이 나가기를 누르면 가장 먼저 한번 더를 누른 유저가 방장이 된다', async () => {
+    const ns = makeNamespace();
+    await reachAward(ns);
+    await runInRoom(CODE, () => handleRoomLeave(ns as never, makeSocket('u1') as never));
+    expect(readState().players.map(p => p.id)).toEqual(['u2', 'u3']);
+
+    await runInRoom(CODE, () => handleRematch(ns as never, makeSocket('u3')));
+    const state = readState();
+    expect(state.status).toBe('LOBBY');
+    expect(state.hostId).toBe('u3');
+    expect(state.players.find(p => p.id === 'u3')?.isHost).toBe(true);
+    expect(state.players.find(p => p.id === 'u2')?.inAward).toBe(true);
+  });
+
+  it('소켓이 방에서 빠져 있어도 방 코드로 한번 더가 처리되고 방에 다시 연결된다', async () => {
+    const ns = makeNamespace();
+    await reachAward(ns);
+    const detached = makeSocket('u2', []);
+    await runInRoom(CODE, () => handleRematch(ns as never, detached, CODE));
+    expect(readState().status).toBe('LOBBY');
+    expect(detached.join).toHaveBeenCalledWith(`room:${CODE}`);
+  });
+
+  it('시상식에 남은 유저의 채팅은 대기실에 복귀한 유저에게 전달되지 않는다', async () => {
+    const ns = makeNamespace();
+    await reachAward(ns);
+    await runInRoom(CODE, () => handleRematch(ns as never, makeSocket('u2')));
+    ns.emitted.length = 0;
+
+    await runInRoom(CODE, () => handleChatSend(ns as never, makeSocket('u1') as never, { text: '시상식 대화' }));
+    const awardRooms = ns.emitted.filter(e => e.event === 'chat:message').map(e => e.room);
+    expect(awardRooms.sort()).toEqual(['user:u1', 'user:u3']);
+    expect(ns.emitted.find(e => e.event === 'chat:message')?.payload).toMatchObject({ channel: 'AWARD' });
+
+    ns.emitted.length = 0;
+    await runInRoom(CODE, () => handleChatSend(ns as never, makeSocket('u2') as never, { text: '대기실 대화' }));
+    const lobbyRooms = ns.emitted.filter(e => e.event === 'chat:message').map(e => e.room);
+    expect(lobbyRooms).toEqual(['user:u2']);
+    expect(ns.emitted.find(e => e.event === 'chat:message')?.payload).toMatchObject({ channel: 'LOBBY' });
   });
 
   it('시상식 관람자는 새 게임 참가 순서에서 제외되고 뒤늦은 재참여는 거부된다', async () => {
     const ns = makeNamespace();
     await reachAward(ns);
-    await handleRematch(ns as never, makeSocket('u2'));
+    // 방장(u1)이 먼저 대기실로 복귀하고 u2는 시상식에 남는다
+    await handleRematch(ns as never, makeSocket('u1'));
     await handleRoomJoin(ns as never, makeSocket('u4', []) as never, CODE);
     await handleRoomJoin(ns as never, makeSocket('u5', []) as never, CODE);
     await handleRoomReady(ns as never, makeSocket('u4') as never, true);
     await handleRoomReady(ns as never, makeSocket('u5') as never, true);
-    await handleRoomStart(ns as never, makeSocket('u2') as never);
-    expect(readState().players.map(p => p.id)).toEqual(['u2', 'u4', 'u5']);
-    expect(readState().turnSchedule).not.toContain('u1');
-    await handleChatSend(ns as never, makeSocket('u1') as never, { text: '사과' });
+    await handleRoomStart(ns as never, makeSocket('u1') as never);
+    expect(readState().players.map(p => p.id)).toEqual(['u1', 'u4', 'u5']);
+    expect(readState().turnSchedule).not.toContain('u2');
+    await handleChatSend(ns as never, makeSocket('u2') as never, { text: '사과' });
     expect(readState().status).toBe('MODE1_ROUND_START');
-    expect(readState().scoreboard['u1']).toBeUndefined();
-    const spectator = makeSocket('u1');
+    expect(readState().scoreboard['u2']).toBeUndefined();
+    const spectator = makeSocket('u2');
     await handleRematch(ns as never, spectator);
     expect(spectator.emit).toHaveBeenCalledWith('error', {
       code: 'GAME_IN_PROGRESS',
       message: '이미 게임이 시작됐어요!',
     });
+  });
+
+  it('새 판이 시작된 뒤에도 시상식에 남은 유저끼리 채팅할 수 있다', async () => {
+    const ns = makeNamespace();
+    await reachAward(ns);
+    await handleRematch(ns as never, makeSocket('u1'));
+    await handleRoomJoin(ns as never, makeSocket('u4', []) as never, CODE);
+    await handleRoomJoin(ns as never, makeSocket('u5', []) as never, CODE);
+    await handleRoomReady(ns as never, makeSocket('u4') as never, true);
+    await handleRoomReady(ns as never, makeSocket('u5') as never, true);
+    await handleRoomStart(ns as never, makeSocket('u1') as never);
+    expect(readState().awardViewers?.map(p => p.id)).toEqual(['u2', 'u3']);
+
+    ns.emitted.length = 0;
+    await handleChatSend(ns as never, makeSocket('u2') as never, { text: '우리끼리' });
+    const rooms = ns.emitted.filter(e => e.event === 'chat:message').map(e => e.room);
+    expect(rooms.sort()).toEqual(['user:u2', 'user:u3']);
+    expect(readState().status).toBe('MODE1_ROUND_START');
+
+    // 퇴장하면 보관 목록에서 빠진다
+    await handleRoomLeave(ns as never, makeSocket('u3') as never);
+    expect(readState().awardViewers?.map(p => p.id)).toEqual(['u2']);
+  });
+
+  it('재촉하기는 대기실 인원이 시상식에 남은 방장에게만 보낼 수 있고 쿨다운이 있다', async () => {
+    const ns = makeNamespace();
+    await reachAward(ns);
+    await handleRematch(ns as never, makeSocket('u2'));
+    ns.emitted.length = 0;
+
+    await handleRoomNudge(ns as never, makeSocket('u1') as never); // 시상식에 있는 사람은 불가
+    expect(ns.emitted.filter(e => e.event === 'room:nudged')).toHaveLength(0);
+
+    const nudger = makeSocket('u2');
+    await handleRoomNudge(ns as never, nudger as never);
+    expect(ns.emitted.filter(e => e.event === 'room:nudged').map(e => e.room)).toEqual(['user:u1']);
+
+    await handleRoomNudge(ns as never, nudger as never);
+    expect(ns.emitted.filter(e => e.event === 'room:nudged')).toHaveLength(1);
+    expect(nudger.emit).toHaveBeenCalledWith('error', expect.objectContaining({ code: 'NUDGE_COOLDOWN' }));
   });
 
   it('한 명만 복귀하고 나머지가 퇴장하면 즉시 대기실로 전환된다', async () => {
@@ -459,9 +542,15 @@ describe('커스텀 제시어 안내', () => {
     const guesser = [...ns.emitted]
       .reverse()
       .find(e => e.event === 'game:round:start' && e.room === 'user:u2')?.payload;
-    expect(guesser).toMatchObject({ promptHint: 'ㅇㅇ ㅇㅇ', isCustomRound: true, durationSec: 30 });
+    // 글자 수는 라운드 시작 때 내려주지 않고, 남은 시간 10초(제출 후 20초)에 game:hint로 공개한다
+    expect(guesser).toMatchObject({ isCustomRound: true, durationSec: 30 });
+    expect(guesser).not.toHaveProperty('promptHint');
     expect(guesser).toHaveProperty('promptForDrawer', undefined);
     expect(readState().current).toMatchObject({ prompt: '빨간 사과' });
+    await vi.advanceTimersByTimeAsync(19_999);
+    expect(eventsOf(ns, 'game:hint')).toHaveLength(0);
+    await vi.advanceTimersByTimeAsync(1);
+    expect(eventsOf(ns, 'game:hint')).toEqual([{ gameId: readState().gameId, roundIndex: 0, promptHint: 'ㅇㅇ ㅇㅇ' }]);
   });
   it('29초에 제시어를 제출하면 별도의 30초 그림 시간을 보장한다', async () => {
     seedLobby({ config: { roundCount: 1, drawTimer: 30, answerTimer: 10, categories: ['CUSTOM'], playerCountMax: 6 } });

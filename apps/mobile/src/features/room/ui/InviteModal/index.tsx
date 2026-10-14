@@ -48,7 +48,7 @@ export function InviteModal({ visible, onClose, code }: Props) {
       {
         onSuccess: () => {
           setInvitedIds(prev => new Set(prev).add(friend.userId));
-          useToastStore.getState().show('초대를 보냈어요');
+          useToastStore.getState().show('초대를 보냈어요', 'success');
         },
         onError: err =>
           handleApiError(err, {

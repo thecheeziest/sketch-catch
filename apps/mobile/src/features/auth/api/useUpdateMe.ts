@@ -2,6 +2,7 @@ import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { apiPatch, ApiError } from '@/shared/api';
 import { useAuthStore, type UserPrivate } from '@/shared/model';
 import { ME_QUERY_KEY } from './useMe';
+import { playFeedback } from '@/shared/lib/feedback';
 
 export type UpdateMeInput = {
   nickname?: string;
@@ -17,6 +18,7 @@ export function useUpdateMe() {
     onSuccess: (user) => {
       useAuthStore.getState().setUser(user);
       qc.setQueryData(ME_QUERY_KEY, user);
+      playFeedback('confirm', { haptics: false });
     },
   });
 }

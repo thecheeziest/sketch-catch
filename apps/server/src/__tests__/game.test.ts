@@ -12,6 +12,13 @@ vi.mock('../services/rooms.service.js', () => ({
   saveRoomState: vi.fn(),
 }));
 
+// 시상식 진입 시 presence 갱신이 실제 Redis에 닿지 않도록 차단
+vi.mock('../db/redis.js', () => ({
+  redis: { set: vi.fn(), get: vi.fn(), del: vi.fn() },
+  setPresence: vi.fn(),
+}));
+vi.mock('../socket/presence.namespace.js', () => ({ broadcastPresenceUpdate: vi.fn() }));
+
 import { getRoomState, saveRoomState } from '../services/rooms.service.js';
 import { pickRoundWord } from '../services/word.service.js';
 import { startRound, endRound, calcScore, handlePlayerLeft } from '../socket/handlers/game.js';
@@ -205,6 +212,8 @@ describe('game state machine (MD1-01, MD1-05)', () => {
 
     // endRound가 saveRoomState를 호출하기 위해 다시 state 반환
     const stateAfterStart = mockSaveRoomState.mock.calls[0]![0]! as RoomState;
+    // 남은 10초 글자 수 공개 타이머(20초 지점)가 먼저 현재 상태를 읽는다
+    mockGetRoomState.mockResolvedValueOnce(stateAfterStart);
     mockGetRoomState.mockResolvedValueOnce(stateAfterStart);
     // 다음 라운드(roundIndex=1) 시작을 위한 state (3초 delay 후)
     mockGetRoomState.mockResolvedValueOnce(null); // endGame 방지

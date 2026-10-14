@@ -27,7 +27,7 @@ export function AddFriendModal({ visible, onClose }: Props) {
     const normalizedTarget = target.slice(0, hashIdx + 1) + code.toUpperCase();
     mutate(normalizedTarget, {
       onSuccess: () => {
-        useToastStore.getState().show('친구 요청을 보냈어요');
+        useToastStore.getState().show('친구 요청을 보냈어요', 'success');
         handleClose();
       },
       onError: (err) => handleApiError(err, { setError, fallbackMessage: '연결에 실패했어요. 잠시 후 다시 시도해주세요.' }),

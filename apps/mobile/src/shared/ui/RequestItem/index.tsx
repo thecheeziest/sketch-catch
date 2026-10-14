@@ -1,5 +1,6 @@
+import { FeedbackPressable } from '@/shared/ui/FeedbackPressable';
 import { Text, View } from 'dripsy'
-import { Pressable, StyleSheet } from 'react-native'
+import { StyleSheet } from 'react-native';
 import { colors } from '@/shared/config'
 import type { FriendRequest } from '@/shared/model'
 import { PixelLoadingSpinner } from '@/shared/ui/PixelLoadingSpinner'
@@ -33,12 +34,12 @@ export function RequestItem({ request, onAccept, onReject, isLoading = false, di
         <PixelLoadingSpinner size={28} accessibilityLabel="처리 중" />
       ) : (
         <View sx={{ flexDirection: 'row', gap: 8 }}>
-          <Pressable style={styles.acceptButton} onPress={onAccept} disabled={disabled}>
+          <FeedbackPressable style={styles.acceptButton} onPress={onAccept} disabled={disabled}>
             <Text sx={{ color: colors.WHITE }}>수락</Text>
-          </Pressable>
-          <Pressable style={styles.rejectButton} onPress={onReject} disabled={disabled}>
+          </FeedbackPressable>
+          <FeedbackPressable style={styles.rejectButton} onPress={onReject} disabled={disabled}>
             <Text sx={{ color: colors.WHITE }}>거절</Text>
-          </Pressable>
+          </FeedbackPressable>
         </View>
       )}
     </View>

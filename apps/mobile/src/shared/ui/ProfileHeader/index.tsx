@@ -1,3 +1,4 @@
+import { FeedbackPressable } from '@/shared/ui/FeedbackPressable';
 import { Image, Text, View } from 'dripsy'
 import { useMe } from '@/features/auth/api';
 import { CharacterModal, FriendCodeModal, NicknameModal } from '@/features/profile/ui';
@@ -7,7 +8,7 @@ import { useAuthStore } from '@/shared/model';
 import { BlurView } from 'expo-blur';
 import { useRouter } from 'expo-router';
 import { ReactNode, useState } from 'react';
-import { Pressable, StyleSheet } from 'react-native';
+import { StyleSheet } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Icon } from '../Icon';
 
@@ -31,7 +32,7 @@ export function ProfileHeader({ rightSlot }: Props) {
     return (
       <BlurView intensity={20} tint="light" style={containerStyle}>
         <View style={[StyleSheet.absoluteFill, { backgroundColor: 'rgba(10, 10, 16, 0.82)' }]} />
-        <Pressable
+        <FeedbackPressable
           onPress={async () => {
             await clearAuth();
             router.replace('/(auth)/login');
@@ -40,15 +41,15 @@ export function ProfileHeader({ rightSlot }: Props) {
           hitSlop={4}
         >
           <Text sx={{ color: colors.SECONDARY_200 }}>로그인 후 이용해 주세요!</Text>
-        </Pressable>
+        </FeedbackPressable>
         <View sx={{ flexDirection: 'row', alignItems: 'center', gap: spacing.XS }}>
           {rightSlot}
-          <Pressable
+          <FeedbackPressable
             onPress={() => guardNav(() => router.push('/settings'))}
             style={({ pressed }) => [styles.iconBtn, pressed && { opacity: 0.7 }]}
           >
             <Icon name="SETTINGS" size={22} />
-          </Pressable>
+          </FeedbackPressable>
         </View>
       </BlurView>
     );
@@ -65,7 +66,7 @@ export function ProfileHeader({ rightSlot }: Props) {
           style={[StyleSheet.absoluteFill, { backgroundColor: 'rgba(10, 10, 16, 0.82)' }]}
         />
         <View sx={sxStyles.left}>
-          <Pressable
+          <FeedbackPressable
             onPress={() => setCharacterOpen(true)}
             style={({ pressed }) => [styles.characterBtn, pressed && { opacity: 0.7 }]}
             hitSlop={4}
@@ -73,9 +74,9 @@ export function ProfileHeader({ rightSlot }: Props) {
             {characterSource && (
               <Image source={characterSource} sx={{ width: 45, height: 45 }} resizeMode="contain" />
             )}
-          </Pressable>
+          </FeedbackPressable>
           <View sx={{ flexDirection: 'row', alignItems: 'center', gap: 4 }}>
-            <Pressable
+            <FeedbackPressable
               onPress={() => setNicknameOpen(true)}
               onLongPress={handleCopy}
               delayLongPress={500}
@@ -84,8 +85,8 @@ export function ProfileHeader({ rightSlot }: Props) {
               <Text variants={['bold', 'T1']} sx={{ color: colors.LIGHT_100 }}>
                 {user.nickname}
               </Text>
-            </Pressable>
-            <Pressable
+            </FeedbackPressable>
+            <FeedbackPressable
               onPress={() => setFriendCodeOpen(true)}
               onLongPress={handleCopy}
               delayLongPress={500}
@@ -94,17 +95,17 @@ export function ProfileHeader({ rightSlot }: Props) {
               <Text sx={{ color: colors.SECONDARY_200 }}>
                 #{user.friendCode}
               </Text>
-            </Pressable>
+            </FeedbackPressable>
           </View>
         </View>
         <View sx={{ flexDirection: 'row', alignItems: 'center', gap: spacing.XS }}>
           {rightSlot}
-          <Pressable
+          <FeedbackPressable
             onPress={() => guardNav(() => router.push('/settings'))}
             style={({ pressed }) => [styles.iconBtn, pressed && { opacity: 0.7 }]}
           >
             <Icon name="SETTINGS" size={22} />
-          </Pressable>
+          </FeedbackPressable>
         </View>
       </BlurView>
 

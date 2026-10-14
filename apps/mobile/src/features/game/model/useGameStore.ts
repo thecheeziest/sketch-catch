@@ -184,6 +184,14 @@ export const useGameStore = create<GameStore>()(
         });
       };
 
+      const handleHint = (payload: { gameId: string; roundIndex: number; promptHint: string }): void => {
+        if (!isCurrentGame(payload.gameId)) return;
+        set(st => {
+          if (st.round?.roundIndex !== payload.roundIndex) return;
+          st.promptHint = payload.promptHint;
+        });
+      };
+
       const handleGameEnd = (payload: GameResult): void => {
         if (!isCurrentGame(payload.gameId)) return;
         set(st => {
@@ -196,6 +204,8 @@ export const useGameStore = create<GameStore>()(
       };
 
       const handleChatMessage = (msg: ChatMessage): void => {
+        // 대기실·시상식 채팅은 useRoomChatStore가 따로 보관한다
+        if (msg.channel !== undefined) return;
         set(st => {
           st.chatMessages.push(msg);
           if (st.chatMessages.length > MAX_CHAT_MESSAGES) {
@@ -224,6 +234,7 @@ export const useGameStore = create<GameStore>()(
       socket.on('room:state', handleRoomState);
       socket.on('game:round:start', handleRoundStart);
       socket.on('game:round:end', handleRoundEnd);
+      socket.on('game:hint', handleHint);
       socket.on('game:end', handleGameEnd);
       socket.on('stroke:remote', handleStrokeRemote);
       socket.on('chat:message', handleChatMessage);
@@ -234,6 +245,7 @@ export const useGameStore = create<GameStore>()(
         socket.off('room:state', handleRoomState);
         socket.off('game:round:start', handleRoundStart);
         socket.off('game:round:end', handleRoundEnd);
+        socket.off('game:hint', handleHint);
         socket.off('game:end', handleGameEnd);
         socket.off('stroke:remote', handleStrokeRemote);
         socket.off('chat:message', handleChatMessage);

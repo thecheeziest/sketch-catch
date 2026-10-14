@@ -198,7 +198,9 @@ export async function handleRoomStart(game: GameNamespace, socket: GameSocket): 
     return;
   }
 
-  // 시상식에 남은 유저는 새 판의 출제·시트 순서에 포함하지 않는다.
+  // 시상식에 남은 유저는 새 판의 출제·시트 순서에 포함하지 않지만, 서로 채팅할 수 있도록 따로 보관한다.
+  const stayingViewers = state.players.filter(p => p.inAward && !p.left);
+  state.awardViewers = [...(state.awardViewers ?? []), ...stayingViewers];
   state.players = state.players.filter(p => !p.inAward && !p.left);
 
   // 게임 1판의 식별자 발급 — 이후 타이머·이벤트는 이 값으로 지난 게임과 구분된다
@@ -250,6 +252,13 @@ export async function handleRoomLeave(
       continue;
     }
 
+    // 게임이 진행되는 동안 시상식에 남아 있던 유저 - 게임 명단에는 없으므로 보관 목록에서만 뺀다
+    if (state.awardViewers?.some(p => p.id === userId)) {
+      state.awardViewers = state.awardViewers.filter(p => p.id !== userId);
+      await saveRoomState(state);
+      if (!state.players.some(p => p.id === userId)) continue;
+    }
+
     const isGameInProgress = isGameInProgressStatus(state.status);
 
     if (isGameInProgress) {
@@ -294,4 +303,29 @@ export async function handleRoomLeave(
   await clearUserRoom(userId);
   await setPresence(userId, 'ONLINE');
   broadcastPresenceUpdate(userId, 'ONLINE');
+}
+
+// 시상식에 남은 방장에게 대기실 인원이 돌아오라고 재촉한다 (방별 쿨다운으로 연타 방지)
+const NUDGE_COOLDOWN_MS = 10_000;
+const lastNudgeAt = new Map<string, number>();
+
+export async function handleRoomNudge(game: GameNamespace, socket: GameSocket): Promise<void> {
+  const roomName = Array.from(socket.rooms).find(r => r.startsWith('room:'));
+  if (!roomName) return;
+  const code = roomName.replace('room:', '');
+
+  const state = await getRoomState(code);
+  if (!state || state.status !== 'LOBBY') return;
+  const sender = state.players.find(p => p.id === socket.data.userId);
+  const host = state.players.find(p => p.id === state.hostId);
+  // 대기실에 있는 유저만, 방장이 아직 시상식에 있을 때만 재촉할 수 있다
+  if (!sender || sender.inAward || !host?.inAward) return;
+
+  const now = Date.now();
+  if (now - (lastNudgeAt.get(code) ?? -Infinity) < NUDGE_COOLDOWN_MS) {
+    socket.emit(SERVER_EVENT.ERROR, { code: 'NUDGE_COOLDOWN', message: '조금 뒤에 다시 재촉해 주세요.' });
+    return;
+  }
+  lastNudgeAt.set(code, now);
+  game.to(`user:${host.id}`).emit(SERVER_EVENT.ROOM_NUDGED);
 }

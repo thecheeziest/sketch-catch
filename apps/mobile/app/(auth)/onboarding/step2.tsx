@@ -34,7 +34,7 @@ export default function OnboardingStep2() {
               .show('이미 사용 중인 닉네임+해시태그 조합이에요. 해시태그를 바꿔보세요.')
             router.back()
           } else {
-            useToastStore.getState().show('연결에 실패했어요. 잠시 후 다시 시도해주세요.')
+            useToastStore.getState().show('연결에 실패했어요. 잠시 후 다시 시도해주세요.', 'error')
           }
         },
       }

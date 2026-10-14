@@ -1,13 +1,14 @@
+import { FeedbackPressable, type FeedbackPressableProps } from '@/shared/ui/FeedbackPressable';
 import { colors, spacing, textSizes } from '@/shared/config';
 import { PixelFrame } from '@/shared/ui/PixelFrame';
 import { PixelLoadingSpinner } from '@/shared/ui/PixelLoadingSpinner';
 import { Image, Text, View } from 'dripsy';
-import { type ImageSourcePropType, Pressable, type PressableProps, StyleSheet } from 'react-native';
+import { type ImageSourcePropType, StyleSheet } from 'react-native';
 
 export type ButtonColor = 'light' | 'primary' | 'secondary' | 'dark';
 type FontVariant = 'REGULAR' | 'BOLD';
 
-type Props = Omit<PressableProps, 'children'> & {
+type Props = Omit<FeedbackPressableProps, 'children'> & {
   label?: string;
   icon?: ImageSourcePropType;
   color?: ButtonColor;
@@ -111,7 +112,9 @@ export function Button({
   };
 
   return (
-    <Pressable
+    <FeedbackPressable
+      feedback="tap"
+      pressScale={0.96}
       disabled={disabled || loading}
       accessibilityState={{ disabled: !!disabled || loading, busy: loading }}
       style={({ pressed }) => [
@@ -150,7 +153,7 @@ export function Button({
           )}
         </>
       )}
-    </Pressable>
+    </FeedbackPressable>
   );
 }
 

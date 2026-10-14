@@ -47,7 +47,7 @@ export function handleApiError(err: unknown, options: HandleApiErrorOptions = {}
 
   if (!action) {
     const message = getErrorMessage(err, { fallback: fallbackMessage });
-    if (useFallbackToast) useToastStore.getState().show(message);
+    if (useFallbackToast) useToastStore.getState().show(message, 'error');
     else setError?.(message);
     return;
   }
@@ -55,9 +55,9 @@ export function handleApiError(err: unknown, options: HandleApiErrorOptions = {}
   if (action.type === 'setError') {
     setError?.(action.message);
   } else if (action.type === 'toast') {
-    useToastStore.getState().show(action.message);
+    useToastStore.getState().show(action.message, 'error');
   } else if (action.type === 'toastAndClose') {
-    useToastStore.getState().show(action.message);
+    useToastStore.getState().show(action.message, 'error');
     onClose?.();
   }
 }

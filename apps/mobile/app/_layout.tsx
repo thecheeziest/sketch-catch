@@ -7,6 +7,9 @@ import { useNotificationListeners } from '@/features/push/lib/useNotificationLis
 import { NotificationGate } from '@/features/push/ui/NotificationGate';
 import { queryClient } from '@/shared/api';
 import { useFeedbackLifecycle } from '@/shared/lib/useFeedbackLifecycle';
+import { useBackgroundMusic } from '@/widgets/appFeedback/lib/useBackgroundMusic';
+import { useGameFeedback } from '@/widgets/appFeedback/lib/useGameFeedback';
+import { playFeedback } from '@/shared/lib/feedback';
 import { colors, fontFamily, icons, theme } from '@/shared/config';
 import { hydrateAuthStore, useAppUpdateStore, useAuthStore, usePresenceStore } from '@/shared/model';
 import { SketchbookLoadingSpinner, ToastHost } from '@/shared/ui';
@@ -68,6 +71,7 @@ function SplashOverlay({
       useAppUpdateStore.getState().finishSplashIntro();
       return;
     }
+    playFeedback('intro', { key: 'splash-intro' });
     const intro = Animated.sequence([
       Animated.spring(logoX, { toValue: 0, speed: 7, bounciness: 5, useNativeDriver: true }),
       createWobble(logoRotate),
@@ -156,6 +160,8 @@ export default function RootLayout() {
   const [splashDone, setSplashDone] = useState(false);
   const isSignedIn = isAuthenticated && !needsOnboarding;
   const updateStatus = useAppUpdateStore(s => s.status);
+  useGameFeedback();
+  useBackgroundMusic(splashDone && updateStatus !== 'required');
 
   const { skipSplashAnimation } = useAppVersionGate();
   const handleSplashDone = useCallback(() => setSplashDone(true), []);

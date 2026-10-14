@@ -1,5 +1,6 @@
+import { FeedbackPressable } from '@/shared/ui/FeedbackPressable';
 import { Text, View } from 'dripsy'
-import { Pressable, StyleSheet } from 'react-native'
+import { StyleSheet } from 'react-native';
 import { colors, spacing } from '@/shared/config'
 import { PixelFrame } from '@/shared/ui/PixelFrame'
 
@@ -14,7 +15,7 @@ export function CategoryChip({ label, active, onPress }: Props) {
   const backgroundColor = active ? colors.SECONDARY_100 : colors.BLACK
 
   return (
-    <Pressable onPress={onPress}>
+    <FeedbackPressable onPress={onPress}>
       {/* absoluteFill: Pressable 크기가 정해진 뒤 배경을 pixel corner로 clip */}
       <PixelFrame borderColor={borderColor} borderWidth={2} style={StyleSheet.absoluteFill}>
         <View style={[StyleSheet.absoluteFill, { backgroundColor }]} />
@@ -25,7 +26,7 @@ export function CategoryChip({ label, active, onPress }: Props) {
           {label}
         </Text>
       </View>
-    </Pressable>
+    </FeedbackPressable>
   )
 }
 

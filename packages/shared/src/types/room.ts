@@ -3,7 +3,7 @@ import type { UserPublic } from './user.js';
 
 export type GameMode = 1 | 2;
 
-export type Category = 'ANIMAL' | 'FOOD' | 'OBJECT' | 'NATURE' | 'PLACE' | 'ACTION' | 'JOB' | 'CUSTOM';
+export type Category = 'ANIMAL' | 'FOOD' | 'OBJECT' | 'NATURE' | 'PLACE' | 'ACTION' | 'JOB' | 'PROVERB' | 'IDIOM' | 'MOVIE' | 'DRAMA' | 'MEME' | 'CUSTOM';
 
 export type RoomStatus =
   | 'LOBBY'
@@ -52,6 +52,9 @@ export type RoomState = {
   turnSchedule?: string[];
   // 게임 1판의 식별자 — 시작마다 새로 발급, 대기실 복귀 시 제거. 지난 게임의 타이머·이벤트를 걸러내는 기준
   gameId?: string;
+  // 새 게임이 시작될 때 시상식에 남아 있던 유저 - 게임 명단에서는 빠지지만 서로 채팅할 수 있다.
+  // 다음 시상식이 시작되면 다시 명단(inAward)으로 합쳐진다.
+  awardViewers?: Player[];
   // 이전 서버가 저장한 시상식 종료 시각 — 새 시상식 시작 시 제거 (자동 퇴장 없음)
   awardEndsAt?: number;
 };

@@ -1,6 +1,7 @@
+import { FeedbackPressable } from '@/shared/ui/FeedbackPressable';
 import { FontAwesome, MaterialCommunityIcons } from '@expo/vector-icons';
 import { Text } from 'dripsy';
-import { Pressable, StyleProp, TextStyle } from 'react-native';
+import { StyleProp, TextStyle } from 'react-native';
 import { fontFamily } from '@/shared/config';
 
 // TEXT_ICONS: Mona 픽셀 폰트로 렌더링되는 ASCII 문자
@@ -66,9 +67,13 @@ function IconContent({ name, size = 24, color = '#FAFAF0', opacity = 1, style }:
 export function Icon({ name, size = 24, color = '#FAFAF0', opacity = 1, style, onPress }: Props) {
   if (onPress) {
     return (
-      <Pressable onPress={onPress} hitSlop={8}>
+      <FeedbackPressable
+        feedback={name === 'BACK' || name === 'CLOSE' ? 'cancel' : 'select'}
+        onPress={onPress}
+        hitSlop={8}
+      >
         <IconContent name={name} size={size} color={color} opacity={opacity} style={style} />
-      </Pressable>
+      </FeedbackPressable>
     );
   }
   return <IconContent name={name} size={size} color={color} opacity={opacity} style={style} />;

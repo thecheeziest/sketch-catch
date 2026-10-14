@@ -1,4 +1,8 @@
-import { InviteModal, PlayerProfileDialog, RoomEditModal, SlotCard } from '@/features/room/ui';
+import { FeedbackPressable } from '@/shared/ui/FeedbackPressable';
+import { useChatSender } from '@/features/game/api/useChatSender';
+import { ChatInputBar } from '@/features/game/ui';
+import { useRoomChatStore } from '@/features/room/model/useRoomChatStore';
+import { InviteModal, LobbyChatLog, PlayerProfileDialog, RoomEditModal, SlotCard } from '@/features/room/ui';
 import { colors, spacing, textSizes } from '@/shared/config';
 import { useAuthStore, useRoomStore, useToastStore } from '@/shared/model';
 import { copyToClipboard, useHardwareBack } from '@/shared/lib';
@@ -8,7 +12,7 @@ import { CLIENT_EVENT, MODE2_PLAYER_MIN, ROOM_PLAYER_MIN } from '@sketch-catch/s
 import { Text, View } from 'dripsy';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { useEffect, useRef, useState } from 'react';
-import { type ListRenderItem, Alert, ImageBackground, Pressable, StyleSheet, useWindowDimensions } from 'react-native';
+import { type ListRenderItem, Alert, ImageBackground, KeyboardAvoidingView, Platform, StyleSheet, useWindowDimensions } from 'react-native';
 import roomBackground from '@assets/room-background.png';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
@@ -32,6 +36,8 @@ export default function LobbyScreen() {
   const [editVisible, setEditVisible] = useState(false);
   const [inviteOpen, setInviteOpen] = useState(false);
   const [profileTarget, setProfileTarget] = useState<Player | null>(null);
+  const lobbyMessages = useRoomChatStore(s => s.lobbyMessages);
+  const { sendChat } = useChatSender();
 
   const goHome = (): void => {
     router.replace('/(tabs)/' as never);
@@ -92,7 +98,8 @@ export default function LobbyScreen() {
     (screenWidth - spacing.MD * 2 - spacing.XS * 2 * numColumns - spacing.SM * (numColumns - 1)) / numColumns,
   );
 
-  const connectedPlayers = roomState?.players.filter(p => !p.inAward) ?? [];
+  // 시상식에 남은 방장은 흐리게 표시해 슬롯에 남긴다 (재촉하기 대상)
+  const connectedPlayers = roomState?.players.filter(p => !p.inAward || p.id === roomState.hostId) ?? [];
   const slots: SlotItem[] = [
     ...connectedPlayers,
     ...Array<null>(Math.max(0, maxPlayers - connectedPlayers.length)).fill(null),
@@ -108,6 +115,13 @@ export default function LobbyScreen() {
   const hasEnoughPlayers = connectedPlayerCount >= minPlayers;
   const canStartGame = allReady && hasEnoughPlayers && !isAwardInProgress;
   const startButtonLabel = '게임 시작';
+  // 방장이 아직 시상식에 있으면 대기실에서는 시작할 수 없다 (방장이 한번 더를 누르거나 나가면 해소)
+  const isHostInAward = roomState?.players.some(p => p.id === roomState.hostId && p.inAward === true) ?? false;
+  const characterIdOf = (userId: string): string => roomState?.players.find(p => p.id === userId)?.characterId ?? '';
+
+  const handleNudge = (): void => {
+    socket?.emit(CLIENT_EVENT.ROOM_NUDGE);
+  };
 
   const handleCopyCode = (): Promise<void> => copyToClipboard(code ?? '', '코드가 복사되었습니다');
 
@@ -119,6 +133,7 @@ export default function LobbyScreen() {
         isMe={isMe}
         cardWidth={cardWidth}
         onPress={item && !isMe ? () => setProfileTarget(item) : undefined}
+        onNudge={item?.inAward === true && item.isHost ? handleNudge : undefined}
       />
     );
   };
@@ -151,9 +166,9 @@ export default function LobbyScreen() {
                 marginRight: spacing.SM,
               }}
             >
-              <Pressable onPress={handleExitAttempt} hitSlop={8} style={styles.backBtn}>
+              <FeedbackPressable onPress={handleExitAttempt} hitSlop={8} style={styles.backBtn} feedback="cancel">
                 <Icon name="BACK" size={24} />
-              </Pressable>
+              </FeedbackPressable>
               <Text variant="T2" sx={{ color: colors.LIGHT_100, flexShrink: 1 }} numberOfLines={1}>
                 {roomState?.title ?? ''}
               </Text>
@@ -163,9 +178,9 @@ export default function LobbyScreen() {
               <Text sx={{ color: colors.GRAY }}>{code}</Text>
               <Icon name="COPY" size={16} onPress={handleCopyCode} />
               {roomState?.status === 'LOBBY' && (
-                <Pressable onPress={() => setInviteOpen(true)} hitSlop={12}>
+                <FeedbackPressable onPress={() => setInviteOpen(true)} hitSlop={12}>
                   <Icon name="INVITE" size={20} color={colors.LIGHT_100} />
-                </Pressable>
+                </FeedbackPressable>
               )}
               {isHost && <Icon name="SETTINGS" size={16} onPress={() => setEditVisible(true)} />}
             </View>
@@ -188,33 +203,49 @@ export default function LobbyScreen() {
           key={numColumns}
           contentContainerStyle={{ paddingHorizontal: spacing.MD }}
           columnWrapperStyle={numColumns > 1 ? styles.row : undefined}
-          style={{ flex: 1 }}
+          style={styles.slotList}
         />
 
-        <View sx={{ paddingHorizontal: spacing.MD, paddingTop: spacing.MD, paddingBottom: spacing.LG }}>
-          {isHost ? (
-            <Button
-              label={startButtonLabel}
-              color={canStartGame ? 'primary' : 'light'}
-              disabled={!canStartGame}
-              onPress={() => socket?.emit(CLIENT_EVENT.ROOM_START)}
-            />
-          ) : me?.isReady ? (
-            <Button
-              label="준비 취소"
-              color="light"
-              disabled={isAwardInProgress}
-              onPress={() => socket?.emit(CLIENT_EVENT.ROOM_READY, { ready: false })}
-            />
-          ) : (
-            <Button
-              label={isAwardInProgress ? '시상 진행 중..' : '준비 완료'}
-              color="primary"
-              disabled={isAwardInProgress}
-              onPress={() => socket?.emit(CLIENT_EVENT.ROOM_READY, { ready: true })}
-            />
+        <LobbyChatLog messages={lobbyMessages} characterIdOf={characterIdOf} />
+
+        <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
+          {isHostInAward && !isHost && (
+            <Text sx={{ ...textSizes.B3, color: colors.LIGHT_100, textAlign: 'center', paddingTop: spacing.XS }}>
+              방장이 시상식에서 돌아오면 시작할 수 있어요
+            </Text>
           )}
-        </View>
+
+          <View sx={{ paddingHorizontal: spacing.MD, paddingTop: spacing.SM, paddingBottom: spacing.SM }}>
+            {isHost ? (
+              <Button
+                label={startButtonLabel}
+                color={canStartGame ? 'primary' : 'light'}
+                disabled={!canStartGame}
+                onPress={() => socket?.emit(CLIENT_EVENT.ROOM_START)}
+              />
+            ) : me?.isReady ? (
+              <Button
+                label="준비 취소"
+                feedback={false}
+                color="light"
+                disabled={isAwardInProgress}
+                onPress={() => socket?.emit(CLIENT_EVENT.ROOM_READY, { ready: false })}
+              />
+            ) : (
+              <Button
+                label={isAwardInProgress ? '시상 진행 중..' : '준비 완료'}
+                feedback={false}
+                color="primary"
+                disabled={isAwardInProgress}
+                onPress={() => socket?.emit(CLIENT_EVENT.ROOM_READY, { ready: true })}
+              />
+            )}
+          </View>
+
+          <View sx={{ paddingHorizontal: spacing.MD, paddingBottom: spacing.MD }}>
+            <ChatInputBar isDrawer={false} onSend={sendChat} placeholder="채팅을 입력하세요" />
+          </View>
+        </KeyboardAvoidingView>
 
         <RoomEditModal visible={editVisible} onClose={() => setEditVisible(false)} roomCode={code ?? ''} />
 
@@ -228,5 +259,6 @@ export default function LobbyScreen() {
 
 const styles = StyleSheet.create({
   row: { gap: spacing.SM },
+  slotList: { flexGrow: 0, flexShrink: 1 },
   backBtn: { marginRight: 4 },
 });

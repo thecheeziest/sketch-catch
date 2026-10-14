@@ -32,6 +32,7 @@ export function FinalJudgeButton({ isOwner, onJudge }: Props) {
       <View sx={{ flex: 1 }}>
         <Button
           label="찰떡같이 통했어요 ⭕"
+          feedback={false}
           color="secondary"
           height={JUDGE_BUTTON_HEIGHT}
           disabled={selected !== null}
@@ -41,6 +42,7 @@ export function FinalJudgeButton({ isOwner, onJudge }: Props) {
       <View sx={{ flex: 1 }}>
         <Button
           label="완전히 다른 얘기가 됐어요 ❌"
+          feedback={false}
           color="dark"
           height={JUDGE_BUTTON_HEIGHT}
           disabled={selected !== null}

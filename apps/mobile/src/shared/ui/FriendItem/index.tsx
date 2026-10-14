@@ -1,8 +1,9 @@
+import { FeedbackPressable } from '@/shared/ui/FeedbackPressable';
 import { Image, Text, View } from 'dripsy'
 import { colors, getCharacterImageSource } from '@/shared/config';
 import type { Friend } from '@/shared/model';
 import { Button } from '../Button';
-import { Pressable, StyleSheet } from 'react-native';
+import { StyleSheet } from 'react-native';
 
 type Props = {
   friend: Friend;
@@ -38,7 +39,7 @@ export function FriendItem({ friend, onLongPress, onJoin, isJoining, index }: Pr
       : PRESENCE_LABEL[friend.presenceStatus];
 
   return (
-    <Pressable
+    <FeedbackPressable
       style={[styles.row, { backgroundColor: bgColor }]}
       onLongPress={onLongPress}
       delayLongPress={500}
@@ -67,7 +68,7 @@ export function FriendItem({ friend, onLongPress, onJoin, isJoining, index }: Pr
       {friend.room?.joinable && onJoin ? (
         <Button label="같이하기" color="secondary" height={32} onPress={onJoin} disabled={isJoining} />
       ) : null}
-    </Pressable>
+    </FeedbackPressable>
   );
 }
 

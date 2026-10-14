@@ -1,7 +1,8 @@
+import { FeedbackPressable } from '@/shared/ui/FeedbackPressable';
 import { colors, getCharacterImageSource, spacing, textSizes } from '@/shared/config';
 import { PixelFrame } from '@/shared/ui/PixelFrame';
 import { Image, ScrollView, Text, View } from 'dripsy';
-import { Pressable, StyleSheet } from 'react-native';
+import { StyleSheet } from 'react-native';
 
 export type SheetGifTabItem = {
   sheetId: string;
@@ -30,7 +31,7 @@ export function SheetGifTabs({ sheets, selectedId, onSelect }: Props) {
         const selected = sheet.sheetId === selectedId;
         const imageSource = getCharacterImageSource(sheet.characterId);
         return (
-          <Pressable
+          <FeedbackPressable
             key={sheet.sheetId}
             onPress={() => onSelect(sheet.sheetId)}
             accessibilityLabel={`${sheet.label} GIF 보기`}
@@ -54,7 +55,7 @@ export function SheetGifTabs({ sheets, selectedId, onSelect }: Props) {
                 </View>
               </PixelFrame>
             </View>
-          </Pressable>
+          </FeedbackPressable>
         );
       })}
     </ScrollView>

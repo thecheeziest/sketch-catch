@@ -29,7 +29,7 @@ export function PlayerProfileDialog({ player, onClose }: Props) {
   const handleAddFriend = (): void => {
     if (!player) return;
     sendRequest.mutate(`${player.nickname}#${player.friendCode}`, {
-      onSuccess: () => useToastStore.getState().show('친구 요청을 보냈어요'),
+      onSuccess: () => useToastStore.getState().show('친구 요청을 보냈어요', 'success'),
       onError: (err) => handleApiError(err, { fallbackType: 'toast' }),
     });
   };

@@ -1,5 +1,5 @@
 import type { Namespace, Socket } from 'socket.io';
-import type { ClientEvents, ServerEvents, ChatMessage, Mode1RoundCurrent } from '@sketch-catch/shared';
+import type { ClientEvents, ServerEvents, ChatMessage, Mode1RoundCurrent, RoomState } from '@sketch-catch/shared';
 import { SERVER_EVENT } from '@sketch-catch/shared';
 import { randomUUID } from 'node:crypto';
 import { getRoomState } from '../../services/rooms.service.js';
@@ -9,6 +9,12 @@ import { endRound } from './game.js';
 
 type GameNamespace = Namespace<ClientEvents, ServerEvents>;
 type GameSocket = Socket<ClientEvents, ServerEvents, Record<string, never>, { userId: string }>;
+
+// 정답 판정 없는 자유 채팅 장소 — 시상식에 남은 유저는 방 상태와 무관하게 시상식 채널, 그 외는 대기실에서만 가능
+function resolveFreeChatChannel(inAward: boolean, status: RoomState['status']): 'AWARD' | 'LOBBY' | null {
+  if (inAward) return 'AWARD';
+  return status === 'LOBBY' ? 'LOBBY' : null;
+}
 
 export async function handleChatSend(
   game: GameNamespace,
@@ -22,22 +28,37 @@ export async function handleChatSend(
   const state = await getRoomState(code);
   if (!state) return;
 
-  // 게임 종료(시상) 화면 — 정답 판정 없는 자유 채팅. 발신자 포함 브로드캐스트만 수행한다.
-  if (state.status === 'AWARD') {
-    const trimmed = payload.text.trim().slice(0, 30);
-    if (trimmed.length === 0) return;
-    const { masked } = profanityFilter(trimmed);
-    const player = state.players.find((p) => p.id === socket.data.userId);
-    const msg: ChatMessage = {
-      id: randomUUID(),
-      userId: socket.data.userId,
-      nickname: player?.nickname ?? '',
-      text: masked,
-      masked: masked !== trimmed,
-      createdAt: Date.now(),
-    };
-    game.to(`room:${code}`).emit(SERVER_EVENT.CHAT_MESSAGE, msg);
-    return;
+  // 대기실·시상식 — 정답 판정 없는 자유 채팅. 같은 장소(대기실 / 시상식)에 있는 인원에게만 전달한다.
+  // 시상식 채팅은 다른 유저가 [한번 더]로 대기실을 열어도 시상식에 남은 사람끼리 계속 이어진다.
+  const awardViewers = state.awardViewers ?? [];
+  const sender =
+    state.players.find(p => p.id === socket.data.userId) ?? awardViewers.find(p => p.id === socket.data.userId);
+  if (sender && !sender.left) {
+    const isViewer = awardViewers.some(p => p.id === sender.id);
+    const channel = resolveFreeChatChannel(isViewer || sender.inAward === true, state.status);
+    if (channel) {
+      const trimmed = payload.text.trim().slice(0, 30);
+      if (trimmed.length === 0) return;
+      const { masked } = profanityFilter(trimmed);
+      const msg: ChatMessage = {
+        id: randomUUID(),
+        userId: sender.id,
+        nickname: sender.nickname,
+        text: masked,
+        masked: masked !== trimmed,
+        createdAt: Date.now(),
+        channel,
+      };
+      const audience =
+        channel === 'AWARD'
+          ? [...state.players.filter(p => p.inAward === true), ...awardViewers]
+          : state.players.filter(p => p.inAward !== true);
+      for (const p of audience) {
+        if (p.left) continue;
+        game.to(`user:${p.id}`).emit(SERVER_EVENT.CHAT_MESSAGE, msg);
+      }
+      return;
+    }
   }
 
   if (state.status !== 'MODE1_ROUND_START') return;

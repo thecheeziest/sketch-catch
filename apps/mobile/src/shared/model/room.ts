@@ -72,8 +72,10 @@ export const useRoomStore = create<RoomStore>()(
 
       // accessToken 만료로 인증 실패 시 1회 갱신 후 재연결. connect 성공 시 초기화된다.
       let didRefreshAuth = false;
+      let didWarnConnection = false;
       socket.on('connect', () => {
         didRefreshAuth = false;
+        didWarnConnection = false;
         // 최초 연결·재연결 모두 방에 (재)입장 — 서버가 진행 중 라운드/스텝을 이 소켓에 다시 보내준다
         socket.emit(CLIENT_EVENT.ROOM_JOIN, { code });
       });
@@ -89,6 +91,10 @@ export const useRoomStore = create<RoomStore>()(
         if (!isAuthError) {
           // 네트워크 끊김 등은 socket.io가 자동 재연결한다 — 재시도마다 에러 토스트가 쌓이지 않도록 경고로 기록
           console.warn('[socket] connect_error', err.message);
+          if (!didWarnConnection) {
+            didWarnConnection = true;
+            useToastStore.getState().show('연결이 끊겼어요. 다시 연결하고 있어요', 'error');
+          }
           return;
         }
         console.log('[socket] auth expired, refreshing token');
@@ -136,7 +142,7 @@ export const useRoomStore = create<RoomStore>()(
         }),
       );
       socket.on('error', ({ code: errorCode, message }) => {
-        useToastStore.getState().show(message);
+        useToastStore.getState().show(message, 'error');
         if (!JOIN_REJECT_CODES.has(errorCode)) return;
         set(st => {
           st.joinError = { code: errorCode, message };

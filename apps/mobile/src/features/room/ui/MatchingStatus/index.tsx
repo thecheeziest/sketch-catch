@@ -23,7 +23,7 @@ export function MatchingStatus({ count, min, seconds, isCountingDown, onCancel }
   return (
     <View sx={{ gap: spacing.MD }}>
       <Button label={label} color="light" disabled />
-      <Button label="랜덤 매칭 취소" color="dark" onPress={onCancel} />
+      <Button feedback="matchCancel" label="랜덤 매칭 취소" color="dark" onPress={onCancel} />
     </View>
   );
 }

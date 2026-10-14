@@ -34,6 +34,7 @@ export default function LoginScreen() {
         fallback: '로그인하지 못했어요. 다시 시도해주세요.',
         serverMessage: '서버 문제로 지금은 로그인할 수 없어요. 잠시 후 다시 시도해주세요.',
       }),
+      'error',
     )
   }
 

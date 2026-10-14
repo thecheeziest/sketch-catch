@@ -39,5 +39,7 @@ COPY --from=build /app/apps/server/node_modules ./apps/server/node_modules
 COPY --from=build /app/apps/server/package.json ./apps/server/package.json
 COPY --from=build /app/apps/server/prisma ./apps/server/prisma
 COPY --from=build /app/apps/server/assets ./apps/server/assets
+# 제시어 적재 크론(words:import)이 같은 이미지로 실행된다
+COPY --from=build /app/apps/server/scripts ./apps/server/scripts
 EXPOSE 3000
 CMD ["sh", "-c", "cd apps/server && pnpm prisma migrate deploy && node dist/main.js"]

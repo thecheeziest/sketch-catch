@@ -188,6 +188,7 @@ export default function Mode2ReviewScreen() {
           <View sx={{ padding: spacing.MD }}>
             <Button
               label="투표하기"
+              feedback={false}
               color="primary"
               height={48}
               disabled={!selectedVoteId}

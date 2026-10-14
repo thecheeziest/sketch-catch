@@ -1,3 +1,4 @@
+import { FeedbackPressable } from '@/shared/ui/FeedbackPressable';
 import { useFriendRequests, useFriends, useRespondRequest, useSentFriendRequests } from '@/features/friends/api';
 import { AddFriendModal, DeleteFriendModal, FriendPasswordModal } from '@/features/friends/ui';
 import { useJoinRoom } from '@/features/room/api';
@@ -21,7 +22,7 @@ import { Text, View } from 'dripsy';
 import { BlurTargetView, BlurView, type BlurTargetViewProps } from 'expo-blur';
 import { useFocusEffect } from 'expo-router';
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { ImageBackground, Pressable, StyleSheet } from 'react-native';
+import { ImageBackground, StyleSheet } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 type DeleteTarget = {
@@ -123,7 +124,7 @@ export default function FriendsScreen() {
       <SafeAreaView style={{ flex: 1 }} edges={['left', 'right']}>
         <ProfileHeader
           rightSlot={
-            <Pressable
+            <FeedbackPressable
               onPress={() => setAddModalOpen(true)}
               style={({ pressed }) => [
                 { width: 40, height: 40, alignItems: 'center', justifyContent: 'center' },
@@ -131,7 +132,7 @@ export default function FriendsScreen() {
               ]}
             >
               <Icon name="ADD_FRIEND" size={30} />
-            </Pressable>
+            </FeedbackPressable>
           }
         />
 
@@ -217,8 +218,8 @@ export default function FriendsScreen() {
                     respondRequest.mutate(
                       { requestId: item.id, action: 'ACCEPT' },
                       {
-                        onSuccess: () => useToastStore.getState().show(`${item.sender.nickname}님과 친구가 됐어요!`),
-                        onError: () => useToastStore.getState().show('연결에 실패했어요. 잠시 후 다시 시도해주세요.'),
+                        onSuccess: () => useToastStore.getState().show(`${item.sender.nickname}님과 친구가 됐어요!`, 'success'),
+                        onError: () => useToastStore.getState().show('연결에 실패했어요. 잠시 후 다시 시도해주세요.', 'error'),
                       },
                     )
                   }
@@ -227,7 +228,7 @@ export default function FriendsScreen() {
                       { requestId: item.id, action: 'REJECT' },
                       {
                         onSuccess: () => useToastStore.getState().show('요청을 거절했어요'),
-                        onError: () => useToastStore.getState().show('연결에 실패했어요. 잠시 후 다시 시도해주세요.'),
+                        onError: () => useToastStore.getState().show('연결에 실패했어요. 잠시 후 다시 시도해주세요.', 'error'),
                       },
                     )
                   }

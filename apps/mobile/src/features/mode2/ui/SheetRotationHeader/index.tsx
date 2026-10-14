@@ -11,6 +11,8 @@ import Animated, {
 import type { Mode2Phase } from '@sketch-catch/shared';
 import { colors, fontFamily, spacing, textSizes } from '@/shared/config';
 import { Icon } from '@/shared/ui/Icon';
+import { useTimerFeedback } from '@/shared/lib/useTimerFeedback';
+import { useMode2Store } from '@/features/mode2/model/useMode2Store';
 
 type Props = {
   stepIndex: number;
@@ -19,6 +21,7 @@ type Props = {
   durationSec: number;
   endsAt?: number;
   onBack: () => void;
+  submitted?: boolean;
 };
 
 const PHASE_LABEL: Record<Mode2Phase, string> = {
@@ -27,10 +30,12 @@ const PHASE_LABEL: Record<Mode2Phase, string> = {
   ANSWER: '정답 맞히는 중',
 };
 
-export function SheetRotationHeader({ stepIndex, totalSteps, phase, durationSec, endsAt, onBack }: Props) {
+export function SheetRotationHeader({ stepIndex, totalSteps, phase, durationSec, endsAt, onBack, submitted = false }: Props) {
   const [timeLeft, setTimeLeft] = useState(durationSec);
   const isUrgent = timeLeft <= 10;
   const blink = useSharedValue(1);
+  const gameId = useMode2Store(s => s.gameId);
+  useTimerFeedback(timeLeft, `${gameId}:mode2:${stepIndex}`, !submitted);
 
   useEffect(() => {
     const deadline = endsAt ?? Date.now() + durationSec * 1000;

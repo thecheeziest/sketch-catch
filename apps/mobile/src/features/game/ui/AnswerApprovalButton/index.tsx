@@ -1,6 +1,7 @@
+import { FeedbackPressable } from '@/shared/ui/FeedbackPressable';
 import { useState } from 'react';
 import { Text, View, ScrollView } from 'dripsy';
-import { Pressable, StyleSheet } from 'react-native';
+import { StyleSheet } from 'react-native';
 import type { ChatMessage } from '@sketch-catch/shared';
 import { colors, fontFamily, spacing, textSizes } from '@/shared/config';
 import { Dialog } from '@/shared/ui/Dialog';
@@ -49,7 +50,7 @@ export function AnswerApprovalButton({ selectedUserId, selectedNickname, chatMes
       {/* 선택된 답안자가 없으면 버튼 자체를 렌더하지 않는다 — 숨김과 비활성(클릭 불가)을 항상 일치시킨다.
           범례 라인 오른쪽 끝에 들어가므로 컴팩트한 인라인 버튼으로 렌더한다. */}
       {isActive && (
-        <Pressable onPress={handleOpenPanel} accessibilityLabel={`${selectedNickname} 정답 인정`} style={styles.trigger}>
+        <FeedbackPressable onPress={handleOpenPanel} accessibilityLabel={`${selectedNickname} 정답 인정`} style={styles.trigger}>
           <PixelFrame borderColor={colors.SECONDARY_200} borderWidth={2} style={StyleSheet.absoluteFill}>
             <View style={[StyleSheet.absoluteFill, { backgroundColor: colors.SECONDARY_300 }]} />
           </PixelFrame>
@@ -58,7 +59,7 @@ export function AnswerApprovalButton({ selectedUserId, selectedNickname, chatMes
               정답 인정
             </Text>
           </View>
-        </Pressable>
+        </FeedbackPressable>
       )}
 
       <Dialog
@@ -87,7 +88,7 @@ export function AnswerApprovalButton({ selectedUserId, selectedNickname, chatMes
               {playerMessages.map((msg) => {
                 const isSelected = msg.id === selectedMessageId;
                 return (
-                  <Pressable key={msg.id} onPress={() => setSelectedMessageId(msg.id)}>
+                  <FeedbackPressable key={msg.id} onPress={() => setSelectedMessageId(msg.id)}>
                     <View style={styles.bubbleWrapper}>
                       <PixelFrame
                         borderColor={isSelected ? colors.PRIMARY_400 : colors.DARK_200}
@@ -107,7 +108,7 @@ export function AnswerApprovalButton({ selectedUserId, selectedNickname, chatMes
                         </Text>
                       </View>
                     </View>
-                  </Pressable>
+                  </FeedbackPressable>
                 );
               })}
             </View>

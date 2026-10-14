@@ -1,3 +1,4 @@
+import { FeedbackPressable } from '@/shared/ui/FeedbackPressable';
 import { useFriendRequests } from '@/features/friends/api';
 import { colors, fontFamily, spacing, textSizes } from '@/shared/config';
 import { useRoomStore } from '@/shared/model';
@@ -7,7 +8,7 @@ import { Text, View } from 'dripsy';
 import { BlurView } from 'expo-blur';
 import { Tabs } from 'expo-router';
 import { ComponentRef, Ref } from 'react';
-import { Pressable, StyleSheet, useWindowDimensions } from 'react-native';
+import { StyleSheet, useWindowDimensions } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 const glowColors = ['rgba(255, 51, 136, 0.22)', 'rgba(255, 51, 136, 0.08)', 'rgba(255, 51, 136, 0)'];
@@ -71,7 +72,7 @@ export default function TabsLayout() {
           </Text>
         ),
         tabBarButton: ({ children, style, ref, ...props }) => (
-          <Pressable {...props} ref={ref as Ref<ComponentRef<typeof Pressable>>} style={[style, styles.tabButton]}>
+          <FeedbackPressable {...props} feedback={isMatchmaking ? false : 'select'} ref={ref as Ref<ComponentRef<typeof FeedbackPressable>>} style={[style, styles.tabButton]}>
             {props['aria-selected'] && (
               <Canvas pointerEvents="none" style={[styles.tabGlow, { height: tabHeight + 24 }]}>
                 {[
@@ -86,7 +87,7 @@ export default function TabsLayout() {
               </Canvas>
             )}
             {children}
-          </Pressable>
+          </FeedbackPressable>
         ),
         tabBarActiveBackgroundColor: 'transparent',
         tabBarInactiveBackgroundColor: 'transparent',

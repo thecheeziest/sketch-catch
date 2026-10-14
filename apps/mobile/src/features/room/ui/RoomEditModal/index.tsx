@@ -1,3 +1,4 @@
+import { playFeedback } from '@/shared/lib/feedback';
 import { ScrollView, Text, View } from 'dripsy'
 import { useEffect, useState } from 'react'
 import { Switch } from 'react-native'
@@ -43,7 +44,7 @@ export function RoomEditModal({ visible, onClose, roomCode }: Props) {
       { title: title.trim() || undefined, locked, playerCountMax, roundCount, drawTimer, categories },
       {
         onSuccess: () => { onClose() },
-        onError: () => { useToastStore.getState().show('방 설정 변경에 실패했습니다.') },
+        onError: () => { useToastStore.getState().show('방 설정 변경에 실패했습니다.', 'error') },
       }
     )
   }
@@ -62,7 +63,7 @@ export function RoomEditModal({ visible, onClose, roomCode }: Props) {
         <View sx={{ flexDirection: 'row', alignItems: 'center', gap: spacing.SM }}>
           <Text sx={{ flex: 1, color: colors.DARK_100 }}>잠금</Text>
           <Icon name={locked ? 'LOCK' : 'LOCK_OPEN'} size={20} />
-          <Switch value={locked} onValueChange={setLocked} trackColor={{ false: colors.DARK_100, true: colors.PRIMARY_400 }} />
+          <Switch value={locked} onValueChange={value => { playFeedback('select'); setLocked(value); }} trackColor={{ false: colors.DARK_100, true: colors.PRIMARY_400 }} />
         </View>
         <Button label="저장" color="primary" disabled={isPending} onPress={handleSave} />
       </ScrollView>

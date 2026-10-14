@@ -3,11 +3,25 @@ import type { Category } from '@sketch-catch/shared';
 import { CategoryChip } from '../CategoryChip';
 import { spacing } from '@/shared/config';
 
-// 가나다순: 동물·사물·음식·자연·장소·직업·행동
-export const ALL_CATEGORIES: Category[] = ['ANIMAL', 'OBJECT', 'FOOD', 'NATURE', 'PLACE', 'JOB', 'ACTION'];
+// 가나다순: 동물·드라마·밈·사물·사자성어·속담·영화·음식·자연·장소·직업·행동
+export const ALL_CATEGORIES: Category[] = [
+  'ANIMAL',
+  'DRAMA',
+  'MEME',
+  'OBJECT',
+  'IDIOM',
+  'PROVERB',
+  'MOVIE',
+  'FOOD',
+  'NATURE',
+  'PLACE',
+  'JOB',
+  'ACTION',
+];
 
 const CATEGORY_LABEL: Record<Category, string> = {
-  ANIMAL: '동물', OBJECT: '사물', FOOD: '음식', NATURE: '자연', PLACE: '장소', JOB: '직업', ACTION: '행동', CUSTOM: '커스텀',
+  ANIMAL: '동물', OBJECT: '사물', FOOD: '음식', NATURE: '자연', PLACE: '장소', JOB: '직업', ACTION: '행동',
+  PROVERB: '속담', IDIOM: '사자성어', MOVIE: '영화', DRAMA: '드라마', MEME: '밈', CUSTOM: '커스텀',
 };
 
 type Props = {
