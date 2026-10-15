@@ -16,7 +16,6 @@ type ActiveSound = {
   priority: number;
   until: number;
   cancel: () => void;
-  cancelHaptics: () => void;
   stopSound: () => void;
 };
 type FeedbackOptions = { key?: string; haptics?: boolean };
@@ -177,9 +176,6 @@ export function initializeFeedback(): () => void {
           sound.player.volume = state.soundVolume * (getFeedbackDefinition(sound.name).volume ?? 1);
       }
     }
-    if (!state.hapticsEnabled && previous.hapticsEnabled) {
-      for (const sound of channels.values()) sound.cancelHaptics();
-    }
     if (state.musicEnabled !== previous.musicEnabled || state.musicVolume !== previous.musicVolume) {
       if (!state.musicEnabled) music?.player.pause();
       else syncMusic();
@@ -260,7 +256,6 @@ export function playFeedback(name: FeedbackName, options: FeedbackOptions = {}):
     priority: definition.priority,
     until: now + definition.duration,
     cancel,
-    cancelHaptics,
     stopSound,
   };
   channels.set(definition.channel, entry);
@@ -284,9 +279,9 @@ export function playFeedback(name: FeedbackName, options: FeedbackOptions = {}):
       updateMusicVolume();
     }, definition.duration);
   }
-  if (definition.haptic && state.hapticsEnabled && options.haptics !== false) {
+  if (definition.haptic && options.haptics !== false) {
     const emitHaptic = () => {
-      if (cancelled || !active() || !useFeedbackStore.getState().hapticsEnabled) return;
+      if (cancelled || !active()) return;
       void haptic(name).catch(error => console.warn('[feedback] 햅틱 실행 실패', error));
     };
     hapticTimers.push(setTimeout(emitHaptic, definition.hapticDelay ?? 0));

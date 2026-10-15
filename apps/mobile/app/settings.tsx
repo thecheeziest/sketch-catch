@@ -20,7 +20,6 @@ export default function SettingsScreen() {
   const [deleteOpen, setDeleteOpen] = useState(false);
   const [notificationsGranted, setNotificationsGranted] = useState(true);
   const soundEnabled = useFeedbackStore(s => s.soundEnabled);
-  const hapticsEnabled = useFeedbackStore(s => s.hapticsEnabled);
   const soundVolume = useFeedbackStore(s => s.soundVolume);
   const musicEnabled = useFeedbackStore(s => s.musicEnabled);
   const musicVolume = useFeedbackStore(s => s.musicVolume);
@@ -60,6 +59,12 @@ export default function SettingsScreen() {
         )}
 
         <View sx={{ marginTop: spacing.XL, paddingHorizontal: spacing.XL, gap: spacing.SM }}>
+          {user && (
+            <>
+              <PlatformBadge provider={user.provider} account={`${user.nickname}#${user.friendCode}`} />
+              <View sx={sxStyles.divider} />
+            </>
+          )}
           <View sx={sxStyles.feedbackRow}>
             <Text variants={['B2']} sx={{ color: colors.LIGHT_100 }}>
               배경 음악
@@ -115,21 +120,6 @@ export default function SettingsScreen() {
             />
           </View>
           <View sx={sxStyles.feedbackRow}>
-            <Text variants={['B2']} sx={{ color: colors.LIGHT_100 }}>
-              햅틱
-            </Text>
-            <Switch
-              accessibilityLabel="햅틱"
-              value={hapticsEnabled}
-              disabled={!feedbackHydrated}
-              onValueChange={value => {
-                updatePreferences({ hapticsEnabled: value });
-                playFeedback('select');
-              }}
-              trackColor={{ false: colors.DARK_100, true: colors.SECONDARY_300 }}
-            />
-          </View>
-          <View sx={sxStyles.feedbackRow}>
             <Text
               variants={['B2']}
               sx={{ color: colors.LIGHT_100 }}
@@ -153,9 +143,9 @@ export default function SettingsScreen() {
               />
             </View>
           </View>
+          <View sx={sxStyles.divider} />
           {user ? (
             <>
-              <PlatformBadge provider={user.provider} account={`${user.nickname}#${user.friendCode}`} />
               <Button
                 label="로그아웃"
                 color="primary"
@@ -194,6 +184,11 @@ const sxStyles = {
     justifyContent: 'space-between' as const,
     gap: spacing.SM,
     paddingVertical: spacing.SM,
+  },
+  divider: {
+    height: 2,
+    marginVertical: spacing.SM,
+    backgroundColor: colors.DARK_100,
   },
   header: {
     flexDirection: 'row' as const,

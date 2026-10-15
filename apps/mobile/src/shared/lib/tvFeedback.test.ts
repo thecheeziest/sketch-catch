@@ -134,19 +134,19 @@ describe('TV 효과음·햅틱', () => {
     expect(native.players[1]?.play).toHaveBeenCalledOnce();
   });
 
-  it('효과음과 햅틱을 각각 끌 수 있다', async () => {
+  it('효과음을 꺼도 햅틱은 항상 실행된다', async () => {
     preferences.useFeedbackStore.getState().updatePreferences({ soundEnabled: false });
     feedback.playTvFeedback('on');
     await settle();
     vi.advanceTimersByTime(90);
     expect(native.players[0]?.play).not.toHaveBeenCalled();
     expect(native.impact).toHaveBeenCalledOnce();
-    preferences.useFeedbackStore.getState().updatePreferences({ soundEnabled: true, hapticsEnabled: false });
+    preferences.useFeedbackStore.getState().updatePreferences({ soundEnabled: true });
     feedback.playTvFeedback('off');
     await settle();
     vi.advanceTimersByTime(160);
     expect(native.players[1]?.play).toHaveBeenCalledOnce();
-    expect(native.impact).toHaveBeenCalledOnce();
+    expect(native.impact).toHaveBeenCalledTimes(2);
   });
 
   it('백그라운드 전환은 재생·예약 햅틱을 취소하고 복귀 후 밀린 소리를 내지 않는다', async () => {
@@ -259,7 +259,7 @@ describe('게임 오디오 재생 제어', () => {
     expect(bgm?.loop).toBe(true);
     expect(bgm?.source).toBe(101);
     engine.setMusicScene('home');
-    preferences.useFeedbackStore.getState().updatePreferences({ soundEnabled: false, hapticsEnabled: false });
+    preferences.useFeedbackStore.getState().updatePreferences({ soundEnabled: false });
     expect(native.players).toHaveLength(15);
     expect(bgm?.seekTo).not.toHaveBeenCalled();
     expect(bgm?.pause).not.toHaveBeenCalled();
@@ -325,15 +325,5 @@ describe('게임 오디오 재생 제어', () => {
     native.appState = 'active';
     native.appListener?.('active');
     expect(bgm?.play).toHaveBeenCalledOnce();
-  });
-
-  it('햅틱을 끄면 예약된 두 번째 진동만 취소하며 효과음은 유지한다', async () => {
-    engine.playFeedback('wrong');
-    await settle();
-    vi.advanceTimersByTime(0);
-    preferences.useFeedbackStore.getState().updatePreferences({ hapticsEnabled: false });
-    vi.advanceTimersByTime(110);
-    expect(native.impact).toHaveBeenCalledOnce();
-    expect(native.players[11]?.pause).not.toHaveBeenCalled();
   });
 });

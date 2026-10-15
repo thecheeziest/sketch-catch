@@ -13,14 +13,13 @@ beforeEach(() => {
   storage.write.mockResolvedValue();
 });
 
-describe('효과음·햅틱 설정 저장', () => {
+describe('효과음 설정 저장', () => {
   it('기존 TV 설정을 유지하면서 새 BGM 설정은 기본값으로 복원한다', async () => {
-    storage.read.mockResolvedValue(JSON.stringify({ soundEnabled: false, hapticsEnabled: false, soundVolume: 0.2 }));
+    storage.read.mockResolvedValue(JSON.stringify({ soundEnabled: false, soundVolume: 0.2 }));
     const { useFeedbackStore, hydrateFeedbackSettings } = await import('./feedback');
     await hydrateFeedbackSettings();
     expect(useFeedbackStore.getState()).toMatchObject({
       soundEnabled: false,
-      hapticsEnabled: false,
       musicEnabled: true,
       musicVolume: 0.35,
     });
@@ -33,14 +32,13 @@ describe('효과음·햅틱 설정 저장', () => {
     useFeedbackStore.getState().updatePreferences({ musicVolume: NaN });
     expect(useFeedbackStore.getState().musicVolume).toBe(0.1);
   });
-  it('재실행 때 음소거·햅틱·볼륨을 복원하고 중복 초기화는 한 번만 읽는다', async () => {
-    storage.read.mockResolvedValue(JSON.stringify({ soundEnabled: false, hapticsEnabled: false, soundVolume: 0.2 }));
+  it('재실행 때 음소거·볼륨을 복원하고 중복 초기화는 한 번만 읽는다', async () => {
+    storage.read.mockResolvedValue(JSON.stringify({ soundEnabled: false, soundVolume: 0.2 }));
     const { useFeedbackStore, hydrateFeedbackSettings } = await import('./feedback');
     await Promise.all([hydrateFeedbackSettings(), hydrateFeedbackSettings()]);
     expect(storage.read).toHaveBeenCalledOnce();
     expect(useFeedbackStore.getState()).toMatchObject({
       soundEnabled: false,
-      hapticsEnabled: false,
       soundVolume: 0.2,
       hydrated: true,
     });
@@ -51,16 +49,16 @@ describe('효과음·햅틱 설정 저장', () => {
     const warning = vi.spyOn(console, 'warn').mockImplementation(() => undefined);
     const { useFeedbackStore, hydrateFeedbackSettings } = await import('./feedback');
     await hydrateFeedbackSettings();
-    expect(useFeedbackStore.getState()).toMatchObject({ soundEnabled: true, hapticsEnabled: true, hydrated: true });
+    expect(useFeedbackStore.getState()).toMatchObject({ soundEnabled: true, hydrated: true });
     expect(warning).toHaveBeenCalledOnce();
     warning.mockRestore();
   });
 
   it('저장된 타입을 검증하고 볼륨을 유효 범위로 제한한다', async () => {
-    storage.read.mockResolvedValue(JSON.stringify({ soundEnabled: 'false', hapticsEnabled: 1, soundVolume: 10 }));
+    storage.read.mockResolvedValue(JSON.stringify({ soundEnabled: 'false', soundVolume: 10 }));
     const { useFeedbackStore, hydrateFeedbackSettings } = await import('./feedback');
     await hydrateFeedbackSettings();
-    expect(useFeedbackStore.getState()).toMatchObject({ soundEnabled: true, hapticsEnabled: true, soundVolume: 1 });
+    expect(useFeedbackStore.getState()).toMatchObject({ soundEnabled: true, soundVolume: 1 });
   });
 
   it('빠른 설정 변경을 순서대로 저장하고 저장 실패 후에도 다음 변경을 기록한다', async () => {
