@@ -194,6 +194,38 @@ describe('POST /me/onboard', () => {
   });
 });
 
+describe('POST /me/push-diagnostic', () => {
+  beforeEach(() => vi.clearAllMocks());
+
+  it('유효한 진단 payload면 200', async () => {
+    const { accessToken } = await signTokens('u1');
+    vi.mocked(redis.get).mockResolvedValue(accessToken);
+
+    const app = await buildApp();
+    const res = await app.inject({
+      method: 'POST',
+      url: '/me/push-diagnostic',
+      headers: { authorization: `Bearer ${accessToken}` },
+      payload: { result: 'error', permission: 'granted', message: 'no valid aps-environment' },
+    });
+    expect(res.statusCode).toBe(200);
+  });
+
+  it('result가 허용값이 아니면 400', async () => {
+    const { accessToken } = await signTokens('u1');
+    vi.mocked(redis.get).mockResolvedValue(accessToken);
+
+    const app = await buildApp();
+    const res = await app.inject({
+      method: 'POST',
+      url: '/me/push-diagnostic',
+      headers: { authorization: `Bearer ${accessToken}` },
+      payload: { result: 'weird' },
+    });
+    expect(res.statusCode).toBe(400);
+  });
+});
+
 describe('DELETE /me/push-token', () => {
   beforeEach(() => vi.clearAllMocks());
 
