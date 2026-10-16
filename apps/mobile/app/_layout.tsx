@@ -1,9 +1,9 @@
 import { useAppVersionGate } from '@/features/appUpdate/lib/useAppVersionGate';
 import { ForceUpdateScreen } from '@/features/appUpdate/ui/ForceUpdateScreen';
 import { useMe } from '@/features/auth/api';
-import { useRegisterPushToken } from '@/features/push/api/useRegisterPushToken';
-import { registerForPushNotificationsAsync } from '@/features/push/lib/registerForPushNotificationsAsync';
 import { useNotificationListeners } from '@/features/push/lib/useNotificationListeners';
+import { usePushRegistration } from '@/features/push/lib/usePushRegistration';
+import { hydratePushPreference, usePushPreferenceStore } from '@/features/push/model/usePushPreferenceStore';
 import { NotificationGate } from '@/features/push/ui/NotificationGate';
 import { queryClient } from '@/shared/api';
 import { useFeedbackLifecycle } from '@/shared/lib/useFeedbackLifecycle';
@@ -127,16 +127,19 @@ function PushTokenRegistrar({
   isAuthenticated: boolean;
   needsOnboarding: boolean;
 }) {
-  const registerPushToken = useRegisterPushToken();
+  const registerPushToken = usePushRegistration();
+  const pushEnabled = usePushPreferenceStore(s => s.enabled);
+  const pushHydrated = usePushPreferenceStore(s => s.hydrated);
 
   useEffect(() => {
-    // D-13: 온보딩 완료 직후 1회 알림 권한 요청 + 토큰 등록
-    if (!isAuthenticated || needsOnboarding) return;
-    registerForPushNotificationsAsync().then(token => {
-      if (token) registerPushToken.mutate({ token });
-    });
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [isAuthenticated, needsOnboarding]);
+    hydratePushPreference().catch(() => undefined);
+  }, []);
+
+  useEffect(() => {
+    // D-13: 온보딩 완료 직후 1회 알림 권한 요청 + 토큰 등록 (설정에서 끈 경우 건너뜀)
+    if (!isAuthenticated || needsOnboarding || !pushHydrated || !pushEnabled) return;
+    registerPushToken();
+  }, [isAuthenticated, needsOnboarding, pushHydrated, pushEnabled, registerPushToken]);
 
   return null;
 }

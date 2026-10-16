@@ -1,10 +1,17 @@
 import { useCallback } from 'react';
 import { logout as kakaoLogout } from '@react-native-seoul/kakao-login';
-import { apiPost, queryClient } from '@/shared/api';
+import { apiDelete, apiPost, queryClient } from '@/shared/api';
 import { useAuthStore } from '@/shared/model';
 
 export function useLogout() {
   return useCallback(async () => {
+    // 로그아웃 후에도 이 기기로 이전 계정의 푸시가 가지 않도록 토큰 삭제 (세션 삭제 전에 호출해야 인증됨)
+    try {
+      await apiDelete('/me/push-token');
+    } catch {
+      // ignore — 이미 만료된 세션이거나 네트워크 오류
+    }
+
     // 서버 세션 삭제 (실패해도 계속 진행)
     try {
       await apiPost('/auth/logout');

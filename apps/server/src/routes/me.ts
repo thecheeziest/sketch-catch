@@ -96,6 +96,16 @@ export const meRoutes: FastifyPluginAsync = async (app) => {
     }
   });
 
+  app.delete('/me/push-token', { preHandler: authenticate }, async (request, reply) => {
+    try {
+      await prisma.user.update({ where: { id: request.userId! }, data: { pushToken: null } });
+      return reply.send({ ok: true });
+    } catch (err) {
+      logger.error({ err }, 'DELETE /me/push-token failed');
+      return reply.status(500).send({ error: 'INTERNAL' });
+    }
+  });
+
   app.delete('/me', { preHandler: authenticate }, async (request, reply) => {
     const userId = request.userId!;
     try {

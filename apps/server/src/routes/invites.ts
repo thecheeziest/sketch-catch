@@ -38,7 +38,10 @@ export const invitesRoutes: FastifyPluginAsync = async (app) => {
         select: { pushToken: true },
       });
       if (!target) return reply.status(404).send({ error: 'USER_NOT_FOUND' });
-      if (!target.pushToken) return reply.send({ ok: true });
+      if (!target.pushToken) {
+        logger.warn({ targetId: bodyParsed.data.target }, 'invite push skipped: target has no pushToken');
+        return reply.send({ ok: true });
+      }
 
       const notificationId = `game-invite:${req.userId!}:${bodyParsed.data.target}:${state.code}`;
       if (await shouldSend(notificationId)) {

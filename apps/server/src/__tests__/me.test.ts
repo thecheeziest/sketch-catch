@@ -194,6 +194,31 @@ describe('POST /me/onboard', () => {
   });
 });
 
+describe('DELETE /me/push-token', () => {
+  beforeEach(() => vi.clearAllMocks());
+
+  it('pushToken을 null로 비운다', async () => {
+    const { accessToken } = await signTokens('u1');
+    vi.mocked(redis.get).mockResolvedValue(accessToken);
+    vi.mocked(prisma.user.update).mockResolvedValue({ ...sampleUser, pushToken: null } as never);
+
+    const app = await buildApp();
+    const res = await app.inject({
+      method: 'DELETE',
+      url: '/me/push-token',
+      headers: { authorization: `Bearer ${accessToken}` },
+    });
+    expect(res.statusCode).toBe(200);
+    expect(prisma.user.update).toHaveBeenCalledWith({ where: { id: 'u1' }, data: { pushToken: null } });
+  });
+
+  it('인증 헤더가 없으면 401', async () => {
+    const app = await buildApp();
+    const res = await app.inject({ method: 'DELETE', url: '/me/push-token' });
+    expect(res.statusCode).toBe(401);
+  });
+});
+
 describe('DELETE /me', () => {
   beforeEach(() => vi.clearAllMocks());
 

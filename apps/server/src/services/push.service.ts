@@ -1,4 +1,5 @@
-import { Expo } from 'expo-server-sdk';
+import { Expo, type ExpoPushMessage, type ExpoPushTicket } from 'expo-server-sdk';
+import { prisma } from '../db/prisma.js';
 import { redis } from '../db/redis.js';
 import { logger } from '../lib/logger.js';
 
@@ -29,9 +30,24 @@ export async function sendPush(tokens: string[], notif: PushNotif): Promise<void
   const chunks = expo.chunkPushNotifications(messages);
   for (const chunk of chunks) {
     try {
-      await expo.sendPushNotificationsAsync(chunk);
+      const tickets = await expo.sendPushNotificationsAsync(chunk);
+      await handleTickets(chunk, tickets);
     } catch (err) {
       logger.error({ err }, 'sendPushNotificationsAsync failed');
+    }
+  }
+}
+
+// 티켓은 chunk와 같은 순서로 반환된다 — 실패 사유를 남기고 만료 토큰은 정리한다
+async function handleTickets(chunk: ExpoPushMessage[], tickets: ExpoPushTicket[]): Promise<void> {
+  for (const [index, ticket] of tickets.entries()) {
+    if (ticket.status === 'ok') continue;
+
+    const to = chunk[index]?.to;
+    logger.warn({ to, message: ticket.message, error: ticket.details?.error }, 'push ticket error');
+
+    if (ticket.details?.error === 'DeviceNotRegistered' && typeof to === 'string') {
+      await prisma.user.updateMany({ where: { pushToken: to }, data: { pushToken: null } });
     }
   }
 }

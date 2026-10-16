@@ -1,6 +1,8 @@
 import { FeedbackPressable } from '@/shared/ui/FeedbackPressable';
 import { useMe } from '@/features/auth/api';
 import { useLogout } from '@/features/auth/lib';
+import { useUnregisterPushToken } from '@/features/push/api/useUnregisterPushToken';
+import { usePushPreferenceStore } from '@/features/push/model/usePushPreferenceStore';
 import { DeleteAccountModal } from '@/features/profile/ui';
 import { colors, spacing, textSizes } from '@/shared/config';
 import { useFeedbackStore } from '@/shared/model/feedback';
@@ -10,7 +12,7 @@ import { ScrollView, Text, View } from 'dripsy';
 import * as Notifications from 'expo-notifications';
 import { useRouter } from 'expo-router';
 import { useEffect, useState } from 'react';
-import { Linking, StyleSheet, Switch } from 'react-native';
+import { AppState, Linking, StyleSheet, Switch } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 export default function SettingsScreen() {
@@ -23,14 +25,40 @@ export default function SettingsScreen() {
   const soundVolume = useFeedbackStore(s => s.soundVolume);
   const musicEnabled = useFeedbackStore(s => s.musicEnabled);
   const musicVolume = useFeedbackStore(s => s.musicVolume);
+  const pushEnabled = usePushPreferenceStore(s => s.enabled);
+  const pushHydrated = usePushPreferenceStore(s => s.hydrated);
+  const setPushEnabled = usePushPreferenceStore(s => s.setEnabled);
+  const unregisterPushToken = useUnregisterPushToken();
   const feedbackHydrated = useFeedbackStore(s => s.hydrated);
   const updatePreferences = useFeedbackStore(s => s.updatePreferences);
 
   useEffect(() => {
-    Notifications.getPermissionsAsync().then(({ status }) => {
-      setNotificationsGranted(status === 'granted');
+    const syncPermission = () =>
+      Notifications.getPermissionsAsync().then(({ status }) => setNotificationsGranted(status === 'granted'));
+    syncPermission();
+    // iOS 설정 앱에서 돌아왔을 때 허용 상태를 다시 반영한다
+    const sub = AppState.addEventListener('change', state => {
+      if (state === 'active') syncPermission();
     });
+    return () => sub.remove();
   }, []);
+
+  const handlePushToggle = async (value: boolean) => {
+    playFeedback('select');
+    if (!value) {
+      setPushEnabled(false);
+      unregisterPushToken.mutate();
+      return;
+    }
+    const { status, canAskAgain } = await Notifications.getPermissionsAsync();
+    // 이미 거부했다면 시스템 팝업을 다시 띄울 수 없으므로 iOS 설정으로 안내한다
+    if (status === 'denied' && !canAskAgain) {
+      Linking.openSettings();
+      return;
+    }
+    // 토큰 등록(권한 요청 포함)은 루트 레이아웃의 PushTokenRegistrar가 enabled 변경에 반응해 처리한다
+    setPushEnabled(true);
+  };
 
   return (
     <SafeAreaView style={{ flex: 1, backgroundColor: colors.DARK_200 }}>
@@ -65,6 +93,18 @@ export default function SettingsScreen() {
               <View sx={sxStyles.divider} />
             </>
           )}
+          <View sx={sxStyles.feedbackRow}>
+            <Text variants={['B2']} sx={{ color: colors.LIGHT_100 }}>
+              푸시 알림
+            </Text>
+            <Switch
+              accessibilityLabel="푸시 알림"
+              value={pushEnabled && notificationsGranted}
+              disabled={!pushHydrated}
+              onValueChange={handlePushToggle}
+              trackColor={{ false: colors.DARK_100, true: colors.SECONDARY_300 }}
+            />
+          </View>
           <View sx={sxStyles.feedbackRow}>
             <Text variants={['B2']} sx={{ color: colors.LIGHT_100 }}>
               배경 음악
