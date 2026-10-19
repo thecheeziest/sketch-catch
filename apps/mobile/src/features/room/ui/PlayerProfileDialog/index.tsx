@@ -1,6 +1,12 @@
 import { Image, Text, View } from 'dripsy';
 import { useState } from 'react';
-import { useFriends, useSendFriendRequest, useSentFriendRequests } from '@/features/friends/api';
+import {
+  useFriendRequests,
+  useFriends,
+  useRespondRequest,
+  useSendFriendRequest,
+  useSentFriendRequests,
+} from '@/features/friends/api';
 import { colors, getCharacterImageSource, spacing, textSizes } from '@/shared/config';
 import { handleApiError } from '@/shared/lib';
 import { useToastStore } from '@/shared/model';
@@ -14,18 +20,24 @@ type Props = {
   onTransferHost?: (player: Player) => void;
 };
 
-type FriendRelation = 'FRIEND' | 'REQUESTED' | 'NONE';
+type FriendRelation = 'FRIEND' | 'RECEIVED' | 'REQUESTED' | 'NONE';
+
+// 상대가 이미 나에게 요청을 보낸 상태면 서버가 신청 대신 바로 수락 처리하고 accepted: true를 돌려준다
+type SendFriendRequestResult = { ok: true; accepted?: boolean };
 
 // 대기실에서 다른 참가자를 눌렀을 때 — 캐릭터 + 닉네임#해시태그, 친구가 아니면 친구 추가
 export function PlayerProfileDialog({ player, onClose, onTransferHost }: Props) {
   const { data: friends = [] } = useFriends();
   const { data: sentRequests = [] } = useSentFriendRequests();
+  const { data: receivedRequests = [] } = useFriendRequests();
   const sendRequest = useSendFriendRequest();
+  const respondRequest = useRespondRequest();
   const [isConfirmingTransfer, setIsConfirmingTransfer] = useState(false);
 
   const relation: FriendRelation = (() => {
     if (!player) return 'NONE';
     if (friends.some((f) => f.userId === player.id)) return 'FRIEND';
+    if (receivedRequests.some((r) => r.sender.id === player.id)) return 'RECEIVED';
     if (sentRequests.some((r) => r.receiver.id === player.id)) return 'REQUESTED';
     return 'NONE';
   })();
@@ -38,11 +50,25 @@ export function PlayerProfileDialog({ player, onClose, onTransferHost }: Props) 
   const handleAddFriend = (): void => {
     if (!player) return;
     sendRequest.mutate(`${player.nickname}#${player.friendCode}`, {
-      onSuccess: () => useToastStore.getState().show('친구 요청을 보냈어요!', 'success'),
+      onSuccess: (data) => {
+        const isAccepted = (data as SendFriendRequestResult | undefined)?.accepted === true;
+        useToastStore.getState().show(isAccepted ? '친구가 되었어요!' : '친구 요청을 보냈어요!', 'success');
+      },
       onError: (err) => handleApiError(err, { fallbackType: 'toast' }),
     });
   };
 
+  const handleAcceptFriend = (): void => {
+    const request = receivedRequests.find((r) => r.sender.id === player?.id);
+    if (!request) return;
+    respondRequest.mutate(
+      { requestId: request.id, action: 'ACCEPT' },
+      {
+        onSuccess: () => useToastStore.getState().show('친구가 되었어요!', 'success'),
+        onError: (err) => handleApiError(err, { fallbackType: 'toast' }),
+      },
+    );
+  };
 
   const handleConfirmTransfer = (): void => {
     if (!player || !onTransferHost) return;
@@ -59,6 +85,9 @@ export function PlayerProfileDialog({ player, onClose, onTransferHost }: Props) 
     }
     const close: DialogButton = { label: '닫기', color: 'light', onPress: handleClose };
     if (relation === 'FRIEND') return [close];
+    if (relation === 'RECEIVED') {
+      return [close, { label: '친구 수락', color: 'primary', onPress: handleAcceptFriend, loading: respondRequest.isPending }];
+    }
     if (relation === 'REQUESTED') return [close, { label: '요청 보냄', color: 'primary', onPress: () => undefined, disabled: true }];
     return [close, { label: '친구 추가', color: 'primary', onPress: handleAddFriend, loading: sendRequest.isPending }];
   })();
