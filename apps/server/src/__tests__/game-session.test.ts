@@ -47,7 +47,7 @@ vi.mock('../services/replay.service.js', () => ({ generateSheetGifs: vi.fn().moc
 
 const { pickRoundWord } = await import('../services/word.service.js');
 const { runInRoom } = await import('../services/roomQueue.js');
-const { handleRoomJoin, handleRoomReady, handleRoomStart, handleRoomLeave, handleRoomNudge } =
+const { handleRoomJoin, handleRoomReady, handleRoomStart, handleRoomLeave, handleRoomNudge, handleRoomHostTransfer } =
   await import('../socket/handlers/room.js');
 const { handleChatSend } = await import('../socket/handlers/chat.js');
 const { handleCustomPromptSubmit, handlePlayerLeft, startRound } = await import('../socket/handlers/game.js');
@@ -837,5 +837,58 @@ describe('게임 중 연결 끊김 유예 (백그라운드 복귀)', () => {
 
     await runInRoom(CODE, () => handleRoomLeave(ns as never, makeSocket('u4') as never, [CODE]));
     expect(readState().players.find(p => p.id === 'u4')?.left).toBe(true);
+  });
+});
+
+describe('방장 넘기기', () => {
+  beforeEach(() => {
+    store.clear();
+    vi.clearAllMocks();
+  });
+
+  const transfer = (ns: ReturnType<typeof makeNamespace>, socket: ReturnType<typeof makeSocket>, targetId: unknown) =>
+    runInRoom(CODE, () => handleRoomHostTransfer(ns as never, socket as never, targetId));
+
+  it('방장이 대기실 참가자에게 넘기면 hostId·isHost가 바뀌고 room:state가 브로드캐스트된다', async () => {
+    seedLobby({ title: 'u1님의 방' });
+    const ns = makeNamespace();
+    await transfer(ns, makeSocket('u1'), 'u2');
+
+    const state = readState();
+    expect(state.hostId).toBe('u2');
+    expect(state.players.filter(p => p.isHost).map(p => p.id)).toEqual(['u2']);
+    expect(state.title).toBe('u2님의 방');
+    expect(ns.emitted.filter(e => e.event === 'room:state').map(e => e.room)).toEqual([ROOM]);
+  });
+
+  it('방장이 아니면 거부한다', async () => {
+    seedLobby();
+    const ns = makeNamespace();
+    const socket = makeSocket('u2');
+    await transfer(ns, socket, 'u3');
+    expect(readState().hostId).toBe('u1');
+    expect(socket.emit).toHaveBeenCalledWith('error', expect.objectContaining({ code: 'FORBIDDEN' }));
+    expect(ns.emitted).toHaveLength(0);
+  });
+
+  it('대기실이 아니면 거부한다', async () => {
+    seedLobby({ status: 'MODE1_ROUND_START' });
+    const socket = makeSocket('u1');
+    await transfer(makeNamespace(), socket, 'u2');
+    expect(readState().hostId).toBe('u1');
+    expect(socket.emit).toHaveBeenCalledWith('error', expect.objectContaining({ code: 'GAME_IN_PROGRESS' }));
+  });
+
+  it.each([
+    ['방에 없는 유저', 'nobody'],
+    ['자기 자신', 'u1'],
+    ['시상식에 남은 유저', 'u2'],
+    ['잘못된 payload', 123],
+  ])('%s에게는 넘길 수 없다', async (_label, targetId) => {
+    seedLobby({ players: [makePlayer('u1', 0), makePlayer('u2', 1, { inAward: true }), makePlayer('u3', 2)] });
+    const socket = makeSocket('u1');
+    await transfer(makeNamespace(), socket, targetId);
+    expect(readState().hostId).toBe('u1');
+    expect(socket.emit).toHaveBeenCalledWith('error', expect.objectContaining({ code: 'INVALID_TARGET' }));
   });
 });

@@ -22,7 +22,32 @@ export function ensureHost(state: RoomState, departedPlayers: Player[] = []): vo
   const next = state.players.filter(p => !p.inAward && !p.left).sort((a, b) => a.slot - b.slot)[0];
   if (!next) return;
 
-  const previousHost = departedPlayers.find(p => p.id === state.hostId);
+  setHost(
+    state,
+    departedPlayers.find(p => p.id === state.hostId),
+    next,
+  );
+}
+
+/**
+ * 방장이 직접 다른 참가자에게 방장을 넘긴다 — 대기실에서, 방에 남아 있는 다른 참가자에게만.
+ * @returns 넘기지 못하면 false (권한·상태 검증은 호출부가 먼저 한다)
+ */
+export function transferHost(state: RoomState, targetId: string): boolean {
+  if (targetId === state.hostId) return false;
+  const next = state.players.find(p => p.id === targetId && !p.left && !p.inAward);
+  if (!next) return false;
+
+  setHost(
+    state,
+    state.players.find(p => p.id === state.hostId),
+    next,
+  );
+  return true;
+}
+
+// 제목이 이전 방장 이름으로 자동 생성된 기본 제목이면 새 방장 이름으로 바꾼다 (직접 정한 제목은 유지)
+function setHost(state: RoomState, previousHost: Player | undefined, next: Player): void {
   const suffix = DEFAULT_TITLE_SUFFIXES.find(s => previousHost && state.title === `${previousHost.nickname}${s}`);
   if (suffix) state.title = `${next.nickname}${suffix}`;
 
