@@ -191,7 +191,7 @@ export function PenaltyAward({ text, safePlayers, losers }: Props) {
       </View>
 
       {/* 단상 — 꼴찌가 아닌 사람 전원 */}
-      <View sx={{ flex: 1, justifyContent: 'flex-end', alignItems: 'center' }}>
+      <View sx={{ flex: 1, justifyContent: 'center', alignItems: 'center' }}>
         <View sx={{ flexDirection: 'row', flexWrap: 'wrap', justifyContent: 'center', alignItems: 'flex-end' }}>
           {safePlayers.map((p, i) => (
             <StageCharacter key={p.userId} player={p} index={i} size={characterSize} />
