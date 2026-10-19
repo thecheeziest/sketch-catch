@@ -249,7 +249,6 @@ export function playFeedback(name: FeedbackName, options: FeedbackOptions = {}):
   let cancelled = false;
   let soundCancelled = false;
   const hapticTimers: Array<ReturnType<typeof setTimeout>> = [];
-  let expiry: ReturnType<typeof setTimeout>;
   const cancelHaptics = () => hapticTimers.forEach(clearTimeout);
   const stopSound = () => {
     soundCancelled = true;
@@ -300,7 +299,7 @@ export function playFeedback(name: FeedbackName, options: FeedbackOptions = {}):
     hapticTimers.push(setTimeout(emitHaptic, definition.hapticDelay ?? 0));
     if (definition.haptic === 'error') hapticTimers.push(setTimeout(emitHaptic, 110));
   }
-  expiry = setTimeout(() => {
+  const expiry = setTimeout(() => {
     cancelled = true;
     cancelHaptics();
     if (channels.get(definition.channel) === entry) channels.delete(definition.channel);
