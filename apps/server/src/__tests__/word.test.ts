@@ -78,4 +78,36 @@ describe('word service (GAME-03)', () => {
     expect(result).toBeNull();
     expect(mockFindMany).toHaveBeenCalledTimes(1);
   });
+
+  it('이번 게임에 나온 단어는 제외하고 뽑는다', async () => {
+    mockFindMany.mockResolvedValue([
+      { word: '강아지', category: 'ANIMAL' },
+      { word: '고양이', category: 'ANIMAL' },
+    ] as any);
+    vi.spyOn(Math, 'random').mockReturnValue(0);
+
+    const result = await pickRoundWord('ANIMAL', ['ANIMAL'], ['강아지']);
+
+    expect(result).toEqual({ word: '고양이', category: 'ANIMAL' });
+  });
+
+  it('뽑힌 카테고리를 다 썼으면 다른 선택 카테고리의 새 단어를 먼저 쓴다', async () => {
+    mockFindMany
+      .mockResolvedValueOnce([{ word: '강아지', category: 'ANIMAL' }] as any)
+      .mockResolvedValueOnce([{ word: '피자', category: 'FOOD' }] as any);
+    vi.spyOn(Math, 'random').mockReturnValue(0);
+
+    const result = await pickRoundWord('ANIMAL', ['ANIMAL', 'FOOD'], ['강아지']);
+
+    expect(result).toEqual({ word: '피자', category: 'FOOD' });
+  });
+
+  it('선택한 카테고리 단어를 전부 썼으면 중복을 허용해 게임이 멈추지 않는다', async () => {
+    mockFindMany.mockResolvedValue([{ word: '강아지', category: 'ANIMAL' }] as any);
+    vi.spyOn(Math, 'random').mockReturnValue(0);
+
+    const result = await pickRoundWord('ANIMAL', ['ANIMAL'], ['강아지']);
+
+    expect(result).toEqual({ word: '강아지', category: 'ANIMAL' });
+  });
 });

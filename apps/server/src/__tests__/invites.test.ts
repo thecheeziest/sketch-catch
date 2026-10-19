@@ -4,6 +4,7 @@ import Fastify from 'fastify';
 vi.mock('../db/prisma.js', () => ({
   prisma: {
     user: { findUnique: vi.fn() },
+    friendship: { findUnique: vi.fn() },
   },
 }));
 
@@ -41,11 +42,15 @@ async function authHeader(userId = 'u1') {
   return { authorization: `Bearer ${accessToken}` };
 }
 
-const lobbyRoom = { code: 'ABC123', status: 'LOBBY' } as any;
+const lobbyRoom = { code: 'ABC123', status: 'LOBBY', title: '테스트 방', players: [{ id: 'u1' }] } as any;
 const inGameRoom = { code: 'ABC123', status: 'MODE1_ROUND_START' } as any;
 
 describe('POST /rooms/:code/invite', () => {
-  beforeEach(() => vi.clearAllMocks());
+  beforeEach(() => {
+    vi.clearAllMocks();
+    vi.mocked(prisma.friendship.findUnique).mockResolvedValue({ id: 'fs1' } as any);
+    vi.mocked(shouldSend).mockResolvedValue(true);
+  });
 
   it('LOBBY 방 + 유효 target → sendPush 호출 (data.roomCode 포함), ok:true (PUSH-03)', async () => {
     const headers = await authHeader();
@@ -66,7 +71,7 @@ describe('POST /rooms/:code/invite', () => {
     expect(res.json()).toEqual({ ok: true });
     expect(sendPush).toHaveBeenCalledWith(
       ['ExponentPushToken[xxx]'],
-      expect.objectContaining({ data: { roomCode: 'ABC123' } })
+      expect.objectContaining({ data: { type: 'GAME_INVITE', roomCode: 'ABC123', roomTitle: '테스트 방' } })
     );
   });
 
@@ -162,7 +167,30 @@ describe('POST /rooms/:code/invite', () => {
     expect(res.json()).toEqual({ error: 'INVALID_INPUT' });
   });
 
-  it('dedupe 가드가 false를 반환하면 sendPush 미호출하되 ok:true 유지', async () => {
+  it('방에 없는 유저의 초대 → 403 NOT_IN_ROOM', async () => {
+    const headers = await authHeader('u9');
+    vi.mocked(getRoomState).mockResolvedValue(lobbyRoom);
+
+    const app = await buildApp();
+    const res = await app.inject({ method: 'POST', url: '/rooms/ABC123/invite', headers, payload: { target: 'u2' } });
+    expect(res.statusCode).toBe(403);
+    expect(res.json()).toEqual({ error: 'NOT_IN_ROOM' });
+    expect(sendPush).not.toHaveBeenCalled();
+  });
+
+  it('친구가 아닌 대상 → 403 NOT_FRIENDS', async () => {
+    const headers = await authHeader();
+    vi.mocked(getRoomState).mockResolvedValue(lobbyRoom);
+    vi.mocked(prisma.friendship.findUnique).mockResolvedValue(null);
+
+    const app = await buildApp();
+    const res = await app.inject({ method: 'POST', url: '/rooms/ABC123/invite', headers, payload: { target: 'u2' } });
+    expect(res.statusCode).toBe(403);
+    expect(res.json()).toEqual({ error: 'NOT_FRIENDS' });
+    expect(sendPush).not.toHaveBeenCalled();
+  });
+
+  it('쿨다운 중 재초대 → 429 INVITE_COOLDOWN, sendPush 미호출 (30초 TTL)', async () => {
     const headers = await authHeader();
     vi.mocked(getRoomState).mockResolvedValue(lobbyRoom);
     vi.mocked(prisma.user.findUnique).mockResolvedValue({ pushToken: 'ExponentPushToken[xxx]' } as any);
@@ -175,8 +203,9 @@ describe('POST /rooms/:code/invite', () => {
       headers,
       payload: { target: 'u2' },
     });
-    expect(res.statusCode).toBe(200);
-    expect(res.json()).toEqual({ ok: true });
+    expect(res.statusCode).toBe(429);
+    expect(res.json()).toEqual({ error: 'INVITE_COOLDOWN' });
+    expect(shouldSend).toHaveBeenCalledWith('game-invite:u1:u2:ABC123', 30);
     expect(sendPush).not.toHaveBeenCalled();
   });
 

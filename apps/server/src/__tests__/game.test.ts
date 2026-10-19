@@ -165,7 +165,7 @@ describe('game state machine (MD1-01, MD1-05)', () => {
       randomSpy.mockRestore();
     }
 
-    expect(mockPickWord).toHaveBeenCalledWith('ANIMAL', expect.any(Array));
+    expect(mockPickWord).toHaveBeenCalledWith('ANIMAL', expect.any(Array), undefined);
     const savedState = mockSaveRoomState.mock.calls[0]![0]! as RoomState;
     expect((savedState.current as Mode1RoundCurrent).prompt).toBe('강아지');
     expect(game._broadcastEmit).toHaveBeenCalledWith(
@@ -376,6 +376,20 @@ describe('answer detect (MD1-02)', () => {
     expect(mockSaveRoomState).toHaveBeenCalled();
   });
 
+  it('answer detect: 띄어쓰기만 다른 답은 정답 처리', async () => {
+    const spaced = (): RoomState =>
+      makeChatRoomState({
+        current: { roundIndex: 0, drawerId: 'u1', prompt: '오징어 게임', startedAt: Date.now() - 5000 },
+      });
+    mockGetRoomState.mockReset();
+    mockGetRoomState.mockResolvedValueOnce(spaced());
+    mockGetRoomState.mockResolvedValueOnce(spaced());
+    const game = makeNamespace();
+    const socket = { data: { userId: 'u2' }, rooms: new Set(['room:ABC123']), emit: vi.fn() };
+    await handleChatSend(game as any, socket as any, { text: '오징어게임' });
+    expect(game._broadcastEmit).toHaveBeenCalledWith('chat:correct', expect.objectContaining({ userId: 'u2' }));
+  });
+
   it('answer detect: 부분 일치는 오답 — chat:correct 미발생, answer:wrong은 제출자에게만 전달', async () => {
     mockGetRoomState.mockResolvedValueOnce(makeChatRoomState());
     const game = makeNamespace();
@@ -446,20 +460,20 @@ describe('answer accept (MD1-03)', () => {
 });
 
 describe('score calc (MD1-04)', () => {
-  it('score calc: 맞힌 사람 max(100, 1000 - 경과초*30)', () => {
-    // 0ms 경과: guesser=max(100, 1000-0*30)=1000
-    expect(calcScore(0).guesserScore).toBe(1000);
-    // 30000ms=30초 경과: guesser=max(100, 1000-30*30)=max(100,100)=100
-    expect(calcScore(30000).guesserScore).toBe(100);
-    // 60000ms=60초 경과: guesser=max(100, 1000-60*30)=max(100,-800)=100
-    expect(calcScore(60000).guesserScore).toBe(100);
+  it('score calc: 맞힌 사람 500 + 남은 시간 비율 × 500 (방 타이머 기준)', () => {
+    expect(calcScore(0, 60).guesserScore).toBe(1000);
+    expect(calcScore(30000, 60).guesserScore).toBe(750);
+    expect(calcScore(60000, 60).guesserScore).toBe(500);
+    // 타이머가 길어도 같은 비율이면 같은 점수
+    expect(calcScore(45000, 90).guesserScore).toBe(750);
+    // 타이머를 넘긴 응답(지연 도착)도 최소 500점, 음수 경과는 최대 1000점
+    expect(calcScore(70000, 60).guesserScore).toBe(500);
+    expect(calcScore(-100, 60).guesserScore).toBe(1000);
   });
 
-  it('score calc: 출제자 min(500, 맞힌점수*0.5)', () => {
-    // 0ms: guesser=1000, drawer=min(500, floor(1000*0.5))=min(500,500)=500
-    expect(calcScore(0).drawerScore).toBe(500);
-    // 30000ms: guesser=100, drawer=min(500, floor(100*0.5))=min(500,50)=50
-    expect(calcScore(30000).drawerScore).toBe(50);
+  it('score calc: 출제자는 맞힌 시점과 무관하게 고정 300점', () => {
+    expect(calcScore(0, 60).drawerScore).toBe(300);
+    expect(calcScore(59000, 60).drawerScore).toBe(300);
   });
 });
 

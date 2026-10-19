@@ -15,8 +15,8 @@ export type PushNotif = {
 };
 
 // Redis SETNX 가드 — 첫 호출 true, TTL 내 중복 호출 false
-export async function shouldSend(notificationId: string): Promise<boolean> {
-  const result = await redis.set(`push:dedupe:${notificationId}`, '1', 'EX', PUSH_DEDUPE_TTL_SEC, 'NX');
+export async function shouldSend(notificationId: string, ttlSec = PUSH_DEDUPE_TTL_SEC): Promise<boolean> {
+  const result = await redis.set(`push:dedupe:${notificationId}`, '1', 'EX', ttlSec, 'NX');
   return result === 'OK';
 }
 

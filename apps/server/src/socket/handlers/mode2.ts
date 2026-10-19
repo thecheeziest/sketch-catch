@@ -368,8 +368,15 @@ async function timeoutContent(
   const text = draft?.text ?? '';
   if (current.phase === 'ANSWER') return { kind: 'ANSWER', authorId, text };
   if (text) return { kind: 'PROMPT', authorId, text };
-  const picked = await pickRoundWord(randomWordCategory(state.config.categories), state.config.categories);
-  return { kind: 'PROMPT', authorId, text: picked?.word ?? FALLBACK_PROMPT };
+  const picked = await pickRoundWord(
+    randomWordCategory(state.config.categories),
+    state.config.categories,
+    state.usedWords,
+  );
+  if (!picked) return { kind: 'PROMPT', authorId, text: FALLBACK_PROMPT };
+  // 호출 측이 같은 state를 저장한다 — 한 게임 안에서 랜덤 제시어가 겹치지 않도록 기록
+  state.usedWords = [...(state.usedWords ?? []), picked.word];
+  return { kind: 'PROMPT', authorId, text: picked.word };
 }
 
 export async function advanceStep(game: GameNamespace, code: string, expectedGameId?: string): Promise<void> {

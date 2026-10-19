@@ -87,12 +87,8 @@ export function ChatStream({ items }: Props) {
               >
                 {item.nickname}
               </Text>
-              <Text
-                sx={{ fontFamily: fontFamily.REGULAR, fontSize: 13, color: fg, flexShrink: 1 }}
-                numberOfLines={1}
-              >
-                {item.text}
-              </Text>
+              {/* 긴 채팅도 말줄임 없이 전체를 보여준다 (최대 30자라 두세 줄 안에서 끝난다) */}
+              <Text sx={{ fontFamily: fontFamily.REGULAR, fontSize: 13, color: fg, flexShrink: 1 }}>{item.text}</Text>
               {item.isCorrect && (
                 <Text sx={{ fontFamily: fontFamily.BOLD, fontSize: 11, color: chatStream.CORRECT_FG, flexShrink: 0 }}>
                   {item.score != null ? `+${item.score}` : '정답'}

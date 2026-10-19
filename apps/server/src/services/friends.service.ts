@@ -41,10 +41,14 @@ function normalizeIds(a: string, b: string): { userAId: string; userBId: string 
   return a < b ? { userAId: a, userBId: b } : { userAId: b, userBId: a };
 }
 
-export async function sendFriendRequest(
-  senderId: string,
-  target: string,
-): Promise<{ id: string; pushToken: string | null }> {
+export type SendFriendRequestResult = {
+  id: string;
+  pushToken: string | null;
+  // 상대가 이미 나에게 보낸 요청이 있어 바로 친구가 됐는지
+  autoAccepted: boolean;
+};
+
+export async function sendFriendRequest(senderId: string, target: string): Promise<SendFriendRequestResult> {
   const parsed = parseTarget(target);
   if (!parsed) throw new InvalidFormatError();
 
@@ -59,6 +63,19 @@ export async function sendFriendRequest(
   const existing = await prisma.friendship.findUnique({ where: { userAId_userBId: { userAId, userBId } } });
   if (existing) throw new AlreadyFriendsError();
 
+  // 상대가 먼저 보낸 요청이 대기 중이면 요청을 하나 더 만들지 않고 그 요청을 수락한다 (서로 신청 = 친구)
+  const reverse = await prisma.friendRequest.findFirst({
+    where: { senderId: receiver.id, receiverId: senderId, status: 'PENDING' },
+    select: { id: true },
+  });
+  if (reverse) {
+    await prisma.$transaction([
+      prisma.friendRequest.update({ where: { id: reverse.id }, data: { status: 'ACCEPTED' } }),
+      prisma.friendship.create({ data: { userAId, userBId } }),
+    ]);
+    return { id: receiver.id, pushToken: receiver.pushToken, autoAccepted: true };
+  }
+
   // 중복 요청 확인 (@@unique([senderId, receiverId]) 위반 시 throw)
   try {
     await prisma.friendRequest.create({
@@ -68,7 +85,7 @@ export async function sendFriendRequest(
     throw new DuplicateRequestError();
   }
 
-  return { id: receiver.id, pushToken: receiver.pushToken };
+  return { id: receiver.id, pushToken: receiver.pushToken, autoAccepted: false };
 }
 
 export type FriendRoom = {

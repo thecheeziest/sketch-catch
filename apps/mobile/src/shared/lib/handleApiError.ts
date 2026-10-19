@@ -21,6 +21,9 @@ export const ERROR_HANDLERS: Record<string, ErrorAction> = {
   ROOM_LOCKED: { type: 'setError', message: '잠겨 있는 방이에요!' },
   GAME_IN_PROGRESS: { type: 'toast', message: '이미 게임이 한창이에요!' },
   TARGET_BUSY: { type: 'toast', message: '친구가 다른 방에서 놀고 있어요!' },
+  INVITE_COOLDOWN: { type: 'toast', message: '방금 초대했어요! 잠시 후 다시 보낼 수 있어요' },
+  NOT_FRIENDS: { type: 'toast', message: '친구에게만 초대를 보낼 수 있어요!' },
+  NOT_IN_ROOM: { type: 'toast', message: '방에 들어와 있을 때만 초대할 수 있어요!' },
 };
 
 type HandleApiErrorOptions = {

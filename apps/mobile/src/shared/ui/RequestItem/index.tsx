@@ -1,7 +1,7 @@
 import { FeedbackPressable } from '@/shared/ui/FeedbackPressable';
-import { Text, View } from 'dripsy'
+import { Image, Text, View } from 'dripsy'
 import { StyleSheet } from 'react-native';
-import { colors } from '@/shared/config'
+import { colors, getCharacterImageSource } from '@/shared/config'
 import type { FriendRequest } from '@/shared/model'
 import { PixelLoadingSpinner } from '@/shared/ui/PixelLoadingSpinner'
 
@@ -21,10 +21,15 @@ const ROW_BG = [`${colors.WHITE}70`, `${colors.PRIMARY_300}70`] as const
 export function RequestItem({ request, onAccept, onReject, isLoading = false, disabled = false, index }: Props) {
   const { sender } = request
   const bgColor = index !== undefined ? ROW_BG[index % 2] : 'transparent'
+  const imageSource = getCharacterImageSource(sender.characterId)
 
   return (
     <View sx={sxStyles.row} style={{ backgroundColor: bgColor }}>
-      <View sx={{ width: 40, height: 40, backgroundColor: colors.SECONDARY_400 }} />
+      {imageSource !== null ? (
+        <Image source={imageSource} sx={{ width: 40, height: 40 }} resizeMode="contain" />
+      ) : (
+        <View sx={{ width: 40, height: 40, backgroundColor: colors.SECONDARY_400 }} />
+      )}
       <View sx={{ flex: 1 }}>
         <Text sx={{ color: colors.LIGHT_100 }}>{sender.nickname}</Text>
         <Text variant="B4" sx={{ color: colors.GRAY }}>{sender.nickname}#{sender.friendCode}</Text>

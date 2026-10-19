@@ -50,6 +50,8 @@ export type RoomState = {
   allReady?: boolean;
   // 모드1: 게임 시작 시 계산된 출제자 순서 (userId[])
   turnSchedule?: string[];
+  // 이번 게임에서 이미 출제한 제시어 — 한 게임 안에서 같은 제시어가 다시 나오지 않게 한다
+  usedWords?: string[];
   // 게임 1판의 식별자 — 시작마다 새로 발급, 대기실 복귀 시 제거. 지난 게임의 타이머·이벤트를 걸러내는 기준
   gameId?: string;
   // 새 게임이 시작될 때 시상식에 남아 있던 유저 - 게임 명단에서는 빠지지만 서로 채팅할 수 있다.

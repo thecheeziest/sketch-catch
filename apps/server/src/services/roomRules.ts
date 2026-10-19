@@ -36,6 +36,7 @@ export function resetToLobby(state: RoomState): void {
   state.scoreboard = {};
   state.current = null;
   delete state.turnSchedule;
+  delete state.usedWords;
   delete state.startedAt;
   delete state.gameId;
   delete state.awardEndsAt;

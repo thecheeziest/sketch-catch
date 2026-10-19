@@ -201,6 +201,7 @@ export async function handleRoomStart(game: GameNamespace, socket: GameSocket): 
   state.gameId = randomUUID();
   state.startedAt = Date.now();
   state.scoreboard = {};
+  state.usedWords = [];
   state.allReady = false;
   const activePlayers = state.players.filter(p => p.connected && !p.inAward);
 

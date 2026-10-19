@@ -10,6 +10,13 @@ import { endRound } from './game.js';
 type GameNamespace = Namespace<ClientEvents, ServerEvents>;
 type GameSocket = Socket<ClientEvents, ServerEvents, Record<string, never>, { userId: string }>;
 
+// 띄어쓰기 차이는 오답으로 보지 않는다 (정답 '오징어 게임' ← '오징어게임' 인정)
+function isCorrectAnswer(answer: string, prompt: string): boolean {
+  const normalize = (text: string): string => text.replace(/\s+/gu, '');
+  const normalizedPrompt = normalize(prompt);
+  return normalizedPrompt.length > 0 && normalize(answer) === normalizedPrompt;
+}
+
 // 정답 판정 없는 자유 채팅 장소 — 시상식에 남은 유저는 방 상태와 무관하게 시상식 채널, 그 외는 대기실에서만 가능
 function resolveFreeChatChannel(inAward: boolean, status: RoomState['status']): 'AWARD' | 'LOBBY' | null {
   if (inAward) return 'AWARD';
@@ -96,7 +103,7 @@ export async function handleChatSend(
   game.to(`room:${code}`).emit(SERVER_EVENT.CHAT_MESSAGE, msg);
 
   // MD1-02: 정답 자동 판정 (D-06: 서버에서만 수행)
-  if (trimmed === current.prompt.trim()) {
+  if (isCorrectAnswer(trimmed, current.prompt)) {
     game
       .to(`room:${code}`)
       .emit(SERVER_EVENT.CHAT_CORRECT, { gameId: state.gameId ?? '', userId: socket.data.userId, messageId: msg.id });

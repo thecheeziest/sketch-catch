@@ -66,11 +66,17 @@ async function revealHint(
 // D-01: answeredAt 누적 Map (동점자 정렬용 — score DESC, answeredAt ASC)
 const answerTimestamps = new Map<string, Map<string, number>>();
 
-export function calcScore(elapsedMs: number): { guesserScore: number; drawerScore: number } {
-  const elapsedSec = Math.floor(elapsedMs / 1000);
-  const guesserScore = Math.max(100, 1000 - elapsedSec * 30);
-  const drawerScore = Math.min(500, Math.floor(guesserScore * 0.5));
-  return { guesserScore, drawerScore };
+const GUESSER_BASE_SCORE = 500;
+const GUESSER_SPEED_BONUS = 500;
+const DRAWER_SCORE = 300;
+
+// 맞힌 사람: 기본 500 + 남은 시간 비율만큼 최대 500 (방 타이머 길이와 무관하게 500~1000점).
+// 출제자는 맞히기만 하면 고정 점수 — 라운드마다 점수 격차가 극단적으로 벌어지지 않게 한다.
+export function calcScore(elapsedMs: number, drawTimerSec: number): { guesserScore: number; drawerScore: number } {
+  const totalMs = drawTimerSec * 1000;
+  const remainingRatio = totalMs > 0 ? Math.min(1, Math.max(0, (totalMs - elapsedMs) / totalMs)) : 0;
+  const guesserScore = GUESSER_BASE_SCORE + Math.round(GUESSER_SPEED_BONUS * remainingRatio);
+  return { guesserScore, drawerScore: DRAWER_SCORE };
 }
 
 /**
@@ -157,11 +163,12 @@ export async function startRound(
     return true;
   }
 
-  const picked = await pickRoundWord(roundCategory, state.config.categories);
+  const picked = await pickRoundWord(roundCategory, state.config.categories, state.usedWords);
   if (!picked) {
     await abortGame(game, state);
     return false;
   }
+  state.usedWords = [...(state.usedWords ?? []), picked.word];
 
   state.status = 'MODE1_ROUND_START';
   state.current = { roundIndex, drawerId, prompt: picked.word, startedAt: Date.now() } satisfies Mode1RoundCurrent;
@@ -317,7 +324,7 @@ export async function endRound(
 
   if (correctUserId) {
     const elapsed = answeredAtMs ?? Date.now() - current.startedAt;
-    const { guesserScore, drawerScore } = calcScore(elapsed);
+    const { guesserScore, drawerScore } = calcScore(elapsed, state.config.drawTimer);
 
     scoreDelta[correctUserId] = guesserScore;
     scoreDelta[current.drawerId] = drawerScore;

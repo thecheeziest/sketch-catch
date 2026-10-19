@@ -6,6 +6,7 @@ import {
   InvalidFormatError, SelfRequestError, UserNotFoundError, AlreadyFriendsError, DuplicateRequestError,
   RequestNotFoundError, ForbiddenError,
 } from '../services/friends.service.js';
+import { PUSH_TYPE } from '@sketch-catch/shared';
 import { sendPush, shouldSend } from '../services/push.service.js';
 import { prisma } from '../db/prisma.js';
 import { logger } from '../lib/logger.js';
@@ -27,19 +28,32 @@ export const friendsRoutes: FastifyPluginAsync = async (app) => {
       const receiver = await sendFriendRequest(senderId, parsed.data.target);
 
       // PUSH-01: fire-and-forget — 응답을 푸시 발송에 블로킹하지 않음
+      // 서로 신청해 바로 친구가 된 경우, 먼저 요청했던 상대에게는 수락 알림을 보낸다
       if (receiver.pushToken) {
         const pushToken = receiver.pushToken;
+        const { autoAccepted } = receiver;
         void (async () => {
-          if (!(await shouldSend(`friend-request:${senderId}:${receiver.id}`))) return;
+          const kind = autoAccepted ? 'friend-accept' : 'friend-request';
+          if (!(await shouldSend(`${kind}:${senderId}:${receiver.id}`))) return;
           const me = await prisma.user.findUnique({ where: { id: senderId }, select: { nickname: true } });
+          const nickname = me?.nickname ?? '친구';
+          if (autoAccepted) {
+            await sendPush([pushToken], {
+              title: '친구 요청 수락',
+              body: `${nickname}님이 친구 요청을 수락했어요.`,
+              data: { type: PUSH_TYPE.FRIEND_ACCEPT },
+            });
+            return;
+          }
           await sendPush([pushToken], {
             title: '친구 요청',
-            body: `${me?.nickname ?? '친구'}님이 친구 요청을 보냈어요.`,
+            body: `${nickname}님이 친구 요청을 보냈어요.`,
+            data: { type: PUSH_TYPE.FRIEND_REQUEST },
           });
         })().catch((err) => logger.error({ err }, 'push send failed'));
       }
 
-      return reply.status(201).send({ ok: true });
+      return reply.status(201).send({ ok: true, accepted: receiver.autoAccepted });
     } catch (err) {
       if (err instanceof InvalidFormatError) return reply.status(400).send({ error: err.code });
       if (err instanceof SelfRequestError) return reply.status(400).send({ error: err.code });
@@ -79,6 +93,7 @@ export const friendsRoutes: FastifyPluginAsync = async (app) => {
           await sendPush([pushToken], {
             title: '친구 요청 수락',
             body: `${me?.nickname ?? '친구'}님이 친구 요청을 수락했어요.`,
+            data: { type: PUSH_TYPE.FRIEND_ACCEPT },
           });
         })().catch((err) => logger.error({ err }, 'push send failed'));
       }
