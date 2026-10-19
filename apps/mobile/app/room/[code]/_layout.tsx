@@ -3,10 +3,12 @@ import { Stack, useLocalSearchParams } from 'expo-router';
 import { useRoomStore, useToastStore } from '@/shared/model';
 import { useGameStore } from '@/features/game/model/useGameStore';
 import { useRoomChatStore } from '@/features/room/model/useRoomChatStore';
+import { useRoomBackgroundGuard } from '@/features/room/lib';
 import { useMode2Store } from '@/features/mode2/model/useMode2Store';
 
 export default function RoomCodeLayout() {
   const { code } = useLocalSearchParams<{ code: string }>();
+  useRoomBackgroundGuard(code);
 
   // 방 소켓의 수명은 이 레이아웃(방 코드)에 묶인다. 게임 이벤트 리스너도 여기서 1회만 등록해
   // 화면 전환 중 첫 이벤트(round:start·mode2:step)를 놓치거나 리스너가 중복 등록되지 않게 한다.
@@ -37,7 +39,6 @@ export default function RoomCodeLayout() {
       <Stack.Screen name="game" />
       <Stack.Screen name="mode2" />
       <Stack.Screen name="mode2-review" />
-      <Stack.Screen name="mode2-end" />
       <Stack.Screen name="award" />
     </Stack>
   );

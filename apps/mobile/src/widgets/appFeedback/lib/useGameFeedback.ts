@@ -49,14 +49,12 @@ export function useGameFeedback(): void {
       }
       const review = state.review;
       if (!review || review === previous.review) return;
-      if (!previous.review && review.subPhase !== 'BEST_REVEAL') {
-        playFeedback('stepStart', { key: `${state.gameId}:review:start` });
-      }
-      if (review.subPhase === 'BEST_REVEAL') {
-        playFeedback('bestReveal', { key: `${state.gameId}:best` });
-      } else if (review.subPhase === 'SLIDESHOW') {
-        const key = `${state.gameId}:${review.currentSheetIndex}:${review.currentFrameIndex ?? 0}:frame`;
+      // 정답 공개식: 발표가 넘어갈 때마다 효과음, 실시간 발표가 모두 끝나면 팡파르
+      if (review.live) {
+        const key = `${state.gameId}:${review.live.sheetIndex}:${review.live.entryIndex}:frame`;
         playFeedback('frame', { key });
+      } else if (previous.review?.live) {
+        playFeedback('bestReveal', { key: `${state.gameId}:revealEnd` });
       }
     });
     const offRoom = useRoomStore.subscribe((state, previous) => {

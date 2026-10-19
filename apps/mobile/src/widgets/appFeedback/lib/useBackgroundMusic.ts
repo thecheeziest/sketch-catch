@@ -7,7 +7,7 @@ import { type MusicScene } from '@/shared/config/audio';
 export function getMusicScene(path: string): MusicScene {
   if (path === '/room/create' || !path.startsWith('/room/')) return 'home';
   if (path.endsWith('/mode2-review')) return 'review';
-  if (path.endsWith('/award') || path.endsWith('/mode2-end')) return 'award';
+  if (path.endsWith('/award')) return 'award';
   if (path.endsWith('/mode2')) return 'relay';
   if (path.endsWith('/game')) return 'classic';
   return 'lobby';

@@ -50,7 +50,7 @@ describe('게임 소켓 이벤트', () => {
     expect(useGameStore.getState().promptForDrawer).toBe('고양이');
   });
 
-  it('모드2는 내 시트의 그림·제시어와 리뷰 페인트 정보를 보존한다', () => {
+  it('모드2는 내 시트의 그림·제시어와 공개식 페인트 정보를 보존하고 남은 시간을 기기 시각으로 바꾼다', () => {
     useMode2Store.getState().registerMode2Listeners();
     emit('room:state', { gameId: 'g1' } satisfies Partial<RoomState>);
     const stroke = {
@@ -68,23 +68,22 @@ describe('게임 소켓 이벤트', () => {
       assigneeId: 'me',
       stepIndex: 2,
       phase: 'ANSWER',
-      durationSec: 30,
-      totalSteps: 5,
+      durationSec: 10,
+      remainingMs: 7000,
+      totalSteps: 8,
       previousContent: { kind: 'DRAW', strokes: [stroke] },
     };
     emit('mode2:step', step);
     emit('mode2:step', { ...step, sheetId: 'other', assigneeId: 'other' });
     expect(useMode2Store.getState().step).toEqual(step);
+    expect(useMode2Store.getState().stepTiming).toEqual({ deadline: Date.now() + 7000, cueUntil: Date.now() });
     const review: Mode2ReviewState = {
       gameId: 'g1',
-      subPhase: 'SLIDESHOW',
-      currentSheetIndex: 0,
-      currentFrameIndex: 0,
+      live: { sheetIndex: 0, entryIndex: 0, leadMs: 1200, elapsedMs: 0 },
       sheets: [
         {
           sheetId: 'sheet',
           ownerId: 'me',
-          finalJudge: null,
           steps: [
             {
               stepIndex: 0,
@@ -104,7 +103,41 @@ describe('게임 소켓 이벤트', () => {
     };
     emit('mode2:review', review);
     expect(useMode2Store.getState().review).toEqual(review);
+    expect(useMode2Store.getState().reviewEntryStartAt).toBe(Date.now() + 1200);
     emit('mode2:review', { ...review, gameId: 'old' });
     expect(useMode2Store.getState().review?.gameId).toBe('g1');
+  });
+
+  it('재접속 시 받은 현재 라운드 그림으로 관전 캔버스를 교체하고 채팅은 중복 없이 합친다', () => {
+    useGameStore.getState().registerGameListeners();
+    emit('room:state', { gameId: 'g1' } satisfies Partial<RoomState>);
+    emit('game:round:start', { gameId: 'g1', roundIndex: 1, drawerId: 'other', durationSec: 60 } satisfies RoundStart);
+    emit('stroke:remote', { strokeId: 'stale', authorId: 'other', points: [] });
+    const chat = (id: string, createdAt: number) => ({
+      id,
+      userId: 'u',
+      nickname: 'u',
+      text: id,
+      masked: false,
+      createdAt,
+    });
+    emit('chat:message', chat('m2', 2));
+
+    emit('stroke:sync', { gameId: 'g1', roundIndex: 0, strokes: [] });
+    expect(useGameStore.getState().remoteStrokes.map(s => s.strokeId)).toEqual(['stale']);
+
+    emit('stroke:sync', {
+      gameId: 'g1',
+      roundIndex: 1,
+      strokes: [
+        { strokeId: 's1', authorId: 'other', color: '#FF0000', width: 4, points: [{ x: 0, y: 0, t: 0 }], ended: true },
+      ],
+    });
+    expect(useGameStore.getState().remoteStrokes).toEqual([
+      expect.objectContaining({ strokeId: 's1', color: '#FF0000', points: [{ x: 0, y: 0, t: 0 }], ended: true }),
+    ]);
+
+    emit('chat:sync', { gameId: 'g1', messages: [chat('m1', 1), chat('m2', 2)] });
+    expect(useGameStore.getState().chatMessages.map(m => m.id)).toEqual(['m1', 'm2']);
   });
 });

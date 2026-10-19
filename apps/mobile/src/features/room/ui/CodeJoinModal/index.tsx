@@ -16,7 +16,7 @@ export function CodeJoinModal({ visible, onClose }: Props) {
   const handleJoin = (): void => {
     setErrorMsg(undefined)
     mutate({ code }, {
-      onError: (e) => handleApiError(e, { setError: setErrorMsg, fallbackMessage: '입장에 실패했습니다.' }),
+      onError: (e) => handleApiError(e, { setError: setErrorMsg, fallbackMessage: '방에 들어가지 못했어요. 다시 시도해 주세요!' }),
       onSuccess: () => { handleClose() },
     })
   }

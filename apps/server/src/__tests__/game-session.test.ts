@@ -43,7 +43,7 @@ vi.mock('../db/prisma.js', () => ({
   },
 }));
 vi.mock('../socket/presence.namespace.js', () => ({ broadcastPresenceUpdate: vi.fn() }));
-vi.mock('../services/replay.service.js', () => ({ generateSheetGifs: vi.fn() }));
+vi.mock('../services/replay.service.js', () => ({ generateSheetGifs: vi.fn().mockResolvedValue(undefined) }));
 
 const { pickRoundWord } = await import('../services/word.service.js');
 const { runInRoom } = await import('../services/roomQueue.js');
@@ -55,7 +55,7 @@ const { startMode2, handleMode2Prompt, handleMode2DrawDone, handleMode2Answer, c
   await import('../socket/handlers/mode2.js');
 const { clearRoomTimers } = await import('../services/roomTimers.js');
 const { handleRematch } = await import('../socket/handlers/award.js');
-const { handleStrokeFill } = await import('../socket/handlers/stroke.js');
+const { handleStrokeFill, handleStrokeStart, handleStrokeAppend } = await import('../socket/handlers/stroke.js');
 
 const CODE = 'ABC123';
 const ROOM = `room:${CODE}`;
@@ -639,7 +639,7 @@ describe('모드2 콘텐츠 전달', () => {
     });
     const ns = makeNamespace();
     await startMode2(ns as never, CODE);
-    for (let stepIndex = 0; stepIndex <= 4; stepIndex++) {
+    for (let stepIndex = 0; stepIndex <= 7; stepIndex++) {
       const state = readState();
       const current = state.current as import('../socket/handlers/mode2.js').Mode2Current;
       expect(current.step).toBe(stepIndex);
@@ -703,7 +703,16 @@ describe('모드2 콘텐츠 전달', () => {
     const review = readState().current as Mode2ReviewState;
     expect(review.sheets).toHaveLength(4);
     for (const sheet of review.sheets) {
-      expect(sheet.steps.map(step => step.content.kind)).toEqual(['PROMPT', 'DRAW', 'ANSWER', 'DRAW', 'ANSWER']);
+      expect(sheet.steps.map(step => step.content.kind)).toEqual([
+        'PROMPT',
+        'DRAW',
+        'ANSWER',
+        'DRAW',
+        'ANSWER',
+        'DRAW',
+        'ANSWER',
+        'DRAW',
+      ]);
       expect(sheet.steps[0]?.content).toMatchObject({ text: `제시어 ${sheet.sheetId}` });
       expect(sheet.steps[1]?.content).toMatchObject({
         strokes: [
@@ -742,5 +751,91 @@ describe('방 작업 줄', () => {
     });
     await Promise.all([slow, fast]);
     expect(order).toEqual(['slow', 'fast']);
+  });
+});
+
+describe('게임 중 연결 끊김 유예 (백그라운드 복귀)', () => {
+  beforeEach(() => {
+    store.clear();
+    vi.clearAllMocks();
+    vi.useFakeTimers();
+    vi.mocked(pickRoundWord).mockResolvedValue({ word: '사과', category: 'ANIMAL' });
+    seedLobby({
+      players: [makePlayer('u1', 0), makePlayer('u2', 1), makePlayer('u3', 2), makePlayer('u4', 3)],
+      config: { roundCount: 2, drawTimer: 60, answerTimer: 10, categories: ['ANIMAL'], playerCountMax: 6 },
+    });
+  });
+
+  afterEach(() => {
+    clearRoomTimers(CODE);
+    vi.useRealTimers();
+  });
+
+  const drawerSocket = () => ({ ...makeSocket('u1'), to: () => ({ emit: vi.fn() }) });
+  const disconnect = (userId: string) =>
+    runInRoom(CODE, () =>
+      handleRoomLeave(makeNamespace() as never, makeSocket(userId) as never, [CODE], { graceful: true }),
+    );
+
+  it('30초 안에 다시 들어오면 퇴장되지 않고 끊겨 있던 동안의 그림·채팅을 받는다', async () => {
+    const ns = makeNamespace();
+    await startGame(ns);
+
+    await disconnect('u2');
+    expect(readState().players.find(p => p.id === 'u2')).toMatchObject({ connected: false });
+    expect(readState().players.find(p => p.id === 'u2')?.left).toBeUndefined();
+
+    await runInRoom(CODE, () =>
+      handleStrokeStart(ns as never, drawerSocket() as never, { strokeId: 's1', color: '#000000', width: 4 }),
+    );
+    await runInRoom(CODE, () =>
+      handleStrokeAppend(ns as never, drawerSocket() as never, { strokeId: 's1', points: [{ x: 0.1, y: 0.2, t: 1 }] }),
+    );
+    await runInRoom(CODE, () => handleChatSend(ns as never, makeSocket('u3') as never, { text: '안녕' }));
+    await vi.advanceTimersByTimeAsync(20_000);
+
+    const rejoined = makeSocket('u2', []);
+    await runInRoom(CODE, () => handleRoomJoin(ns as never, rejoined as never, CODE));
+    expect(readState().players.find(p => p.id === 'u2')).toMatchObject({ connected: true });
+    expect(rejoined.emit).toHaveBeenCalledWith(
+      'stroke:sync',
+      expect.objectContaining({
+        roundIndex: 0,
+        strokes: [expect.objectContaining({ strokeId: 's1', points: [{ x: 0.1, y: 0.2, t: 1 }] })],
+      }),
+    );
+    expect(rejoined.emit).toHaveBeenCalledWith(
+      'chat:sync',
+      expect.objectContaining({ messages: [expect.objectContaining({ text: '안녕' })] }),
+    );
+
+    // 유예 시간이 지나도 이미 돌아왔으므로 퇴장 처리되지 않는다
+    await vi.advanceTimersByTimeAsync(20_000);
+    expect(readState().players.find(p => p.id === 'u2')?.left).toBeUndefined();
+  });
+
+  it('30초가 지나도 돌아오지 않으면 퇴장 처리되고 남은 출제 순서에서 빠진다', async () => {
+    const ns = makeNamespace();
+    await startGame(ns);
+
+    await disconnect('u4');
+    await vi.advanceTimersByTimeAsync(29_000);
+    expect(readState().players.find(p => p.id === 'u4')?.left).toBeUndefined();
+
+    await vi.advanceTimersByTimeAsync(1_000);
+    expect(readState().players.find(p => p.id === 'u4')?.left).toBe(true);
+    expect(readState().turnSchedule).toEqual(['u1', 'u2', 'u3', 'u1', 'u2', 'u3']);
+
+    const late = makeSocket('u4', []);
+    await runInRoom(CODE, () => handleRoomJoin(ns as never, late as never, CODE));
+    expect(late.emit).toHaveBeenCalledWith('error', expect.objectContaining({ code: 'ALREADY_LEFT' }));
+  });
+
+  it('직접 나가기는 유예 없이 바로 퇴장 처리된다', async () => {
+    const ns = makeNamespace();
+    await startGame(ns);
+
+    await runInRoom(CODE, () => handleRoomLeave(ns as never, makeSocket('u4') as never, [CODE]));
+    expect(readState().players.find(p => p.id === 'u4')?.left).toBe(true);
   });
 });

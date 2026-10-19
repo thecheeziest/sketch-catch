@@ -97,7 +97,7 @@ export function DrawingCanvas({ isDrawer, drawingEnabled = isDrawer, onStrokesCh
           playFeedback('fill');
           onStrokesChange?.(allStrokesRef.current.map(toSharedStroke));
         } catch (error) {
-          useToastStore.getState().show(error instanceof Error ? error.message : '페인트를 적용할 수 없어요', 'error');
+          useToastStore.getState().show(error instanceof Error ? error.message : '페인트를 칠하지 못했어요!', 'error');
         }
         return;
       }

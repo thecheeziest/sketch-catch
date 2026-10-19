@@ -527,6 +527,24 @@ describe('handlePlayerLeft 인원부족 종료 (OFFL-03)', () => {
     expect(mockSaveRoomState).toHaveBeenCalledTimes(1);
   });
 
+  it('퇴장 플레이어의 남은 턴은 다른 플레이어로 채우지 않고 빼서 순서를 당긴다', async () => {
+    const state = makeFourPlayerRoomState({
+      status: 'MODE1_ROUND_START',
+      current: {
+        roundIndex: 2,
+        drawerId: 'u3',
+        prompt: '강아지',
+        startedAt: Date.now(),
+      } satisfies Mode1RoundCurrent,
+    });
+    mockGetRoomState.mockResolvedValueOnce(state);
+    const game = makeNamespace();
+
+    await handlePlayerLeft(game as any, 'ABC123', 'u4');
+
+    expect(state.turnSchedule).toEqual(['u1', 'u2', 'u3', 'u1', 'u2', 'u3']);
+  });
+
   it('idempotent guard: 이미 퇴장 처리된 플레이어에 대한 중복 호출은 재처리/재emit하지 않는다', async () => {
     const state = makeFourPlayerRoomState({
       status: 'MODE1_ROUND_START',

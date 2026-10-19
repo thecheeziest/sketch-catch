@@ -10,8 +10,19 @@ import type {
   Mode2Step,
   Stroke,
 } from '@sketch-catch/shared';
-import { MODE2_PLAYER_MIN, PROMPT_DURATION_SEC, paintSpansSchema, SERVER_EVENT } from '@sketch-catch/shared';
+import {
+  MODE2_ANSWER_SEC,
+  MODE2_DRAW_CUE_MS,
+  MODE2_DRAW_SEC,
+  MODE2_PLAYER_MIN,
+  MODE2_PROMPT_SEC,
+  MODE2_SUBMIT_GRACE_MS,
+  paintSpansSchema,
+  SERVER_EVENT,
+  type Category,
+} from '@sketch-catch/shared';
 import { getRoomState, saveRoomState } from '../../services/rooms.service.js';
+import { pickRoundWord } from '../../services/word.service.js';
 import { clearRoomTimer, setRoomTimer } from '../../services/roomTimers.js';
 import { startMode2Review } from './mode2-review.js';
 import { endGame } from './game.js';
@@ -26,16 +37,21 @@ export type Mode2Sheet = {
   steps: Mode2StepContent[];
 };
 
+// 담당자가 작성 중인 내용 — 시간 초과 시 빈 칸 대신 이 값으로 자동 제출한다
+export type Mode2Draft = { text?: string; strokes?: Stroke[] };
+
 // RoomState.current에 저장되는 모드2 진행 상태 (RoomState는 JSON 직렬화라 Set 대신 배열 사용)
 export type Mode2Current = {
   step: number; // 0-indexed. 0=PROMPT, 이후 DRAW/ANSWER 교대
   phase: Mode2Phase;
   sheets: Mode2Sheet[];
   submitted: string[]; // 이번 step 제출 완료된 sheetId 배열
-  startedAt: number;
+  drafts: Record<string, Mode2Draft>; // sheetId → 이번 step 작성 중 내용
+  startedAt: number; // 이번 step 시작 시각
 };
 
-// PROMPT 단계는 고정 30초 (UI-SPEC). DRAW/ANSWER는 RoomConfig 값 사용.
+// 제시어를 끝내 입력하지 않았을 때 단어 풀도 비어 있으면 쓰는 대체 제시어
+const FALLBACK_PROMPT = '자유 그림';
 
 // 클라이언트 입력 절대 신뢰 금지 — mobile MAX_TEXT_LENGTH(mode2.tsx)와 동일한 상한
 const MAX_TEXT_LENGTH = 40;
@@ -43,14 +59,10 @@ const MAX_TEXT_LENGTH = 40;
 const MAX_STROKES = 300;
 const MAX_POINTS_PER_STROKE = 2000;
 
+// 시트는 [제시어(원조자), 그림(원조자), 정답(다음 사람), 그림(다음 사람), ...] 순서로 돈다.
+// 인원과 관계없이 한 사람이 (글, 그림) 2단계를 연달아 맡으므로 담당자 오프셋은 step / 2.
 export function currentAssignee(players: Player[], ownerIndex: number, step: number): Player {
-  const n = players.length;
-  const offset = (() => {
-    if (step === 0) return 0;
-    if (n % 2 === 0) return step - 1;
-    return step;
-  })();
-  return players[(ownerIndex + offset) % n]!;
+  return players[(ownerIndex + Math.floor(step / 2)) % players.length]!;
 }
 
 export function phaseForStep(step: number): Mode2Phase {
@@ -64,10 +76,16 @@ function statusForPhase(phase: Mode2Phase): RoomStatus {
   return 'MODE2_ANSWER_PHASE';
 }
 
-function durationForPhase(phase: Mode2Phase, config: RoomState['config']): number {
-  if (phase === 'PROMPT') return PROMPT_DURATION_SEC;
-  if (phase === 'DRAW') return config.drawTimer;
-  return config.answerTimer;
+function durationSecForPhase(phase: Mode2Phase): number {
+  if (phase === 'PROMPT') return MODE2_PROMPT_SEC;
+  if (phase === 'DRAW') return MODE2_DRAW_SEC;
+  return MODE2_ANSWER_SEC;
+}
+
+// DRAW는 '그려 주세요' 안내가 끝난 뒤부터 제한 시간이 흐른다
+function stepDurationMs(phase: Mode2Phase): number {
+  const cueMs = phase === 'DRAW' ? MODE2_DRAW_CUE_MS : 0;
+  return cueMs + durationSecForPhase(phase) * 1000;
 }
 
 export function isMode2Active(status: RoomStatus): boolean {
@@ -78,14 +96,9 @@ export function sortedPlayers(state: RoomState): Player[] {
   return [...state.players].sort((a, b) => a.slot - b.slot);
 }
 
+// 마지막 사람의 그림까지 진행 — 시트마다 2N개의 콘텐츠가 쌓인다
 export function finalStepForPlayerCount(playerCount: number): number {
-  return playerCount % 2 === 0 ? playerCount : playerCount - 1;
-}
-
-function emptyContent(phase: Mode2Phase, authorId: string): Mode2StepContent {
-  if (phase === 'DRAW') return { kind: 'DRAW', authorId, strokes: [] };
-  if (phase === 'PROMPT') return { kind: 'PROMPT', authorId, text: '' };
-  return { kind: 'ANSWER', authorId, text: '' };
+  return playerCount * 2 - 1;
 }
 
 function toPreviousContent(content: Mode2StepContent | undefined): Mode2Step['previousContent'] {
@@ -97,6 +110,9 @@ function toPreviousContent(content: Mode2StepContent | undefined): Mode2Step['pr
 function buildStepPayloads(state: RoomState, current: Mode2Current): Mode2Step[] {
   const players = sortedPlayers(state);
   const totalSteps = finalStepForPlayerCount(players.length) + 1;
+  const elapsedMs = Date.now() - current.startedAt;
+  const remainingMs = Math.max(0, stepDurationMs(current.phase) - elapsedMs);
+  const cueMs = current.phase === 'DRAW' ? Math.max(0, MODE2_DRAW_CUE_MS - elapsedMs) : undefined;
   return current.sheets.map(sheet => {
     const assignee = currentAssignee(players, sheet.ownerIndex, current.step);
     return {
@@ -106,33 +122,39 @@ function buildStepPayloads(state: RoomState, current: Mode2Current): Mode2Step[]
       phase: current.phase,
       assigneeId: assignee.id,
       previousContent: toPreviousContent(sheet.steps[sheet.steps.length - 1]),
-      durationSec: durationForPhase(current.phase, state.config),
+      durationSec: durationSecForPhase(current.phase),
+      remainingMs,
+      cueMs,
       totalSteps,
-      endsAt: current.startedAt + durationForPhase(current.phase, state.config) * 1000,
     };
   });
 }
 
-function emitSteps(game: GameNamespace, code: string, state: RoomState, current: Mode2Current): void {
-  const roomName = `room:${code}`;
+// 단계 정보는 담당자 본인에게만 보낸다 — 다른 사람의 시트(그림·글)를 미리 받을 이유가 없고,
+// 시트마다 strokes가 실려 방 전체 broadcast는 N배의 전송량이 된다.
+function emitSteps(game: GameNamespace, state: RoomState, current: Mode2Current): void {
   for (const payload of buildStepPayloads(state, current)) {
-    game.to(roomName).emit('mode2:step', payload);
+    game.to(`user:${payload.assigneeId}`).emit('mode2:step', payload);
   }
 }
 
 // startMode2/advanceStep의 mode2:step broadcast는 room:state 직후 발생하므로, 그 시점에
 // 아직 모드2 화면이 mount되지 않은 클라이언트(화면 전환 중)는 첫 스텝 이벤트를 놓쳐
 // 다음 스텝까지 까만 화면만 보게 된다. room:join 시 현재 스텝을 해당 소켓에만 재전송한다.
-export function resendCurrentStep(socket: Pick<Socket<ClientEvents, ServerEvents>, 'emit'>, state: RoomState): void {
+export function resendCurrentStep(
+  socket: Pick<Socket<ClientEvents, ServerEvents>, 'emit'>,
+  state: RoomState,
+  userId: string,
+): void {
   if (!isMode2Active(state.status)) return;
   const current = state.current as Mode2Current;
   for (const payload of buildStepPayloads(state, current)) {
-    socket.emit('mode2:step', payload);
+    if (payload.assigneeId === userId) socket.emit('mode2:step', payload);
   }
 }
 
-function scheduleStepTimeout(game: GameNamespace, code: string, gameId: string | undefined, durationSec: number): void {
-  setRoomTimer(code, 'mode2Step', durationSec * 1000, () => advanceStep(game, code, gameId));
+function scheduleStepTimeout(game: GameNamespace, code: string, gameId: string | undefined, phase: Mode2Phase): void {
+  setRoomTimer(code, 'mode2Step', stepDurationMs(phase) + MODE2_SUBMIT_GRACE_MS, () => advanceStep(game, code, gameId));
 }
 
 export async function startMode2(game: GameNamespace, code: string): Promise<void> {
@@ -152,6 +174,7 @@ export async function startMode2(game: GameNamespace, code: string): Promise<voi
     phase: 'PROMPT',
     sheets,
     submitted: [],
+    drafts: {},
     startedAt: Date.now(),
   };
 
@@ -160,8 +183,8 @@ export async function startMode2(game: GameNamespace, code: string): Promise<voi
   await saveRoomState(state);
   game.to(`room:${code}`).emit(SERVER_EVENT.ROOM_STATE, state);
 
-  emitSteps(game, code, state, current);
-  scheduleStepTimeout(game, code, state.gameId, durationForPhase('PROMPT', state.config));
+  emitSteps(game, state, current);
+  scheduleStepTimeout(game, code, state.gameId, 'PROMPT');
 }
 
 async function assertAssignee(
@@ -258,7 +281,9 @@ export async function handleMode2Prompt(
   const ctx = await assertAssignee(code, socket, payload.sheetId);
   if (!ctx) return;
 
-  ctx.sheet.steps.push({ kind: 'PROMPT', authorId: socket.data.userId, text: sanitizeText(payload.text) });
+  const text = sanitizeText(payload.text);
+  if (!text) return;
+  ctx.sheet.steps.push({ kind: 'PROMPT', authorId: socket.data.userId, text });
   ctx.current.submitted.push(payload.sheetId);
   await saveRoomState(ctx.state);
   await checkAllSubmitted(game, code, ctx.current);
@@ -274,7 +299,9 @@ export async function handleMode2Answer(
   const ctx = await assertAssignee(code, socket, payload.sheetId);
   if (!ctx) return;
 
-  ctx.sheet.steps.push({ kind: 'ANSWER', authorId: socket.data.userId, text: sanitizeText(payload.text) });
+  const text = sanitizeText(payload.text);
+  if (!text) return;
+  ctx.sheet.steps.push({ kind: 'ANSWER', authorId: socket.data.userId, text });
   ctx.current.submitted.push(payload.sheetId);
   await saveRoomState(ctx.state);
   await checkAllSubmitted(game, code, ctx.current);
@@ -303,6 +330,48 @@ export async function handleMode2DrawDone(
   await checkAllSubmitted(game, code, ctx.current);
 }
 
+// 작성 중이던 초안 저장 — 담당자 검증·입력 정제는 제출과 동일하게 적용한다 (브로드캐스트 없음)
+export async function handleMode2Draft(
+  socket: Mode2Socket,
+  payload: { sheetId: string; text?: unknown; strokes?: unknown },
+): Promise<void> {
+  const code = findRoomCode(socket);
+  if (!code) return;
+  const ctx = await assertAssignee(code, socket, payload.sheetId);
+  if (!ctx) return;
+
+  ctx.current.drafts ??= {};
+  if (ctx.current.phase === 'DRAW') {
+    ctx.current.drafts[payload.sheetId] = { strokes: sanitizeStrokes(payload.strokes, socket.data.userId) };
+  } else {
+    ctx.current.drafts[payload.sheetId] = { text: sanitizeText(payload.text) };
+  }
+  await saveRoomState(ctx.state);
+}
+
+// 선택한 제시어 카테고리 중 하나를 균등 랜덤 선택 (모드1과 같은 기준 — 항상 첫 카테고리만 나오지 않도록)
+function randomWordCategory(categories: Category[]): Category {
+  const wordCategories = categories.filter(c => c !== 'CUSTOM');
+  if (wordCategories.length === 0) return 'ANIMAL';
+  return wordCategories[Math.floor(Math.random() * wordCategories.length)]!;
+}
+
+// 시간 초과로 제출하지 못한 시트의 콘텐츠 — 초안이 있으면 그대로 쓰고, 빈 제시어는 랜덤 단어로 채운다
+async function timeoutContent(
+  state: RoomState,
+  current: Mode2Current,
+  sheet: Mode2Sheet,
+  authorId: string,
+): Promise<Mode2StepContent> {
+  const draft = current.drafts?.[sheet.sheetId];
+  if (current.phase === 'DRAW') return { kind: 'DRAW', authorId, strokes: draft?.strokes ?? [] };
+  const text = draft?.text ?? '';
+  if (current.phase === 'ANSWER') return { kind: 'ANSWER', authorId, text };
+  if (text) return { kind: 'PROMPT', authorId, text };
+  const picked = await pickRoundWord(randomWordCategory(state.config.categories), state.config.categories);
+  return { kind: 'PROMPT', authorId, text: picked?.word ?? FALLBACK_PROMPT };
+}
+
 export async function advanceStep(game: GameNamespace, code: string, expectedGameId?: string): Promise<void> {
   const state = await getRoomState(code);
   if (!state || !isMode2Active(state.status)) return;
@@ -312,15 +381,17 @@ export async function advanceStep(game: GameNamespace, code: string, expectedGam
   const current = state.current as Mode2Current;
   const players = sortedPlayers(state);
 
-  // D-08: 미제출 시트는 빈 콘텐츠로 강제 다음 단계 전환
+  // D-08: 미제출 시트는 작성 중이던 초안으로 강제 제출하고 다음 단계로 전환
   for (const sheet of current.sheets) {
     if (current.submitted.includes(sheet.sheetId)) continue;
     const assignee = currentAssignee(players, sheet.ownerIndex, current.step);
-    sheet.steps.push(emptyContent(current.phase, assignee.id));
+    sheet.steps.push(await timeoutContent(state, current, sheet, assignee.id));
   }
 
   const nextStep = current.step + 1;
   current.submitted = [];
+  current.drafts = {};
+  current.startedAt = Date.now();
 
   if (nextStep > finalStepForPlayerCount(players.length)) {
     // 원조자에게 시트 복귀 — 리뷰 단계로 전환
@@ -339,8 +410,8 @@ export async function advanceStep(game: GameNamespace, code: string, expectedGam
   state.current = current;
   await saveRoomState(state);
 
-  emitSteps(game, code, state, current);
-  scheduleStepTimeout(game, code, state.gameId, durationForPhase(current.phase, state.config));
+  emitSteps(game, state, current);
+  scheduleStepTimeout(game, code, state.gameId, current.phase);
 }
 
 // OFFL-05/D-08: 모드2 전용 이탈 처리 — mode1의 handlePlayerLeft와는 별도 함수로 유지
@@ -353,6 +424,14 @@ export async function handleMode2PlayerLeft(game: GameNamespace, code: string, u
 
   player.connected = false;
   player.left = true;
+
+  // 정답 공개식 중 이탈은 남은 사람들의 공개식을 끊지 않는다 — 시상식 명단에서만 뺀다
+  if (state.status === 'MODE2_REVIEW') {
+    player.inAward = false;
+    await saveRoomState(state);
+    game.to(`room:${code}`).emit(SERVER_EVENT.ROOM_STATE, state);
+    return;
+  }
 
   const activePlayers = state.players.filter(p => !p.left);
 
@@ -367,7 +446,6 @@ export async function handleMode2PlayerLeft(game: GameNamespace, code: string, u
   await saveRoomState(state);
   game.to(`room:${code}`).emit(SERVER_EVENT.ROOM_STATE, state);
 
-  // D-07: REVIEW 단계는 force-submit 대상 아님 (isMode2Active=false) — left 마킹만 하고 종료
   if (!isMode2Active(state.status)) return;
 
   const current = state.current as Mode2Current;
@@ -376,7 +454,7 @@ export async function handleMode2PlayerLeft(game: GameNamespace, code: string, u
     if (current.submitted.includes(sheet.sheetId)) continue;
     const assignee = currentAssignee(players, sheet.ownerIndex, current.step);
     if (assignee.id !== userId) continue;
-    sheet.steps.push(emptyContent(current.phase, assignee.id));
+    sheet.steps.push(await timeoutContent(state, current, sheet, assignee.id));
     current.submitted.push(sheet.sheetId);
   }
   await saveRoomState(state);

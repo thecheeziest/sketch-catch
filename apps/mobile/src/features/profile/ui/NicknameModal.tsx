@@ -17,7 +17,7 @@ export function NicknameModal({ visible, onClose, currentNickname }: Props) {
   const handleSave = (): void => {
     const result = nicknameSchema.safeParse(nickname);
     if (!result.success) {
-      setError(result.error.errors[0]?.message ?? '닉네임을 확인해주세요');
+      setError(result.error.errors[0]?.message ?? '닉네임을 다시 확인해 주세요!');
       return;
     }
 

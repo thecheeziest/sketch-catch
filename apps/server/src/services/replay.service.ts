@@ -6,7 +6,7 @@ import { SERVER_EVENT } from '@sketch-catch/shared';
 import { prisma } from '../db/prisma.js';
 import { redis } from '../db/redis.js';
 import { logger } from '../lib/logger.js';
-import { sheetToGif } from './gif.service.js';
+import { revealToGif, type RevealGifPlayer } from './gif.service.js';
 
 type GameNamespace = Namespace<ClientEvents, ServerEvents>;
 
@@ -14,6 +14,7 @@ export type ReplaySheet = {
   sheetId: string;
   ownerId: string;
   participantIds: string[];
+  players: RevealGifPlayer[];
   steps: Mode2StepContent[];
 };
 
@@ -25,7 +26,7 @@ export type ReplayMeta = {
 // D-10: N개 시트 GIF 동시 생성 부하 제한 — 서버 CPU를 독점하지 않도록 동시 2개까지만 렌더링
 const gifQueue = new PQueue({ concurrency: 2 });
 
-// Pitfall 6: 리뷰+베스트 투표+미리보기까지 거친 뒤 저장하므로 10분(MVP 초안)보다 넉넉한 30분 TTL 적용
+// Pitfall 6: 공개식 실시간 진행 후 다시 보기·저장까지 머무를 수 있으므로 10분(MVP 초안)보다 넉넉한 30분 TTL 적용
 const GIF_TTL_SECONDS = 1800;
 const META_TTL_SECONDS = 1800;
 
@@ -88,7 +89,7 @@ export async function generateSheetGifs(game: GameNamespace, code: string, sheet
         try {
           const replayId = await createReplay(sheet, code, expiresAt);
 
-          const buf = await sheetToGif({ steps: sheet.steps });
+          const buf = await revealToGif({ steps: sheet.steps, players: sheet.players });
           await redis.set(gifKey(sheet.sheetId), buf, 'EX', GIF_TTL_SECONDS);
 
           const gifUrl = `/replays/${sheet.sheetId}/gif`;

@@ -1,8 +1,8 @@
 import { ApiError } from '@/shared/api';
 
-export const DEFAULT_ERROR_MESSAGE = '연결에 실패했어요. 잠시 후 다시 시도해주세요.';
-const SERVER_ERROR_MESSAGE = '서버에 문제가 생겼어요. 잠시 후 다시 시도해주세요.';
-const NETWORK_ERROR_MESSAGE = '네트워크 연결을 확인한 뒤 다시 시도해주세요.';
+export const DEFAULT_ERROR_MESSAGE = '연결이 잘 안 됐어요. 다시 시도해 주세요!';
+const SERVER_ERROR_MESSAGE = '서버가 잠깐 아파요. 다시 시도해 주세요!';
+const NETWORK_ERROR_MESSAGE = '인터넷 연결을 확인해 주세요!';
 
 type ErrorMessageOptions = {
   /** 원인을 특정할 수 없는 에러에 보여줄 문구 */

@@ -96,7 +96,8 @@ async function changeMusic(): Promise<void> {
   if (music && active() && !(await fadeOut(music.player))) return;
   if (generation !== musicGeneration || !ready) return;
   releaseMusic();
-  if (!requestedScene) return;
+  // 백그라운드에선 새 플레이어를 만들지 않는다 — 복귀 시 syncMusic이 현재 장면으로 만든다
+  if (!requestedScene || !active()) return;
   const scene = requestedScene;
   const player = createAudioPlayer(musicSources[scene], { updateInterval: 500 });
   music = { scene, player };
@@ -163,10 +164,22 @@ export function initializeFeedback(): () => void {
     }
   })();
   const appSubscription = AppState.addEventListener('change', state => {
-    if (state !== 'active') {
-      stopEffects();
+    if (state === 'active') {
+      syncMusic();
+      return;
+    }
+    stopEffects();
+    if (state !== 'background') {
       music?.player.pause();
-    } else syncMusic();
+      return;
+    }
+    // Android는 플레이어마다 미디어 세션이 있어, 일시정지만 하면 이어폰·블루투스 연결 시 OS가 "재생" 신호로
+    // 다시 틀어 버린다. 백그라운드에선 BGM 플레이어를 해제하고(복귀 시 syncMusic이 다시 만든다) 효과음은 무음으로 둔다.
+    ++musicGeneration;
+    releaseMusic();
+    for (const player of Object.values(players)) {
+      if (player) player.volume = 0;
+    }
   });
   const unsubscribe = useFeedbackStore.subscribe((state, previous) => {
     if (state.soundEnabled !== previous.soundEnabled || state.soundVolume !== previous.soundVolume) {

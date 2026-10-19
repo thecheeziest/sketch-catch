@@ -26,6 +26,18 @@ type RemoteStroke = {
   ended: boolean;
 };
 
+function toRemoteStroke(e: StrokeEvent): RemoteStroke {
+  return {
+    strokeId: e.strokeId,
+    authorId: e.authorId,
+    color: e.color ?? colors.DARK_500,
+    width: e.width ?? 8,
+    points: e.points ?? [],
+    paintSpans: e.paintSpans,
+    ended: e.ended ?? false,
+  };
+}
+
 type GameStore = {
   // 지금 진행 중인 게임 1판의 식별자 (room:state 기준). 다른 gameId의 이벤트는 지난 게임 것으로 보고 버린다
   gameId: string | null;
@@ -110,15 +122,7 @@ export const useGameStore = create<GameStore>()(
             existing.ended = e.ended;
           }
         } else {
-          st.remoteStrokes.push({
-            strokeId: e.strokeId,
-            authorId: e.authorId,
-            color: e.color ?? colors.DARK_500,
-            width: e.width ?? 8,
-            points: e.points ?? [],
-            paintSpans: e.paintSpans,
-            ended: e.ended ?? false,
-          });
+          st.remoteStrokes.push(toRemoteStroke(e));
         }
       });
     },
@@ -203,14 +207,40 @@ export const useGameStore = create<GameStore>()(
         get().applyRemoteStroke(e);
       };
 
-      const handleChatMessage = (msg: ChatMessage): void => {
-        // 대기실·시상식 채팅은 useRoomChatStore가 따로 보관한다
-        if (msg.channel !== undefined) return;
+      // 재접속 직후 실시간 메시지와 기록(chat:sync)이 겹쳐 올 수 있어 id로 중복을 거른다
+      const appendChatMessages = (messages: ChatMessage[]): void => {
         set(st => {
-          st.chatMessages.push(msg);
+          const knownIds = new Set(st.chatMessages.map(m => m.id));
+          for (const msg of messages) {
+            if (knownIds.has(msg.id)) continue;
+            knownIds.add(msg.id);
+            st.chatMessages.push(msg);
+          }
+          st.chatMessages.sort((a, b) => a.createdAt - b.createdAt);
           if (st.chatMessages.length > MAX_CHAT_MESSAGES) {
             st.chatMessages.splice(0, st.chatMessages.length - MAX_CHAT_MESSAGES);
           }
+        });
+      };
+
+      const handleChatMessage = (msg: ChatMessage): void => {
+        // 대기실·시상식 채팅은 useRoomChatStore가 따로 보관한다
+        if (msg.channel !== undefined) return;
+        appendChatMessages([msg]);
+      };
+
+      // 재접속 시 끊겨 있던 동안의 게임 채팅
+      const handleChatSync = (payload: { gameId: string; messages: ChatMessage[] }): void => {
+        if (!isCurrentGame(payload.gameId)) return;
+        appendChatMessages(payload.messages.filter(msg => msg.channel === undefined));
+      };
+
+      // 재접속 시 현재 라운드 그림 전체 — 끊겨 있던 동안 놓친 획까지 포함하므로 관전 캔버스를 통째로 교체한다
+      const handleStrokeSync = (payload: { gameId: string; roundIndex: number; strokes: StrokeEvent[] }): void => {
+        if (!isCurrentGame(payload.gameId)) return;
+        set(st => {
+          if (st.round?.roundIndex !== payload.roundIndex) return;
+          st.remoteStrokes = payload.strokes.map(toRemoteStroke);
         });
       };
 
@@ -237,7 +267,9 @@ export const useGameStore = create<GameStore>()(
       socket.on('game:hint', handleHint);
       socket.on('game:end', handleGameEnd);
       socket.on('stroke:remote', handleStrokeRemote);
+      socket.on('stroke:sync', handleStrokeSync);
       socket.on('chat:message', handleChatMessage);
+      socket.on('chat:sync', handleChatSync);
       socket.on('chat:correct', handleChatCorrect);
       socket.on('answer:wrong', handleAnswerWrong);
 
@@ -248,7 +280,9 @@ export const useGameStore = create<GameStore>()(
         socket.off('game:hint', handleHint);
         socket.off('game:end', handleGameEnd);
         socket.off('stroke:remote', handleStrokeRemote);
+        socket.off('stroke:sync', handleStrokeSync);
         socket.off('chat:message', handleChatMessage);
+        socket.off('chat:sync', handleChatSync);
         socket.off('chat:correct', handleChatCorrect);
         socket.off('answer:wrong', handleAnswerWrong);
       };

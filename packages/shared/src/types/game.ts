@@ -68,26 +68,26 @@ export type Mode2Step = {
   previousContent?: // 이전 단계 참고 콘텐츠 (PROMPT 단계에서는 없음)
     { kind: 'TEXT'; text: string } | { kind: 'DRAW'; strokes: Stroke[] };
   durationSec: number;
-  endsAt?: number;
-  totalSteps: number; // = N (참가자 수)
+  // 마감까지 남은 시간 (전송 시점 기준). 기기 시계 차이에 흔들리지 않도록 절대 시각 대신 상대값을 보낸다.
+  // DRAW 단계는 '그려 주세요' 안내 시간(cueMs)이 앞에 포함된다
+  remainingMs: number;
+  cueMs?: number; // DRAW 단계 시작 안내 노출 시간 중 남은 시간
+  totalSteps: number; // = 2N (참가자마다 정답(원조자는 제시어) + 그림)
 };
-
-// 최종 판정 (D-02): 원조자가 마지막 단계 결과를 보고 O/X 1회
-export type Mode2FinalJudge = { ok: boolean; judgedBy: string };
 
 export type Mode2ReviewSheet = {
   sheetId: string;
   ownerId: string;
   steps: Array<{ stepIndex: number; phase: Mode2Phase; authorId: string; content: Mode2StepContent }>;
-  finalJudge: Mode2FinalJudge | null; // D-02: 단계별 투표 집계 대체
 };
 
-// 서버 → 클라이언트: 리뷰 진행 상태 (mode2:review). 서버 타이머가 자동 전환(D-01/D-03)
+// 실시간 정답 공개식에서 지금 발표 중인 위치. leadMs는 이 발표가 시작되기까지 남은 대기 시간
+// (새 시트의 첫 발표는 상단 테두리가 옮겨 가는 MODE2_REVEAL_SHEET_GAP_MS만큼 늦게 시작한다)
+export type Mode2RevealLive = { sheetIndex: number; entryIndex: number; leadMs: number; elapsedMs: number };
+
+// 서버 → 클라이언트: 정답 공개식 진행 상태 (mode2:review). live=null이면 실시간 발표가 모두 끝난 상태
 export type Mode2ReviewState = {
   gameId: string;
-  subPhase: 'FINAL_JUDGE' | 'SLIDESHOW' | 'BEST_VOTE' | 'BEST_REVEAL';
-  currentSheetIndex: number; // FINAL_JUDGE/SLIDESHOW 진행 중 시트
-  currentFrameIndex?: number; // SLIDESHOW 프레임 위치
   sheets: Mode2ReviewSheet[];
-  bestSheetIds?: string[]; // BEST_REVEAL: 최다 득표(동률 공동, D-07)
+  live: Mode2RevealLive | null;
 };

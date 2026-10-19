@@ -4,6 +4,7 @@ import { SERVER_EVENT } from '@sketch-catch/shared';
 import { getRoomState, saveRoomState } from '../../services/rooms.service.js';
 import { clearRoomTimers } from '../../services/roomTimers.js';
 import { clearRoomChat } from '../../services/chatStore.js';
+import { clearRoomStrokes } from '../../services/strokeStore.js';
 import { ensureHost, resetToLobby } from '../../services/roomRules.js';
 import { redis, setPresence } from '../../db/redis.js';
 import { broadcastPresenceUpdate } from '../presence.namespace.js';
@@ -14,6 +15,7 @@ type GameNamespace = Namespace<ClientEvents, ServerEvents>;
 export async function destroyRoom(code: string): Promise<void> {
   clearRoomTimers(code);
   clearRoomChat(code);
+  clearRoomStrokes(code);
   await redis.del(`room:${code}:state`, `room:${code}:password`);
 }
 
@@ -99,7 +101,7 @@ export async function handleRematch(
   const joinedRoom = Array.from(socket.rooms).find(r => r.startsWith('room:'));
   const code = requestedCode ?? joinedRoom?.replace('room:', '');
   if (!code) {
-    socket.emit('error', { code: 'ROOM_NOT_FOUND', message: '방이 종료되었어요' });
+    socket.emit('error', { code: 'ROOM_NOT_FOUND', message: '방이 끝났어요!' });
     return;
   }
   const roomName = `room:${code}`;
@@ -107,7 +109,7 @@ export async function handleRematch(
 
   const state = await getRoomState(code);
   if (!state) {
-    socket.emit('error', { code: 'ROOM_NOT_FOUND', message: '방이 종료되었어요' });
+    socket.emit('error', { code: 'ROOM_NOT_FOUND', message: '방이 끝났어요!' });
     return;
   }
   if (state.status !== 'AWARD' && state.status !== 'LOBBY') {
@@ -116,7 +118,7 @@ export async function handleRematch(
   }
   const player = state.players.find(p => p.id === userId);
   if (!player) {
-    socket.emit('error', { code: 'ALREADY_LEFT', message: '이미 방에서 나온 상태예요.' });
+    socket.emit('error', { code: 'ALREADY_LEFT', message: '이미 방에서 나왔어요!' });
     return;
   }
   if (!socket.rooms.has(roomName)) await socket.join(roomName);

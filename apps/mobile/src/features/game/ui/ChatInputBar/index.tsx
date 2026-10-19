@@ -17,6 +17,8 @@ type Props = {
   ringColor?: string;
   placeholderColor?: string;
   maxLength?: number;
+  /** 입력 중인 값 — 모드 2는 시간 초과 자동 제출용 초안으로 동기화한다 */
+  onChangeText?: (text: string) => void;
 };
 
 export function ChatInputBar({
@@ -28,6 +30,7 @@ export function ChatInputBar({
   ringColor = toolbar.ERASER_RING,
   placeholderColor = colors.GRAY,
   maxLength = 30,
+  onChangeText,
 }: Props) {
   const [text, setText] = useState('');
 
@@ -36,6 +39,11 @@ export function ChatInputBar({
   if (isDrawer) return null;
 
   const canSend = !disabled && text.trim().length > 0;
+
+  const handleChangeText = (value: string): void => {
+    setText(value);
+    onChangeText?.(value);
+  };
 
   const handleSend = (): void => {
     if (!canSend) return;
@@ -51,7 +59,7 @@ export function ChatInputBar({
         <TextInput
           style={styles.input}
           value={text}
-          onChangeText={setText}
+          onChangeText={handleChangeText}
           maxLength={maxLength}
           placeholder={placeholder}
           placeholderTextColor={placeholderColor}

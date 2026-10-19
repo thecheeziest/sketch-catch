@@ -1,5 +1,4 @@
 export * from './Badge';
-export * from './GifPreviewPlayer';
 export * from './Icon';
 export * from './Button';
 export * from './Input';
@@ -18,3 +17,4 @@ export * from './Toast';
 export * from './PixelLoadingSpinner';
 export * from './PullRefreshIndicator';
 export * from './SketchbookLoadingSpinner';
+export * from './PixelSprite';

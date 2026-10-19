@@ -21,7 +21,7 @@ export function DeleteFriendModal({ visible, onClose, friendNickname, friendUser
         onClose();
       },
       onError: () => {
-        useToastStore.getState().show('연결에 실패했어요. 잠시 후 다시 시도해주세요.', 'error');
+        useToastStore.getState().show('연결이 잘 안 됐어요. 다시 시도해 주세요!', 'error');
       },
     });
   };

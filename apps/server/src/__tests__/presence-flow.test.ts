@@ -108,7 +108,7 @@ describe('presence flow', () => {
         mode: 1,
         playerCountMax: 6,
         roundCount: 5,
-        drawTimer: 30,
+        drawTimer: 40,
         categories: ['CUSTOM'],
         locked: false,
       },

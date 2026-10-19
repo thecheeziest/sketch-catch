@@ -133,3 +133,15 @@ describe('rooms.service', () => {
     });
   });
 });
+
+describe('방 카테고리 검증', () => {
+  it('카테고리를 하나도 고르지 않으면 방 생성·설정 변경 입력을 거부한다', async () => {
+    const { createRoomSchema, roomCategoriesSchema } = await import('@sketch-catch/shared');
+    const input = { mode: 1, playerCountMax: 4, roundCount: 2, drawTimer: 60, categories: [] };
+
+    expect(createRoomSchema.safeParse(input).success).toBe(false);
+    expect(createRoomSchema.safeParse({ ...input, categories: ['MEME'] }).success).toBe(true);
+    expect(roomCategoriesSchema.safeParse([]).success).toBe(false);
+    expect(roomCategoriesSchema.safeParse(['NOT_A_CATEGORY']).success).toBe(false);
+  });
+});

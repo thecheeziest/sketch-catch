@@ -20,7 +20,7 @@ export function ForceUpdateScreen() {
       await Linking.openURL(updateUrl);
     } catch (err) {
       console.log('[appUpdate] open update url failed', err);
-      useToastStore.getState().show(`${UPDATE_SOURCE}에서 직접 업데이트해 주세요.`);
+      useToastStore.getState().show(`${UPDATE_SOURCE}에서 업데이트해 주세요!`);
     }
   };
 

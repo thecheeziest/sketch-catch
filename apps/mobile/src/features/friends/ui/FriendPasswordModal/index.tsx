@@ -19,8 +19,8 @@ export function FriendPasswordModal({ visible, onClose, roomCode }: Props) {
     mutate({ code: roomCode, password }, {
       onError: (e) => handleApiError(e, {
         setError: setErrorMsg,
-        overrides: { WRONG_PASSWORD: { type: 'setError', message: '비밀번호가 틀렸습니다.' } },
-        fallbackMessage: '입장에 실패했습니다.',
+        overrides: { WRONG_PASSWORD: { type: 'setError', message: '비밀번호가 달라요! 다시 확인해 주세요' } },
+        fallbackMessage: '방에 들어가지 못했어요. 다시 시도해 주세요!',
       }),
       onSuccess: () => { handleClose() },
     })

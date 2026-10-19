@@ -44,7 +44,7 @@ export function RoomEditModal({ visible, onClose, roomCode }: Props) {
       { title: title.trim() || undefined, locked, playerCountMax, roundCount, drawTimer, categories },
       {
         onSuccess: () => { onClose() },
-        onError: () => { useToastStore.getState().show('방 설정 변경에 실패했습니다.', 'error') },
+        onError: () => { useToastStore.getState().show('방 설정을 바꾸지 못했어요!', 'error') },
       }
     )
   }

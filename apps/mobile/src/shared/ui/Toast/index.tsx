@@ -11,7 +11,7 @@ export function ToastHost() {
 
   const renderToast = (t: (typeof toasts)[number]) => (
     <View key={t.id} sx={{ ...sxStyles.bubble, backgroundColor: t.kind === 'error' ? colors.ERROR_500 : colors.DARK_100 }}>
-      <Text variant="B4" sx={{ color: colors.LIGHT_100 }}>{t.message}</Text>
+      <Text variant="B4" sx={{ color: colors.LIGHT_100, textAlign: 'center' }}>{t.message}</Text>
     </View>
   )
 
@@ -34,6 +34,7 @@ const sxStyles = {
     right: 0,
     alignItems: 'center' as const,
     gap: spacing.SM,
+    paddingHorizontal: spacing.XL,
   },
   bubble: {
     backgroundColor: colors.DARK_100,

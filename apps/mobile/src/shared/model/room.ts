@@ -93,7 +93,7 @@ export const useRoomStore = create<RoomStore>()(
           console.warn('[socket] connect_error', err.message);
           if (!didWarnConnection) {
             didWarnConnection = true;
-            useToastStore.getState().show('연결이 끊겼어요. 다시 연결하고 있어요', 'error');
+            useToastStore.getState().show('앗, 연결이 끊겼어요! 다시 연결 중이에요', 'error');
           }
           return;
         }

@@ -48,12 +48,12 @@ export function InviteModal({ visible, onClose, code }: Props) {
       {
         onSuccess: () => {
           setInvitedIds(prev => new Set(prev).add(friend.userId));
-          useToastStore.getState().show('초대를 보냈어요', 'success');
+          useToastStore.getState().show('초대장을 보냈어요!', 'success');
         },
         onError: err =>
           handleApiError(err, {
             fallbackType: 'toast',
-            fallbackMessage: '초대를 보낼 수 없어요. 잠시 후 다시 시도해주세요.',
+            fallbackMessage: '초대를 보내지 못했어요!',
           }),
       },
     );

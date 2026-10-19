@@ -20,6 +20,11 @@ export function findMessage(code: string, messageId: string): StoredMessage | un
   return store.get(code)?.get(messageId);
 }
 
+// 재접속한 유저에게 다시 보낼 이번 게임 채팅 (오래된 순)
+export function listMessages(code: string): ChatMessage[] {
+  return Array.from(store.get(code)?.values() ?? [], stored => stored.msg);
+}
+
 export function clearRoomChat(code: string): void {
   store.delete(code);
 }

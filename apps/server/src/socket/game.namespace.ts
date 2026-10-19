@@ -24,8 +24,7 @@ import {
 } from './handlers/stroke.js';
 import { handleChatSend, handleAnswerAccept } from './handlers/chat.js';
 import { handleCustomPromptSubmit } from './handlers/game.js';
-import { handleMode2Prompt, handleMode2DrawDone, handleMode2Answer } from './handlers/mode2.js';
-import { handleMode2JudgeFinal, handleMode2VoteBest } from './handlers/mode2-review.js';
+import { handleMode2Prompt, handleMode2DrawDone, handleMode2Answer, handleMode2Draft } from './handlers/mode2.js';
 import { handleRematch } from './handlers/award.js';
 
 declare module 'socket.io' {
@@ -48,7 +47,7 @@ function roomCodesOf(socket: GameSocket): string[] {
 function run(socket: GameSocket, event: string, codes: string[], task: () => Promise<void>): void {
   runInRooms(codes, task).catch(err => {
     logger.error({ err, event, userId: socket.data.userId, codes }, 'socket handler failed');
-    socket.emit(SERVER_EVENT.ERROR, { code: 'INTERNAL', message: '일시적인 오류가 발생했어요. 다시 시도해 주세요.' });
+    socket.emit(SERVER_EVENT.ERROR, { code: 'INTERNAL', message: '잠깐 문제가 생겼어요. 다시 시도해 주세요!' });
   });
 }
 
@@ -92,7 +91,7 @@ export function registerGameNamespace(io: Server<ClientEvents, ServerEvents>): v
     socket.on('disconnecting', () => {
       const codes = roomCodesOf(socket);
       run(socket, 'disconnecting', codes, async () => {
-        await handleRoomLeave(game, socket, codes);
+        await handleRoomLeave(game, socket, codes, { graceful: true });
         const online = await io.of('/presence').in(`user:${socket.data.userId}`).fetchSockets();
         const otherGameSockets = await game.in(`user:${socket.data.userId}`).fetchSockets();
         if (online.length === 0 && !otherGameSockets.some(s => s.id !== socket.id)) {
@@ -125,13 +124,6 @@ export function registerGameNamespace(io: Server<ClientEvents, ServerEvents>): v
       inRoom('mode2:draw:done', () => handleMode2DrawDone(game, socket, payload)),
     );
     socket.on('mode2:answer', payload => inRoom('mode2:answer', () => handleMode2Answer(game, socket, payload)));
-
-    // MD2-03/04: 리뷰 최종 판정 + 베스트 시트 투표 — 리터럴 이벤트명 직접 사용 (Phase 4 결정)
-    socket.on('mode2:judge:final', payload =>
-      inRoom('mode2:judge:final', () => handleMode2JudgeFinal(game, socket, payload)),
-    );
-    socket.on('mode2:vote:best', payload =>
-      inRoom('mode2:vote:best', () => handleMode2VoteBest(game, socket, payload)),
-    );
+    socket.on('mode2:draft', payload => inRoom('mode2:draft', () => handleMode2Draft(socket, payload)));
   });
 }

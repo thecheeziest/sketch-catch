@@ -9,7 +9,7 @@ vi.mock('../db/prisma.js', () => ({
 }));
 
 import { prisma } from '../db/prisma.js';
-import { pickWord } from '../services/word.service.js';
+import { pickRoundWord, pickWord } from '../services/word.service.js';
 
 const mockFindMany = vi.mocked(prisma.wordPool.findMany);
 
@@ -55,5 +55,27 @@ describe('word service (GAME-03)', () => {
     mockFindMany.mockResolvedValue([]);
 
     await expect(pickWord(['ANIMAL'])).rejects.toThrow('WORD_POOL_EMPTY');
+  });
+
+  it('뽑힌 카테고리가 비면 선택한 다른 카테고리로만 대체한다', async () => {
+    mockFindMany.mockResolvedValueOnce([]).mockResolvedValueOnce([{ word: '테넷', category: 'MOVIE' }] as any);
+    vi.spyOn(Math, 'random').mockReturnValue(0);
+
+    const result = await pickRoundWord('MEME', ['CUSTOM', 'MEME', 'MOVIE']);
+
+    expect(mockFindMany).toHaveBeenLastCalledWith({
+      where: { category: { in: ['MOVIE'] } },
+      select: { word: true, category: true },
+    });
+    expect(result).toEqual({ word: '테넷', category: 'MOVIE' });
+  });
+
+  it('선택한 카테고리가 전부 비면 선택하지 않은 카테고리로 대체하지 않고 null을 돌려준다', async () => {
+    mockFindMany.mockResolvedValue([]);
+
+    const result = await pickRoundWord('MEME', ['MEME']);
+
+    expect(result).toBeNull();
+    expect(mockFindMany).toHaveBeenCalledTimes(1);
   });
 });

@@ -32,8 +32,9 @@ type Props = {
 export function CategorySelector({ value, onChange }: Props) {
   const isAllSelected = ALL_CATEGORIES.every((cat) => value.includes(cat));
 
+  // 카테고리는 최소 1개 — 전체 해제 시 비우지 않고 첫 카테고리(동물)만 남긴다
   const toggleAll = (): void => {
-    onChange(isAllSelected ? [] : ['CUSTOM', ...ALL_CATEGORIES]);
+    onChange(isAllSelected ? [ALL_CATEGORIES[0]!] : ['CUSTOM', ...ALL_CATEGORIES]);
   };
 
   const toggleCategory = (cat: Category): void => {

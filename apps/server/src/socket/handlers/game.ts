@@ -11,7 +11,8 @@ import { PROMPT_DURATION_SEC, SERVER_EVENT } from '@sketch-catch/shared';
 import { getRoomState, saveRoomState } from '../../services/rooms.service.js';
 import { pickRoundWord } from '../../services/word.service.js';
 import { clearRoomTimer, clearRoomTimers, setRoomTimer } from '../../services/roomTimers.js';
-import { clearRoomChat } from '../../services/chatStore.js';
+import { clearRoomChat, listMessages } from '../../services/chatStore.js';
+import { clearRoomStrokes, getRoundStrokes, strokeRoundKey } from '../../services/strokeStore.js';
 import { resetToLobby } from '../../services/roomRules.js';
 import { beginAward } from './award.js';
 
@@ -93,12 +94,13 @@ async function abortGame(game: GameNamespace, state: RoomState): Promise<void> {
   clearRoomTimers(state.code);
   answerTimestamps.delete(state.code);
   clearRoomChat(state.code);
+  clearRoomStrokes(state.code);
   resetToLobby(state);
   await saveRoomState(state);
   game.to(`room:${state.code}`).emit(SERVER_EVENT.ROOM_STATE, state);
   game.to(`room:${state.code}`).emit(SERVER_EVENT.ERROR, {
     code: 'WORD_POOL_EMPTY',
-    message: '제시어를 불러오지 못했어요. 잠시 후 다시 시작해 주세요.',
+    message: '제시어를 못 불러왔어요. 다시 시작해 주세요!',
   });
 }
 
@@ -265,17 +267,32 @@ export function resendCurrentRound(
     gameId: state.gameId ?? '',
     roundIndex: current.roundIndex,
     drawerId: current.drawerId,
-    durationSec: needsCustomPrompt
-      ? Math.max(0, PROMPT_DURATION_SEC - elapsedSec)
-      : remainingSec,
+    durationSec: needsCustomPrompt ? Math.max(0, PROMPT_DURATION_SEC - elapsedSec) : remainingSec,
     isCustomRound: current.isCustomRound === true,
     promptInputEndsAt: needsCustomPrompt ? current.startedAt + CUSTOM_PROMPT_TIMEOUT_MS : undefined,
   };
   // 재접속한 시점에 이미 글자 수 공개 시각이 지났다면 함께 내려준다
-  if (!needsCustomPrompt && remainingSec <= HINT_REVEAL_REMAINING_SEC) payload.promptHint = toPromptHint(current.prompt);
+  if (!needsCustomPrompt && remainingSec <= HINT_REVEAL_REMAINING_SEC)
+    payload.promptHint = toPromptHint(current.prompt);
   if (needsCustomPrompt) payload.needsCustomPrompt = true;
   if (!needsCustomPrompt && current.drawerId === userId) payload.promptForDrawer = current.prompt;
   socket.emit('game:round:start', payload);
+}
+
+// 재접속한 소켓에 끊겨 있던 동안의 게임 채팅과 현재 라운드 그림을 보낸다 — resendCurrentRound 뒤에 호출해야
+// 새 라운드로 넘어간 클라이언트가 캔버스를 비운 다음 그림을 받는다.
+export function resendRoundHistory(socket: Pick<Socket<ClientEvents, ServerEvents>, 'emit'>, state: RoomState): void {
+  if (state.status !== 'MODE1_ROUND_START' && state.status !== 'MODE1_ROUND_END') return;
+  const gameId = state.gameId ?? '';
+  socket.emit(SERVER_EVENT.CHAT_SYNC, { gameId, messages: listMessages(state.code) });
+
+  const current = state.current as Mode1RoundCurrent | null;
+  if (state.status !== 'MODE1_ROUND_START' || !current) return;
+  socket.emit(SERVER_EVENT.STROKE_SYNC, {
+    gameId,
+    roundIndex: current.roundIndex,
+    strokes: getRoundStrokes(state.code, strokeRoundKey(state.gameId, current.roundIndex)),
+  });
 }
 
 export async function endRound(
@@ -324,18 +341,16 @@ export async function endRound(
     answer: current.prompt,
   });
 
-  const totalTurns = state.turnSchedule?.length ?? 0;
-  if (roundIndex + 1 < totalTurns) {
-    setRoomTimer(code, 'nextRound', NEXT_ROUND_DELAY_MS, async () => {
+  // 다음 라운드 여부는 실행 시점의 출제 순서로 판단한다 — 대기 중 누가 나가면 순서가 줄어든다
+  setRoomTimer(code, 'nextRound', NEXT_ROUND_DELAY_MS, async () => {
+    const latest = await getRoomState(code);
+    if (!latest || latest.gameId !== gameId || latest.status !== 'MODE1_ROUND_END') return;
+    if (roundIndex + 1 < (latest.turnSchedule?.length ?? 0)) {
       await startRound(game, code, roundIndex + 1, gameId);
-    });
-  } else {
-    setRoomTimer(code, 'nextRound', NEXT_ROUND_DELAY_MS, async () => {
-      const ended = await getRoomState(code);
-      if (!ended || ended.gameId !== gameId || ended.status !== 'MODE1_ROUND_END') return;
-      await endGame(game, code);
-    });
-  }
+      return;
+    }
+    await endGame(game, code);
+  });
 }
 
 export async function handlePlayerLeft(game: GameNamespace, code: string, userId: string): Promise<void> {
@@ -358,15 +373,11 @@ export async function handlePlayerLeft(game: GameNamespace, code: string, userId
     return;
   }
 
-  // 퇴장 플레이어의 남은 턴 슬롯을 랜덤 활성 플레이어로 대체
+  // 퇴장 플레이어의 남은 턴만 빼서 나머지 순서를 그대로 당긴다 (A B C D A B C D → D 퇴장 → A B C A B C).
+  // 다른 플레이어로 채우면 같은 사람이 연달아 출제하게 된다. 지난·현재 라운드 인덱스는 그대로 유지된다.
   if (state.turnSchedule) {
     const currentRoundIndex = (state.current as Mode1RoundCurrent | null)?.roundIndex ?? 0;
-    for (let i = currentRoundIndex + 1; i < state.turnSchedule.length; i++) {
-      if (state.turnSchedule[i] === userId) {
-        const pick = activePlayers[Math.floor(Math.random() * activePlayers.length)]!;
-        state.turnSchedule[i] = pick.id;
-      }
-    }
+    state.turnSchedule = state.turnSchedule.filter((id, i) => i <= currentRoundIndex || id !== userId);
   }
 
   await saveRoomState(state);
@@ -389,6 +400,7 @@ export async function endGame(game: GameNamespace, code: string, reason?: 'INSUF
   // 이 게임의 남은 타이머(라운드·다음 라운드 예약 등)를 전부 정리 — 끝난 게임이 되살아나지 않도록
   clearRoomTimers(code);
   clearRoomChat(code);
+  clearRoomStrokes(code);
 
   state.status = 'AWARD';
 

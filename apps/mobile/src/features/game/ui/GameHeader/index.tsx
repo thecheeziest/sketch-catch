@@ -11,7 +11,8 @@ type Props = {
   roundIndex: number;
   totalTurns: number;
   timeLeft: number;
-  playerGrid: ReactNode;
+  /** 없으면 참가자 그리드·상태 범례를 숨긴다 (모드 2) */
+  playerGrid?: ReactNode;
   word: string | null;
   wordColor: string;
   /** 키보드가 올라온 동안 라운드 바·참가자 리스트·범례를 접어 스케치북 영역을 확보한다 */
@@ -20,8 +21,14 @@ type Props = {
   maxPlayers: number;
   /** 범례 라인 오른쪽 끝 슬롯 (예: 정답 인정 버튼) */
   legendAction?: ReactNode;
+  /** 제시어 바의 남은 시간 오른쪽 슬롯 (예: 모드 2 제출 버튼) */
+  wordAction?: ReactNode;
+  wordActionWidth?: number;
   onBack: () => void;
 };
+
+// WordBar 기본 좌우 슬롯 폭 — 남은 시간 숫자 자리
+const TIMER_SLOT_WIDTH = 40;
 
 const LEGEND = [
   { color: legendSwatch.DRAWER, label: '출제자' },
@@ -40,6 +47,8 @@ export function GameHeader({
   playerCount,
   maxPlayers,
   legendAction,
+  wordAction,
+  wordActionWidth = 0,
   onBack,
 }: Props) {
   const isUrgent = timeLeft <= 10;
@@ -62,23 +71,31 @@ export function GameHeader({
       <WordBar
         word={word}
         color={wordColor}
-        right={<Text style={[styles.timer, isUrgent && styles.timerUrgent]}>{timeLeft}</Text>}
+        sideWidth={TIMER_SLOT_WIDTH + wordActionWidth}
+        right={
+          <>
+            <Text style={[styles.timer, isUrgent && styles.timerUrgent]}>{timeLeft}</Text>
+            {wordAction}
+          </>
+        }
       />
 
-      <Collapse collapsed={collapsed}>
-        {playerGrid}
+      {playerGrid != null && (
+        <Collapse collapsed={collapsed}>
+          {playerGrid}
 
-        {/* ③ 상태 범례 (+ 오른쪽 끝 액션 슬롯) */}
-        <View style={styles.legendRow}>
-          {LEGEND.map(item => (
-            <View key={item.label} style={styles.legendItem}>
-              <View style={[styles.legendSwatch, { backgroundColor: item.color }]} />
-              <Text sx={{ fontFamily: fontFamily.REGULAR, fontSize: 11, color: gameText.MUTED }}>{item.label}</Text>
-            </View>
-          ))}
-          {legendAction != null && <View sx={{ marginLeft: 'auto' }}>{legendAction}</View>}
-        </View>
-      </Collapse>
+          {/* ③ 상태 범례 (+ 오른쪽 끝 액션 슬롯) */}
+          <View style={styles.legendRow}>
+            {LEGEND.map(item => (
+              <View key={item.label} style={styles.legendItem}>
+                <View style={[styles.legendSwatch, { backgroundColor: item.color }]} />
+                <Text sx={{ fontFamily: fontFamily.REGULAR, fontSize: 11, color: gameText.MUTED }}>{item.label}</Text>
+              </View>
+            ))}
+            {legendAction != null && <View sx={{ marginLeft: 'auto' }}>{legendAction}</View>}
+          </View>
+        </Collapse>
+      )}
     </View>
   );
 }

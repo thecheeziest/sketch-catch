@@ -270,7 +270,7 @@ describe('게임 오디오 재생 제어', () => {
     expect(bgm?.volume).toBe(0.35);
   });
 
-  it('결과 연출 때 BGM을 낮추고, 백그라운드에서는 멈추고 복귀하면 재개한다', async () => {
+  it('결과 연출 때 BGM을 낮추고, 백그라운드에서는 플레이어를 해제했다가 복귀하면 새로 만들어 재생한다', async () => {
     engine.setMusicScene('classic');
     await settle();
     const bgm = native.players[14];
@@ -280,11 +280,40 @@ describe('게임 오디오 재생 제어', () => {
     expect(bgm?.volume).toBe(0.35);
     native.appState = 'background';
     native.appListener?.('background');
-    expect(bgm?.pause).toHaveBeenCalledOnce();
+    // Android 미디어 세션이 이어폰 연결 시 다시 재생하지 못하도록 플레이어 자체를 해제하고 효과음은 무음으로 둔다
+    expect(bgm?.remove).toHaveBeenCalledOnce();
+    expect(native.players.slice(0, 14).every(player => player.volume === 0)).toBe(true);
     native.appState = 'active';
     native.appListener?.('active');
+    await settle();
+    expect(native.players).toHaveLength(16);
+    expect(native.players[15]?.source).toBe(103);
+    expect(native.players[15]?.play).toHaveBeenCalledOnce();
+  });
+
+  it('iOS 제어 센터 등 잠깐 비활성일 때는 해제하지 않고 일시정지만 한다', async () => {
+    engine.setMusicScene('classic');
+    await settle();
+    const bgm = native.players[14];
+    native.appState = 'inactive';
+    native.appListener?.('inactive');
+    expect(bgm?.pause).toHaveBeenCalledOnce();
+    expect(bgm?.remove).not.toHaveBeenCalled();
+  });
+
+  it('백그라운드에서 화면이 바뀌어도 BGM 플레이어를 만들지 않고 복귀 때 만든다', async () => {
+    engine.setMusicScene('classic');
+    await settle();
+    native.appState = 'background';
+    native.appListener?.('background');
+    engine.setMusicScene('award');
+    await settle();
     expect(native.players).toHaveLength(15);
-    expect(bgm?.play).toHaveBeenCalledTimes(2);
+    native.appState = 'active';
+    native.appListener?.('active');
+    await settle();
+    expect(native.players[15]?.source).toBe(106);
+    expect(native.players[15]?.play).toHaveBeenCalledOnce();
   });
 
   it('빠른 화면 전환은 마지막 곡만 만들고 이전 플레이어를 해제한다', async () => {
@@ -318,12 +347,17 @@ describe('게임 오디오 재생 제어', () => {
     await settle();
     native.appState = 'background';
     native.appListener?.('background');
-    const bgm = native.players[14];
-    if (bgm) bgm.isLoaded = true;
-    native.loads.get(14)?.({ isLoaded: true });
-    expect(bgm?.play).not.toHaveBeenCalled();
+    const pending = native.players[14];
+    expect(pending?.remove).toHaveBeenCalledOnce();
+    expect(native.loads.has(14)).toBe(false);
+    expect(pending?.play).not.toHaveBeenCalled();
     native.appState = 'active';
     native.appListener?.('active');
+    await settle();
+    const bgm = native.players[15];
+    expect(bgm?.source).toBe(105);
+    if (bgm) bgm.isLoaded = true;
+    native.loads.get(15)?.({ isLoaded: true });
     expect(bgm?.play).toHaveBeenCalledOnce();
   });
 });

@@ -15,22 +15,22 @@ export function AddFriendModal({ visible, onClose }: Props) {
   const handleSubmit = (): void => {
     const hashIdx = target.lastIndexOf('#');
     if (hashIdx === -1) {
-      setError('닉네임#해시태그 형식으로 입력해주세요');
+      setError('닉네임#해시태그 형식으로 적어 주세요!');
       return;
     }
     const code = target.slice(hashIdx + 1);
     if (!/^[A-Za-z0-9]{3,5}$/.test(code)) {
-      setError('해시태그는 영문·숫자 3~5자리여야 해요 (예: AB12C)');
+      setError('해시태그는 영문·숫자 3~5자리로 적어 주세요! (예: AB12C)');
       return;
     }
 
     const normalizedTarget = target.slice(0, hashIdx + 1) + code.toUpperCase();
     mutate(normalizedTarget, {
       onSuccess: () => {
-        useToastStore.getState().show('친구 요청을 보냈어요', 'success');
+        useToastStore.getState().show('친구 요청을 보냈어요!', 'success');
         handleClose();
       },
-      onError: (err) => handleApiError(err, { setError, fallbackMessage: '연결에 실패했어요. 잠시 후 다시 시도해주세요.' }),
+      onError: (err) => handleApiError(err, { setError, fallbackMessage: '연결이 잘 안 됐어요. 다시 시도해 주세요!' }),
     });
   };
 

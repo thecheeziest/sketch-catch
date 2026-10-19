@@ -13,6 +13,7 @@ import Animated, {
   Extrapolation,
 } from 'react-native-reanimated';
 import { fontFamily, getCharacterImageSource } from '@/shared/config';
+import { makeStepEasing } from '@/shared/lib/stepEasing';
 import { PixelFrame } from '@/shared/ui/PixelFrame';
 import { PixelLoadingSpinner } from '@/shared/ui/PixelLoadingSpinner';
 import { chatStream, resultOverlay } from '@/features/game/config';
@@ -29,7 +30,7 @@ const HOLD_MS = 4500;
 const FADE_OUT_MS = 300;
 const TOTAL_MS = FADE_IN_MS + HOLD_MS + FADE_OUT_MS;
 
-const TITLE: Record<GameResultOverlayData['kind'], string> = {
+const TITLE: Record<Exclude<GameResultOverlayData['kind'], 'cue'>, string> = {
   waiting: '제시어 입력 중..',
   correct: '정답입니다!',
   wrong: '오답입니다!',
@@ -46,23 +47,23 @@ const TOKENS = {
     CHIP_FG: '#FFF4D6',
   },
   correct: resultOverlay.CORRECT,
+  cue: resultOverlay.CORRECT,
   wrong: resultOverlay.WRONG,
   gameover: resultOverlay.GAMEOVER,
 };
 
+function getTitle(data: GameResultOverlayData): string {
+  if (data.kind === 'cue') return data.word;
+  if (data.kind === 'waiting') return data.title ?? TITLE.waiting;
+  return TITLE[data.kind];
+}
+
 function getMetaText(data: GameResultOverlayData): string {
-  if (data.kind === 'waiting') return '출제자가 제시어를 입력하고 있어요';
+  if (data.kind === 'waiting') return data.message ?? '출제자가 제시어를 입력하고 있어요';
+  if (data.kind === 'cue') return data.message;
   if (data.kind === 'correct') return `${data.winnerName} · ${data.solveSeconds}초`;
   if (data.kind === 'wrong') return `${data.guesserName} · ${data.guess}`;
   return '아무도 못 맞혔어요';
-}
-
-/** RN에 CSS steps() 이징이 없어 진행값 자체를 n단으로 양자화해 흉내낸다 (픽셀 룩 유지). */
-function makeStepEasing(steps: number) {
-  return (t: number) => {
-    'worklet';
-    return Math.floor(t * steps) / steps;
-  };
 }
 
 function useReducedMotionPref(): boolean {
@@ -148,7 +149,7 @@ function PetGlyph({
 
   useEffect(() => {
     if (reduced) return undefined;
-    if (kind === 'correct') {
+    if (kind === 'correct' || kind === 'cue') {
       // hop .9s ease-in-out infinite
       translateY.value = withRepeat(
         withSequence(withTiming(-7, { duration: 360 }), withTiming(0, { duration: 540 })),
@@ -227,6 +228,7 @@ function makeConfetti(
 
 const CONFETTI_BY_KIND: Record<GameResultOverlayData['kind'], () => ConfettiPieceData[]> = {
   waiting: () => [],
+  cue: () => [],
   correct: () => makeConfetti(12, 118, resultOverlay.CONFETTI_CORRECT, 8, false),
   wrong: () => makeConfetti(10, 112, resultOverlay.CONFETTI_WRONG, 8, true),
   gameover: () => makeConfetti(12, 116, resultOverlay.CONFETTI_GAMEOVER, 8, true),
@@ -317,19 +319,20 @@ export function ResultOverlay({ data, onDismiss }: Props) {
         cancelAnimation(scale);
       };
     }
+    const holdMs = data.kind === 'cue' ? Math.max(0, data.durationMs - FADE_IN_MS - FADE_OUT_MS) : HOLD_MS;
     opacity.value = withSequence(
       withTiming(1, { duration: FADE_IN_MS }),
-      withDelay(HOLD_MS, withTiming(0, { duration: FADE_OUT_MS })),
+      withDelay(holdMs, withTiming(0, { duration: FADE_OUT_MS })),
     );
     if (!reduced) {
       scale.value = withSequence(
         withTiming(1.06, { duration: FADE_IN_MS }),
         withTiming(1, { duration: 90 }),
-        withDelay(HOLD_MS - 90, withTiming(0.94, { duration: FADE_OUT_MS })),
+        withDelay(Math.max(0, holdMs - 90), withTiming(0.94, { duration: FADE_OUT_MS })),
       );
     }
 
-    const timer = setTimeout(() => onDismissRef.current?.(), TOTAL_MS);
+    const timer = setTimeout(() => onDismissRef.current?.(), FADE_IN_MS + holdMs + FADE_OUT_MS);
     return () => {
       clearTimeout(timer);
       cancelAnimation(opacity);
@@ -351,7 +354,7 @@ export function ResultOverlay({ data, onDismiss }: Props) {
     <View
       style={StyleSheet.absoluteFill}
       pointerEvents={isWaiting ? 'none' : 'auto'}
-      accessibilityLabel={TITLE[data.kind]}
+      accessibilityLabel={getTitle(data)}
       accessibilityLiveRegion={isWaiting ? 'polite' : 'none'}
     >
       <Animated.View
@@ -367,7 +370,7 @@ export function ResultOverlay({ data, onDismiss }: Props) {
 
       <Animated.View pointerEvents="none" style={[styles.centerStack, stackStyle]}>
         <PixelSlab bg={tokens.ACCENT} footColor={tokens.ACCENT_DARK} footHeight={6} paddingH={18} paddingV={11}>
-          <Text style={{ fontFamily: fontFamily.BOLD, fontSize: 21, color: tokens.ON_ACCENT }}>{TITLE[data.kind]}</Text>
+          <Text style={{ fontFamily: fontFamily.BOLD, fontSize: 21, color: tokens.ON_ACCENT }}>{getTitle(data)}</Text>
         </PixelSlab>
 
         {data.kind === 'correct' && (

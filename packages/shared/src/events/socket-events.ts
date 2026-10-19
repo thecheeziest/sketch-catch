@@ -28,8 +28,8 @@ export type ClientEvents = {
   'mode2:prompt': (payload: { sheetId: string; text: string }) => void;
   'mode2:draw:done': (payload: { sheetId: string; strokes: Stroke[] }) => void; // GIF용 stroke 포함
   'mode2:answer': (payload: { sheetId: string; text: string }) => void;
-  'mode2:judge:final': (payload: { sheetId: string; ok: boolean }) => void; // D-02 최종 판정 1회
-  'mode2:vote:best': (payload: { sheetId: string }) => void;
+  // 작성 중인 내용(초안) 동기화 — 시간 초과 시 제출하지 못한 내용을 버리지 않고 자동 제출한다
+  'mode2:draft': (payload: { sheetId: string; text?: string; strokes?: Stroke[] }) => void;
 };
 
 // 서버 → 클라이언트 (Socket.io EventsMap: 각 이벤트를 함수 시그니처로 정의)
@@ -45,7 +45,11 @@ export type ServerEvents = {
   'game:hint': (payload: { gameId: string; roundIndex: number; promptHint: string }) => void;
   'game:end': (payload: GameResult) => void;
   'stroke:remote': (payload: StrokeEvent) => void;
+  // 재접속한 소켓에만 — 끊겨 있던 동안 그려진 현재 라운드 그림 전체 (받으면 관전 캔버스를 이 값으로 교체)
+  'stroke:sync': (payload: { gameId: string; roundIndex: number; strokes: StrokeEvent[] }) => void;
   'chat:message': (payload: ChatMessage) => void;
+  // 재접속한 소켓에만 — 이번 게임 채팅 기록 (받으면 id 기준으로 기존 목록과 합친다)
+  'chat:sync': (payload: { gameId: string; messages: ChatMessage[] }) => void;
   'chat:correct': (payload: { gameId: string; userId: string; messageId: string }) => void;
   'answer:wrong': (payload: { messageId: string; roundIndex: number }) => void; // 오답 제출자 본인에게만 전달
   'mode2:step': (payload: Mode2Step) => void;
@@ -83,8 +87,7 @@ export const CLIENT_EVENT = {
   MODE2_PROMPT: 'mode2:prompt',
   MODE2_DRAW_DONE: 'mode2:draw:done',
   MODE2_ANSWER: 'mode2:answer',
-  MODE2_JUDGE_FINAL: 'mode2:judge:final',
-  MODE2_VOTE_BEST: 'mode2:vote:best',
+  MODE2_DRAFT: 'mode2:draft',
 } as const satisfies Readonly<Record<string, keyof ClientEvents>>;
 
 export const SERVER_EVENT = {
@@ -97,7 +100,9 @@ export const SERVER_EVENT = {
   GAME_HINT: 'game:hint',
   GAME_END: 'game:end',
   STROKE_REMOTE: 'stroke:remote',
+  STROKE_SYNC: 'stroke:sync',
   CHAT_MESSAGE: 'chat:message',
+  CHAT_SYNC: 'chat:sync',
   CHAT_CORRECT: 'chat:correct',
   ANSWER_WRONG: 'answer:wrong',
   MODE2_STEP: 'mode2:step',

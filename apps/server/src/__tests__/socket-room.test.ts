@@ -8,6 +8,7 @@ vi.mock('../socket/handlers/game.js', () => ({
   initTurnSchedule: vi.fn(),
   handlePlayerLeft: vi.fn(),
   resendCurrentRound: vi.fn(),
+  resendRoundHistory: vi.fn(),
 }));
 
 vi.mock('../socket/handlers/mode2.js', async importOriginal => ({
@@ -281,7 +282,7 @@ describe('socket room handlers', () => {
 
       expect(socket.emit).toHaveBeenCalledWith(SERVER_EVENT.ERROR, {
         code: 'INSUFFICIENT_PLAYERS',
-        message: '최소 4명이 모여야 시작할 수 있어요.',
+        message: '4명 이상 모여야 시작할 수 있어요!',
       });
       expect(mockSaveRoomState).not.toHaveBeenCalled();
     });
@@ -298,7 +299,7 @@ describe('socket room handlers', () => {
 
       expect(socket.emit).toHaveBeenCalledWith(SERVER_EVENT.ERROR, {
         code: 'INSUFFICIENT_PLAYERS',
-        message: '최소 3명이 모여야 시작할 수 있어요.',
+        message: '3명 이상 모여야 시작할 수 있어요!',
       });
       expect(mockSaveRoomState).not.toHaveBeenCalled();
       expect(vi.mocked(startRound)).not.toHaveBeenCalled();

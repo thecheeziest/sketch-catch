@@ -3,20 +3,18 @@
 // 빌드한 컨테이너(node:20-alpine) 안에서 실행했을 때 나온다.
 //
 // 실행: node dist/scripts/gif-font-smoke.js (빌드 후) 또는 tsx apps/server/scripts/gif-font-smoke.ts (로컬)
-import { sheetToGif, debugRenderTextFrame } from '../src/services/gif.service.js';
+import { revealToGif, debugRenderTextFrame } from '../src/services/gif.service.js';
 
 const SAMPLE_TEXT = '강아지가 하늘을 난다';
 const GIF_MAGIC = 'GIF89a'; // 0x47 0x49 0x46 0x38 0x39 0x61
-const BACKGROUND = { r: 0xfa, g: 0xfa, b: 0xfa }; // #FAFAFA (TEXT_BG in gif.service.ts)
+const BACKGROUND = { r: 0xff, g: 0xff, b: 0xff }; // #FFFFFF (말풍선 배경, gif.service.ts COLORS.BUBBLE)
 const CHANNEL_TOLERANCE = 10;
 
 async function main(): Promise<void> {
-  // 1) sheetToGif 전체 파이프라인이 실제로 유효한 GIF 바이너리를 생성하는지 확인
-  const buffer = await sheetToGif({
+  // 1) revealToGif 전체 파이프라인이 실제로 유효한 GIF 바이너리를 생성하는지 확인
+  const buffer = await revealToGif({
     steps: [{ kind: 'PROMPT', authorId: 'smoke-test', text: SAMPLE_TEXT }],
-    width: 480,
-    height: 480,
-    fps: 12,
+    players: [{ id: 'smoke-test', nickname: 'smoke', characterId: 'cat' }],
   });
 
   const magic = buffer.subarray(0, 6).toString('ascii');
@@ -26,7 +24,7 @@ async function main(): Promise<void> {
   }
   console.log(`[OK] GIF89a 매직 바이트 확인 (${buffer.length} bytes)`);
 
-  // 2) 텍스트 프레임에 배경색(#FAFAFA)이 아닌 픽셀(=글자)이 실제로 존재하는지 확인
+  // 2) 텍스트 프레임에 배경색(#FFFFFF)이 아닌 픽셀(=글자)이 실제로 존재하는지 확인
   //    Alpine/musl 환경에서 폰트 렌더링이 실패하면 전체가 배경색으로만 채워짐 (Pitfall 2)
   const { data, width, height } = debugRenderTextFrame(SAMPLE_TEXT, 480, 480);
 

@@ -1,16 +1,14 @@
-import { readFile } from 'node:fs/promises';
 import { PrismaClient, type Category } from '@prisma/client';
+import { CURATED_FILES, readCuratedList } from '../prisma/words/curated.js';
 
 // 제시어 풀 적재 스크립트 - 외부 호출은 이 스크립트에서만 하고, 게임 서버는 DB(WordPool)만 읽는다.
-// API 키가 필요 없는 공개 소스만 쓴다 (모두 상업적 이용 가능한 라이선스).
-//   한국어 위키낱말사전 분류 (CC BY-SA 4.0): 동물, 음식, 사물, 자연, 장소, 직업, 속담, 사자성어
-//   Wikidata (CC0): 영화, 드라마, 행동(스포츠)
-//   MEME: prisma/words/meme.json 큐레이션 목록 (공개 위키에 최신 밈이 없어 직접 관리)
-// 이미 있는 단어는 건너뛰므로 여러 번 실행해도 안전하다. 월 1회 크론으로 실행하는 것을 전제로 한다.
-//
-// 기존 7개 카테고리(seed.ts 목록 포함)는 추가만 하고 삭제하지 않는다.
-// 신규 5개 카테고리는 소스가 기준이라 소스에서 빠진 단어를 지우되, 가져온 개수가 기존의 절반 미만이면
-// (위키 장애·빈 응답 등) 삭제 없이 건너뛴다.
+//   검수 목록 (prisma/words/*.json): 동물, 음식, 사물, 자연, 장소, 직업, 행동, 밈
+//     - 위키 자동 분류는 카테고리와 맞지 않는 단어(곰팡이→동물, 한국→자연 등)가 섞여 들어와 사람이 검수한 목록만 쓴다.
+//   공개 소스 (모두 상업적 이용 가능한 라이선스, API 키 불필요):
+//     - 한국어 위키낱말사전 분류 (CC BY-SA 4.0): 속담, 사자성어
+//     - Wikidata (CC0): 영화, 드라마
+// 모든 카테고리는 목록·소스가 기준이라 빠진 단어는 풀에서도 지운다. 여러 번 실행해도 안전하며 월 1회 크론을 전제로 한다.
+// 한 단어(공백 무시)는 한 카테고리에만 존재한다 - 검수 목록이 우선이고, 소스 단어가 다른 카테고리와 겹치면 건너뛴다.
 
 const prisma = new PrismaClient();
 
@@ -20,34 +18,8 @@ const MAX_LENGTH = 20; // 커스텀 제시어 최대 길이와 동일
 const REQUEST_GAP_MS = 1000; // 위키미디어 서버에 부담을 주지 않도록 요청 간격을 둔다
 const MOVIE_MIN_SITELINKS = 45;
 const DRAMA_MIN_SITELINKS = 4;
-const SPORT_MIN_SITELINKS = 30;
-// 소스에서 가져온 개수가 기존 개수의 이 비율 미만이면 정리(삭제)를 건너뛴다
+// 소스에서 가져온 개수가 기존 개수의 이 비율 미만이면 정리(삭제)를 건너뛴다 (위키 장애·빈 응답 대비)
 const MIN_KEEP_RATIO = 0.5;
-// 위키낱말사전 표제어는 공백 없는 한글 단어만 사용 (뜻풀이형 문구·외국어 표기 제외)
-const PLAIN_HANGUL_WORD = /^[가-힣]{2,8}$/u;
-
-// 카테고리별 위키낱말사전 분류 (분류명에서 '한국어 ' 접두사 뒤 이름)
-const WIKTIONARY_CATEGORIES: Partial<Record<Category, string[]>> = {
-  ANIMAL: ['동물', '포유류', '조류', '어류', '곤충', '갑각류', '파충류', '양서류'],
-  FOOD: ['음식'],
-  NATURE: ['식물', '나무', '광물', '암석', '날씨', '천체', '지형'],
-  PLACE: ['국명', '도시', '수도', '건축물'],
-  JOB: ['직업'],
-  OBJECT: ['의류', '도구', '악기', '가구', '주방용품', '탈것', '장신구', '스포츠용품', '선박'],
-};
-// 위키낱말사전 표제어는 희귀어(학명·외국 소도시·옛말)가 많아, Wikidata 문서가 여러 언어로 있는(=널리 알려진) 단어만 쓴다.
-// 값은 카테고리별 최소 언어판 수 - 도시·지명은 알려진 곳만 남기려고 더 높게 잡는다.
-const MIN_SITELINKS_BY_CATEGORY: Partial<Record<Category, number>> = {
-  ANIMAL: 30,
-  FOOD: 20,
-  OBJECT: 25,
-  NATURE: 40,
-  PLACE: 60,
-  JOB: 15,
-};
-const SITELINK_CHUNK_SIZE = 120;
-// 추가만 하는(삭제하지 않는) 기존 카테고리
-const ADDITIVE_ONLY: Category[] = ['ANIMAL', 'FOOD', 'OBJECT', 'NATURE', 'PLACE', 'ACTION', 'JOB'];
 
 type WordEntry = { word: string; category: Category };
 
@@ -104,40 +76,6 @@ async function fetchWiktionaryCategory(category: string): Promise<string[]> {
   return titles;
 }
 
-// 한국어 라벨이 같은 Wikidata 항목의 언어판 수(최대값). 동음이의어는 가장 유명한 항목 기준이라 완벽하진 않다.
-async function fetchSitelinkCounts(words: string[]): Promise<Map<string, number>> {
-  const counts = new Map<string, number>();
-  for (let i = 0; i < words.length; i += SITELINK_CHUNK_SIZE) {
-    const values = words
-      .slice(i, i + SITELINK_CHUNK_SIZE)
-      .map(word => `"${word.replace(/["\\]/gu, '')}"@ko`)
-      .join(' ');
-    const sparql = `SELECT ?l (MAX(?sl) AS ?m) WHERE { VALUES ?l { ${values} } ?f rdfs:label ?l ; wikibase:sitelinks ?sl } GROUP BY ?l`;
-    const data = await fetchJson<{ results: { bindings: Array<{ l: { value: string }; m: { value: string } }> } }>(
-      'https://query.wikidata.org/sparql',
-      {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
-        body: new URLSearchParams({ query: sparql }),
-      },
-    );
-    for (const binding of data.results.bindings) counts.set(binding.l.value, Number(binding.m.value));
-  }
-  return counts;
-}
-
-async function importWiktionary(category: Category, names: string[]): Promise<WordEntry[]> {
-  const entries: WordEntry[] = [];
-  for (const name of names) {
-    const titles = await fetchWiktionaryCategory(`한국어 ${name}`);
-    for (const title of titles) if (PLAIN_HANGUL_WORD.test(title)) entries.push({ word: title, category });
-  }
-  const minSitelinks = MIN_SITELINKS_BY_CATEGORY[category] ?? 0;
-  if (minSitelinks === 0) return entries;
-  const counts = await fetchSitelinkCounts([...new Set(entries.map(e => e.word))]);
-  return entries.filter(e => (counts.get(e.word) ?? 0) >= minSitelinks);
-}
-
 async function importProverbs(): Promise<WordEntry[]> {
   const titles = await fetchWiktionaryCategory('한국어 속담');
   return titles.flatMap(title => {
@@ -190,17 +128,29 @@ async function importDramas(): Promise<WordEntry[]> {
   });
 }
 
-async function importSports(): Promise<WordEntry[]> {
-  const labels = await fetchWikidataLabels('?f wdt:P31 wd:Q31629 .', SPORT_MIN_SITELINKS, 300);
-  return labels.flatMap(label => (PLAIN_HANGUL_WORD.test(label) ? [{ word: label, category: 'ACTION' as const }] : []));
+const normalizeKey = (word: string): string => word.replace(/\s/gu, '');
+
+// 검수 목록은 사람이 확인한 그대로 쓴다 — 자동 정규화(최소 2자 등)를 거치면 곰·말·별·산 같은 한 글자 단어가 빠진다
+async function importCurated(category: Category, file: string): Promise<WordEntry[]> {
+  return (await readCuratedList(file)).flatMap(item => {
+    const word = item.trim();
+    return word ? [{ word, category }] : [];
+  });
 }
 
-async function importMemes(): Promise<WordEntry[]> {
-  const raw = JSON.parse(await readFile(new URL('../prisma/words/meme.json', import.meta.url), 'utf8')) as string[];
-  return raw.flatMap(item => {
-    const word = normalizeWord(item);
-    return word ? [{ word, category: 'MEME' as const }] : [];
-  });
+// 검수 목록끼리 같은 단어(공백 무시)가 있으면 어느 카테고리인지 정할 수 없으므로 적재 전에 중단한다
+function assertDisjoint(curated: Array<[Category, WordEntry[]]>): void {
+  const owner = new Map<string, Category>();
+  const conflicts: string[] = [];
+  for (const [category, entries] of curated) {
+    for (const { word } of entries) {
+      const key = normalizeKey(word);
+      const existing = owner.get(key);
+      if (existing && existing !== category) conflicts.push(`${word} (${existing}, ${category})`);
+      owner.set(key, category);
+    }
+  }
+  if (conflicts.length > 0) throw new Error(`검수 목록 간 중복 단어: ${conflicts.join(', ')}`);
 }
 
 async function save(label: Category, entries: WordEntry[]): Promise<void> {
@@ -212,37 +162,57 @@ async function save(label: Category, entries: WordEntry[]): Promise<void> {
   console.log(`[words] ${label}: 후보 ${unique.length}개 중 ${result.count}개 추가`);
 }
 
-// 신규 카테고리는 소스가 유일한 기준 - 소스에서 빠진(또는 규칙에 안 맞게 된) 단어는 풀에서도 제거한다.
-// 기존 카테고리(ADDITIVE_ONLY)는 추가만 한다. 소스 응답이 비정상적으로 적으면 삭제 없이 건너뛴다.
-async function sync(category: Category, entries: WordEntry[]): Promise<void> {
-  if (ADDITIVE_ONLY.includes(category)) {
-    await save(category, entries);
-    return;
-  }
+// 검수 목록 — 목록이 유일한 기준. 목록에 없는 단어는 지우고, 다른 카테고리에 있던 단어는 이 카테고리로 옮긴다.
+async function syncCurated(category: Category, entries: WordEntry[]): Promise<void> {
+  if (entries.length === 0) throw new Error(`${category}: 검수 목록이 비어 있어요`);
+  const words = entries.map(e => e.word);
+  const removed = await prisma.wordPool.deleteMany({ where: { category, word: { notIn: words } } });
+  if (removed.count > 0) console.log(`[words] ${category}: 목록에서 빠진 ${removed.count}개 제거`);
+  const moved = await prisma.wordPool.updateMany({
+    where: { word: { in: words }, category: { not: category } },
+    data: { category },
+  });
+  if (moved.count > 0) console.log(`[words] ${category}: 다른 카테고리에서 ${moved.count}개 이동`);
+  await save(category, entries);
+}
+
+// 공개 소스 — 소스가 기준이라 빠진 단어는 지우되, 응답이 비정상적으로 적으면 삭제 없이 건너뛴다.
+// 다른 카테고리에 이미 있는 단어(공백 무시)는 넣지 않는다.
+async function syncSource(category: Category, entries: WordEntry[]): Promise<void> {
+  const others = await prisma.wordPool.findMany({ where: { category: { not: category } }, select: { word: true } });
+  const taken = new Set(others.map(o => normalizeKey(o.word)));
+  const accepted = entries.filter(e => !taken.has(normalizeKey(e.word)));
+  const skipped = entries.filter(e => taken.has(normalizeKey(e.word))).map(e => e.word);
+  if (skipped.length > 0) console.log(`[words] ${category}: 다른 카테고리와 겹쳐 제외 - ${skipped.join(', ')}`);
+
   const existing = await prisma.wordPool.count({ where: { category } });
-  if (entries.length === 0 || entries.length < existing * MIN_KEEP_RATIO) {
+  if (accepted.length === 0 || accepted.length < existing * MIN_KEEP_RATIO) {
     console.warn(
-      `[words] ${category}: 소스 ${entries.length}개 < 기존 ${existing}개의 ${MIN_KEEP_RATIO * 100}% - 건너뜀`,
+      `[words] ${category}: 소스 ${accepted.length}개 < 기존 ${existing}개의 ${MIN_KEEP_RATIO * 100}% - 건너뜀`,
     );
     return;
   }
   const removed = await prisma.wordPool.deleteMany({
-    where: { category, word: { notIn: entries.map(e => e.word) } },
+    where: { category, word: { notIn: accepted.map(e => e.word) } },
   });
   if (removed.count > 0) console.log(`[words] ${category}: 소스에서 빠진 ${removed.count}개 제거`);
-  await save(category, entries);
+  await save(category, accepted);
 }
 
 async function main(): Promise<void> {
-  await sync('MEME', await importMemes());
-  await sync('PROVERB', await importProverbs());
-  await sync('IDIOM', await importIdioms());
-  await sync('MOVIE', await importMovies());
-  await sync('DRAMA', await importDramas());
-  for (const [category, names] of Object.entries(WIKTIONARY_CATEGORIES) as Array<[Category, string[]]>) {
-    await sync(category, await importWiktionary(category, names));
-  }
-  await sync('ACTION', await importSports());
+  const curated = await Promise.all(
+    CURATED_FILES.map(
+      async ([category, file]) => [category, await importCurated(category, file)] as [Category, WordEntry[]],
+    ),
+  );
+  assertDisjoint(curated);
+  // 검수 목록을 먼저 반영해야 소스 단어의 카테고리 겹침을 목록 기준으로 거를 수 있다
+  for (const [category, entries] of curated) await syncCurated(category, entries);
+
+  await syncSource('PROVERB', await importProverbs());
+  await syncSource('IDIOM', await importIdioms());
+  await syncSource('MOVIE', await importMovies());
+  await syncSource('DRAMA', await importDramas());
 }
 
 main()

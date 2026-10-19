@@ -108,7 +108,7 @@ describe('게임 피드백 연결', () => {
     expect(cue).not.toHaveBeenCalled();
   });
 
-  it('모드2는 내 담당 단계·슬라이드 프레임·베스트 공개에 이벤트 키를 붙인다', () => {
+  it('모드2는 내 담당 단계·공개식 발표 전환·공개식 종료에 이벤트 키를 붙인다', () => {
     act(() => {
       renderer = create(createElement(Observer));
     });
@@ -118,8 +118,9 @@ describe('게임 피드백 연결', () => {
       sheetId: 's1',
       stepIndex: 0,
       phase: 'PROMPT',
-      durationSec: 30,
-      totalSteps: 3,
+      durationSec: 20,
+      remainingMs: 20000,
+      totalSteps: 8,
     };
     useMode2Store.setState({ gameId: 'g1', step });
     expect(cue).not.toHaveBeenCalled();
@@ -127,15 +128,13 @@ describe('게임 피드백 연결', () => {
     expect(cue).toHaveBeenLastCalledWith('stepStart', { key: 'g1:0:step' });
     const review: Mode2ReviewState = {
       gameId: 'g1',
-      subPhase: 'SLIDESHOW',
-      currentSheetIndex: 0,
-      currentFrameIndex: 1,
       sheets: [],
+      live: { sheetIndex: 0, entryIndex: 1, leadMs: 0, elapsedMs: 0 },
     };
     useMode2Store.setState({ review });
     expect(cue).toHaveBeenLastCalledWith('frame', { key: 'g1:0:1:frame' });
-    useMode2Store.setState({ review: { ...review, subPhase: 'BEST_REVEAL' } });
-    expect(cue).toHaveBeenLastCalledWith('bestReveal', { key: 'g1:best' });
+    useMode2Store.setState({ review: { ...review, live: null } });
+    expect(cue).toHaveBeenLastCalledWith('bestReveal', { key: 'g1:revealEnd' });
   });
 
   it('초기 방 스냅샷을 입장음으로 재생하지 않고 실제 인원 변경·매칭 성사에만 반응한다', () => {
@@ -188,7 +187,6 @@ describe('BGM 화면 연결', () => {
     expect(getMusicScene('/room/ABCDEF/mode2')).toBe('relay');
     expect(getMusicScene('/room/ABCDEF/mode2-review')).toBe('review');
     expect(getMusicScene('/room/ABCDEF/award')).toBe('award');
-    expect(getMusicScene('/room/ABCDEF/mode2-end')).toBe('award');
   });
   it('스플래시·강제 업데이트에서 BGM을 끈다', () => {
     routing.path = '/settings';

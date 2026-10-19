@@ -24,7 +24,7 @@ export function useAwardSession(code: string) {
   const rematch = useCallback((): void => {
     if (decidedRef.current || pendingRef.current) return;
     if (!socket?.connected) {
-      useToastStore.getState().show('연결을 확인하고 다시 시도해 주세요', 'error');
+      useToastStore.getState().show('연결을 확인하고 다시 시도해 주세요!', 'error');
       return;
     }
     pendingRef.current = true;
@@ -81,7 +81,7 @@ export function useAwardSession(code: string) {
     const timeout = setTimeout(() => {
       pendingRef.current = false;
       setRematching(false);
-      useToastStore.getState().show('응답이 늦어지고 있어요. 다시 시도해 주세요', 'error');
+      useToastStore.getState().show('응답이 늦어요. 다시 시도해 주세요!', 'error');
     }, 8000);
     return () => clearTimeout(timeout);
   }, [rematching]);

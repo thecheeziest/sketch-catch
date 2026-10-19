@@ -10,6 +10,7 @@ import {
   MATCH_EXTEND_THRESHOLD_MS,
   MATCH_EXTEND_MS,
   MATCH_HARD_CAP_MS,
+  categorySchema,
 } from '@sketch-catch/shared';
 
 export type GameMode = 1 | 2;
@@ -168,7 +169,8 @@ async function finalizeMatch(mode: GameMode): Promise<void> {
       roundCount: 5,
       drawTimer: 60,
       answerTimer: 10,
-      categories: ['ANIMAL', 'FOOD', 'OBJECT', 'NATURE', 'PLACE', 'ACTION', 'JOB'],
+      // 모르는 사람끼리라 커스텀(출제자 직접 입력)은 빼고 제시어 카테고리 전부
+      categories: categorySchema.options.filter(category => category !== 'CUSTOM'),
       playerCountMax: ROOM_PLAYER_MAX,
     },
     locked: false,

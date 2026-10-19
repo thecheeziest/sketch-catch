@@ -37,5 +37,25 @@ export const MATCH_HARD_CAP_MS = 45_000; // 카운트다운 시작 시점부터 
 export const OFFLINE_GRACE_SEC = 30;
 export const MIN_PLAYERS_TO_CONTINUE = 3;
 
-// 직접 제시어 입력 시간 — 두 모드 공통
+// 모드 1 커스텀 제시어 입력 시간
 export const PROMPT_DURATION_SEC = 30;
+
+// 모드 2(이어 그리자!) 단계별 제한 시간 — 방 설정과 무관하게 고정
+export const MODE2_PROMPT_SEC = 20;
+export const MODE2_DRAW_SEC = 40;
+export const MODE2_ANSWER_SEC = 10;
+// 그리기 단계 시작 전 '{답안} 그려 주세요!' 안내 노출 시간 — 그리기 제한 시간 앞에 더해진다
+export const MODE2_DRAW_CUE_MS = 2500;
+// 마감 직전에 보낸 제출이 방 작업 줄에서 기다리는 동안 시간 초과로 버려지지 않도록 두는 여유
+export const MODE2_SUBMIT_GRACE_MS = 800;
+
+// 모드 2 정답 공개식 타임라인 — 서버 진행 타이머와 클라이언트 다시 보기가 같은 값을 쓴다.
+// 발표 1건 = 말풍선 앞말("내가 그릴 그림은..") → 단어 공개 → 스케치 과정 재생 → 여운
+export const MODE2_REVEAL_LEAD_MS = 1400;
+export const MODE2_REVEAL_WORD_MS = 1600;
+export const MODE2_REVEAL_DRAW_MS = 3600;
+export const MODE2_REVEAL_HOLD_MS = 900;
+export const MODE2_REVEAL_ENTRY_MS =
+  MODE2_REVEAL_LEAD_MS + MODE2_REVEAL_WORD_MS + MODE2_REVEAL_DRAW_MS + MODE2_REVEAL_HOLD_MS;
+// 다음 사람의 발표식으로 넘어갈 때 상단 캐릭터 테두리가 옮겨 가는 동안의 대기
+export const MODE2_REVEAL_SHEET_GAP_MS = 1200;

@@ -1,6 +1,6 @@
 import type { FastifyPluginAsync } from 'fastify';
 import { authenticate } from '../middleware/authenticate.js';
-import { createRoomSchema, roomCodeSchema, SOCKET_NAMESPACE, SERVER_EVENT, type Category } from '@sketch-catch/shared';
+import { createRoomSchema, roomCategoriesSchema, roomCodeSchema, SOCKET_NAMESPACE, SERVER_EVENT } from '@sketch-catch/shared';
 import {
   createRoom,
   getRoomState,
@@ -71,12 +71,15 @@ export const roomsRoutes: FastifyPluginAsync = async (app) => {
       if (state.status !== 'LOBBY') return reply.status(409).send({ error: 'GAME_IN_PROGRESS' });
 
       const body = req.body as Record<string, unknown>;
+      // 카테고리를 전부 빼면 제시어를 뽑을 수 없다 — 1개 이상, 정의된 값만 허용
+      const categories = body.categories === undefined ? undefined : roomCategoriesSchema.safeParse(body.categories);
+      if (categories && !categories.success) return reply.status(400).send({ error: 'INVALID_INPUT' });
       if (typeof body.title === 'string') state.title = body.title.trim() || state.title;
       if (typeof body.locked === 'boolean') state.locked = body.locked;
       if (typeof body.playerCountMax === 'number') state.config.playerCountMax = body.playerCountMax;
       if (typeof body.roundCount === 'number') state.config.roundCount = body.roundCount;
       if (typeof body.drawTimer === 'number') state.config.drawTimer = body.drawTimer;
-      if (Array.isArray(body.categories)) state.config.categories = body.categories as Category[];
+      if (categories?.success) state.config.categories = categories.data;
 
       await saveRoomState(state);
 

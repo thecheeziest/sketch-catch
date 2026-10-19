@@ -17,7 +17,7 @@ export function FriendCodeModal({ visible, onClose, currentFriendCode }: Props) 
   const handleSave = (): void => {
     const result = friendCodeInputSchema.safeParse(friendCode);
     if (!result.success) {
-      setError(result.error.errors[0]?.message ?? '해시태그를 확인해주세요');
+      setError(result.error.errors[0]?.message ?? '해시태그를 다시 확인해 주세요!');
       return;
     }
 

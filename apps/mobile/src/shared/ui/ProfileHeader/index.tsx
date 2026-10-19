@@ -57,7 +57,7 @@ export function ProfileHeader({ rightSlot }: Props) {
 
   const characterSource = getCharacterImageSource(user.characterId);
 
-  const handleCopy = (): Promise<void> => copyToClipboard(`${user.nickname}#${user.friendCode}`, '복사됐어요');
+  const handleCopy = (): Promise<void> => copyToClipboard(`${user.nickname}#${user.friendCode}`);
 
   return (
     <>

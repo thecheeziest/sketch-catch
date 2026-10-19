@@ -16,7 +16,7 @@ export function createPaintSpans(
   const w = 384;
   const h = Math.max(1, Math.min(1024, Math.round((w * canvasHeight) / canvasWidth)));
   const surface = Skia.Surface.MakeOffscreen(w, h);
-  if (!surface) throw new Error('페인트 영역을 만들 수 없어요. 다시 시도해 주세요.');
+  if (!surface) throw new Error('페인트를 칠하지 못했어요!');
   const canvas = surface.getCanvas();
   canvas.drawColor(Skia.Color('#FFFFFF'));
   const paint = Skia.Paint();
@@ -42,14 +42,14 @@ export function createPaintSpans(
         colorType: ColorType.RGBA_8888,
         alphaType: AlphaType.Unpremul,
       });
-      if (!(pixels instanceof Uint8Array)) throw new Error('페인트 영역을 읽을 수 없어요. 다시 시도해 주세요.');
+      if (!(pixels instanceof Uint8Array)) throw new Error('페인트를 칠하지 못했어요!');
       const px = Math.min(w - 1, Math.max(0, Math.floor((x / canvasWidth) * w)));
       const py = Math.min(h - 1, Math.max(0, Math.floor((y / canvasHeight) * h)));
       const offset = (py * w + px) * 4;
       const fill = Skia.Color(color);
       if ([0, 1, 2].every(channel => Math.abs(pixels[offset + channel]! - fill[channel]! * 255) <= 1)) return [];
       const spans = findPaintSpans(pixels, w, h, px, py);
-      if (spans.length > MAX_PAINT_SPANS) throw new Error('영역이 너무 복잡해요. 더 작은 영역을 선택해 주세요.');
+      if (spans.length > MAX_PAINT_SPANS) throw new Error('영역이 너무 복잡해요! 작게 골라 주세요');
       return spans;
     } finally {
       snapshot.dispose();

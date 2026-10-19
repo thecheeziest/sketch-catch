@@ -2,6 +2,8 @@ import type { Stroke } from '@sketch-catch/shared';
 import { useRoomStore } from '@/shared/model/room';
 import { playFeedback } from '@/shared/lib/feedback';
 
+export type Mode2Draft = { text: string } | { strokes: Stroke[] };
+
 export function useMode2Sender() {
   const socket = useRoomStore(s => s.socket);
 
@@ -26,19 +28,11 @@ export function useMode2Sender() {
     return true;
   };
 
-  const judgeFinal = (sheetId: string, ok: boolean): boolean => {
-    if (!socket?.connected) return false;
-    socket.emit('mode2:judge:final', { sheetId, ok });
-    playFeedback(ok ? 'judgeOk' : 'judgeNg');
-    return true;
+  // 작성 중인 내용 — 시간 초과 시 서버가 이 값으로 자동 제출한다 (효과음 없음)
+  const syncDraft = (sheetId: string, draft: Mode2Draft): void => {
+    if (!socket?.connected) return;
+    socket.emit('mode2:draft', { sheetId, ...draft });
   };
 
-  const voteBest = (sheetId: string): boolean => {
-    if (!socket?.connected) return false;
-    socket.emit('mode2:vote:best', { sheetId });
-    playFeedback('vote');
-    return true;
-  };
-
-  return { submitPrompt, submitDraw, submitAnswer, judgeFinal, voteBest };
+  return { submitPrompt, submitDraw, submitAnswer, syncDraft };
 }

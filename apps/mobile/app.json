@@ -72,6 +72,13 @@
       "expo-image",
       "expo-status-bar",
       [
+        "./plugins/withAppDisplayName.cjs",
+        {
+          "displayName": "스케치캐치",
+          "alternateNames": ["SketchCatch", "Sketch Catch"]
+        }
+      ],
+      [
         "./plugins/withStoreIcon.cjs",
         {
           "storeIcon": "./assets/app-icons/01-deep-space.png"

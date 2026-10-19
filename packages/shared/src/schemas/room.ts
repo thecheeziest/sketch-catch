@@ -21,6 +21,9 @@ export const categorySchema = z.enum([
   'CUSTOM',
 ]);
 
+// 방에서 쓰는 제시어 카테고리 — 최소 1개는 선택해야 한다 (방 생성·설정 변경 공통)
+export const roomCategoriesSchema = z.array(categorySchema).min(1, '카테고리를 1개 이상 골라 주세요');
+
 export const createRoomSchema = z
   .object({
     mode: z.union([z.literal(1), z.literal(2)]),
@@ -28,14 +31,14 @@ export const createRoomSchema = z
     roundCount: z.number().int().min(1).max(20),
     drawTimer: z.number().int().min(40).max(90).multipleOf(5), // MD1-05
     answerTimer: z.number().int().min(5).max(30).optional(),
-    categories: z.array(categorySchema),
+    categories: roomCategoriesSchema,
     title: z.string().max(20).optional(),
     locked: z.boolean().default(false),
     password: z.string().max(20).optional(),
   })
   .refine((value) => value.mode !== 2 || value.playerCountMax >= 4, {
     path: ['playerCountMax'],
-    message: '모드 2는 최소 4명이 필요합니다',
+    message: '모드 2는 4명 이상 모여야 해요!',
   });
 
 // 채팅: 최대 30자 (GAME-01)

@@ -12,7 +12,13 @@ type Props = {
   maxLength?: number;
   title?: string;
   endsAt?: number | null;
+  /** 남은 시간 뒤에 붙는 안내 문구 */
+  guide?: string;
+  expiredMessage?: string;
+  placeholder?: string;
   onSubmit: (text: string) => boolean;
+  /** 입력 중인 값 — 모드 2는 시간 초과 자동 제출용 초안으로 동기화한다 */
+  onChangeText?: (text: string) => void;
 };
 
 export function CustomPromptModal({
@@ -21,6 +27,10 @@ export function CustomPromptModal({
   onSubmit,
   maxLength = 20,
   title = '제시어를 직접 입력해 주세요',
+  guide = '친구들이 맞힐 제시어를 입력해 주세요',
+  expiredMessage = '시간 초과! 다음 출제자로 넘어갑니다.',
+  placeholder = '예: 빨간 사과',
+  onChangeText,
 }: Props) {
   const [text, setText] = useState('');
   const [remaining, setRemaining] = useState(COUNTDOWN_SEC);
@@ -44,6 +54,11 @@ export function CustomPromptModal({
 
   const isExpired = remaining === 0;
 
+  const handleChangeText = (value: string): void => {
+    setText(value);
+    onChangeText?.(value);
+  };
+
   return (
     <Dialog
       visible={visible}
@@ -64,16 +79,14 @@ export function CustomPromptModal({
       }
     >
       <Text sx={{ ...textSizes.B2, color: isExpired ? colors.ERROR_400 : colors.LIGHT_300 }}>
-        {isExpired
-          ? '시간 초과! 다음 출제자로 넘어갑니다.'
-          : `${remaining}초 안에 친구들이 맞힐 제시어를 입력해 주세요`}
+        {isExpired ? expiredMessage : `${remaining}초 안에 ${guide}`}
       </Text>
       {!isExpired && (
         <View sx={{ marginTop: spacing.XS }}>
           <AppInput
-            placeholder="예: 빨간 사과"
+            placeholder={placeholder}
             value={text}
-            onChangeText={setText}
+            onChangeText={handleChangeText}
             maxLength={maxLength}
             showCounter
             color="SECONDARY"
