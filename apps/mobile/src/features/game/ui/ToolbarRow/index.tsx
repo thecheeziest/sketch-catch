@@ -6,6 +6,7 @@ import { Icon } from '@/shared/ui/Icon';
 import { PixelFrame } from '@/shared/ui/PixelFrame';
 import { toolbar } from '@/features/game/config';
 import { useGameStore } from '@/features/game/model/useGameStore';
+import { useShallow } from 'zustand/react/shallow';
 import { useStrokeSender } from '@/features/game/api/useStrokeSender';
 import { ColorPicker } from '../ColorPicker';
 import { type FeedbackName } from '@/shared/config/audio';
@@ -57,7 +58,21 @@ export function ToolbarRow({ realtime = true }: { realtime?: boolean }) {
     clearRemote,
     requestDrawerClear,
     requestDrawerUndo,
-  } = useGameStore();
+  } = useGameStore(
+    useShallow(s => ({
+      color: s.color,
+      width: s.width,
+      eraser: s.eraser,
+      paint: s.paint,
+      setColor: s.setColor,
+      setWidth: s.setWidth,
+      setEraser: s.setEraser,
+      setPaint: s.setPaint,
+      clearRemote: s.clearRemote,
+      requestDrawerClear: s.requestDrawerClear,
+      requestDrawerUndo: s.requestDrawerUndo,
+    })),
+  );
   const sender = useStrokeSender(realtime); // ToolbarRow는 출제자 전용
 
   const handleClear = (): void => {

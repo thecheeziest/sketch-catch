@@ -7,6 +7,7 @@ import type { SkPath } from '@shopify/react-native-skia';
 import type { PaintSpan, Point, Stroke } from '@sketch-catch/shared';
 import { colors } from '@/shared/config';
 import { useGameStore } from '@/features/game/model/useGameStore';
+import { useShallow } from 'zustand/react/shallow';
 import { useStrokeSender } from '@/features/game/api/useStrokeSender';
 import { useAuthStore } from '@/shared/model/auth';
 import { createPaintSpans } from '@/features/game/lib/paint';
@@ -36,7 +37,16 @@ type Props = {
 };
 
 export function DrawingCanvas({ isDrawer, drawingEnabled = isDrawer, onStrokesChange, onTouchCanvas }: Props) {
-  const { color, width, eraser, paint, remoteStrokes } = useGameStore();
+  // 채팅·타이머 등 다른 게임 상태가 바뀔 때마다 캔버스가 다시 그려지지 않도록 필요한 필드만 구독한다
+  const { color, width, eraser, paint, remoteStrokes } = useGameStore(
+    useShallow(s => ({
+      color: s.color,
+      width: s.width,
+      eraser: s.eraser,
+      paint: s.paint,
+      remoteStrokes: s.remoteStrokes,
+    })),
+  );
   const drawerClearNonce = useGameStore(s => s.drawerClearNonce);
   const drawerUndoNonce = useGameStore(s => s.drawerUndoNonce);
   const sender = useStrokeSender(isDrawer && !onStrokesChange);

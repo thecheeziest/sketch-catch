@@ -20,7 +20,7 @@ import { useQueryClient } from '@tanstack/react-query';
 import mainBackground from '@assets/main-background.png';
 import { Text, View } from 'dripsy';
 import { BlurTargetView, BlurView, type BlurTargetViewProps } from 'expo-blur';
-import { useFocusEffect } from 'expo-router';
+import { useFocusEffect, useIsFocused } from 'expo-router';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { ImageBackground, StyleSheet } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
@@ -53,9 +53,11 @@ export default function FriendsScreen() {
     }, [queryClient]),
   );
 
-  const friendsQuery = useFriends();
-  const requestsQuery = useFriendRequests();
-  const sentRequestsQuery = useSentFriendRequests();
+  // 탭은 한 번 열면 계속 마운트되어 있으므로, 친구 탭이 보일 때만 폴링한다
+  const isFocused = useIsFocused();
+  const friendsQuery = useFriends({ subscribed: isFocused });
+  const requestsQuery = useFriendRequests({ subscribed: isFocused });
+  const sentRequestsQuery = useSentFriendRequests({ subscribed: isFocused });
   const friends = friendsQuery.data ?? [];
   const requests = requestsQuery.data ?? [];
   const sentRequests = sentRequestsQuery.data ?? [];

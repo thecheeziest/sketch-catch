@@ -26,22 +26,15 @@ export type RevealScene = {
   phase: RevealPhase;
 };
 
-// active 동안 rAF로 현재 시각을 갱신한다 (끝나면 멈춰 배터리를 아낀다)
+// active 동안 현재 시각을 갱신한다 (끝나면 멈춰 배터리를 아낀다).
+// rAF는 120Hz 기기에서 초당 120번 깨어나 걸러내야 하므로, 필요한 간격으로만 깨우는 interval을 쓴다
 function useClock(active: boolean): number {
   const [now, setNow] = useState(() => Date.now());
   useEffect(() => {
     if (!active) return;
-    let frame = 0;
-    let last = 0;
-    const loop = (timestamp: number): void => {
-      if (timestamp - last >= FRAME_INTERVAL_MS) {
-        last = timestamp;
-        setNow(Date.now());
-      }
-      frame = requestAnimationFrame(loop);
-    };
-    frame = requestAnimationFrame(loop);
-    return () => cancelAnimationFrame(frame);
+    setNow(Date.now());
+    const timer = setInterval(() => setNow(Date.now()), FRAME_INTERVAL_MS);
+    return () => clearInterval(timer);
   }, [active]);
   return now;
 }

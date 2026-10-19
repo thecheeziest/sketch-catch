@@ -5,3 +5,7 @@ export const Platform = {
   OS: 'ios' as const,
   select: <T>(spec: { ios?: T; android?: T; default?: T }) => spec.ios ?? spec.default,
 };
+export const AppState = {
+  currentState: 'active' as const,
+  addEventListener: () => ({ remove: () => undefined }),
+};

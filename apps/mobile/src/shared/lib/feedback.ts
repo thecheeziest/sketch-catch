@@ -155,7 +155,8 @@ export function initializeFeedback(): () => void {
       });
       if (id !== lifecycleId) return;
       for (const name of Object.keys(soundSources) as Array<keyof typeof soundSources>) {
-        players[name] = createAudioPlayer(soundSources[name], { updateInterval: 100 });
+        // 효과음은 진행 상태 이벤트를 쓰지 않는다 — Android는 플레이어마다 이 간격으로 메인 스레드를 깨우므로 길게 둔다
+        players[name] = createAudioPlayer(soundSources[name], { updateInterval: 1000 });
       }
       ready = true;
       syncMusic();

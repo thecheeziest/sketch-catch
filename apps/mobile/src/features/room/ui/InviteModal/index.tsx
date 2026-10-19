@@ -42,7 +42,7 @@ function isBusy(friend: Friend): boolean {
 }
 
 export function InviteModal({ visible, onClose, code }: Props) {
-  const { data: friends = [], isLoading } = useFriends();
+  const { data: friends = [], isLoading } = useFriends({ subscribed: visible });
   const invite = useInvite(code);
   const players = useRoomStore(s => s.roomState?.players);
   const availableFriends = friends.filter(friend => !players?.some(p => p.id === friend.userId));

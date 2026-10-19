@@ -25,9 +25,11 @@ type FriendRelation = 'FRIEND' | 'RECEIVED' | 'REQUESTED' | 'NONE';
 
 // 대기실에서 다른 참가자를 눌렀을 때 — 캐릭터 + 닉네임#해시태그, 친구가 아니면 친구 추가
 export function PlayerProfileDialog({ player, onClose, onTransferHost }: Props) {
-  const { data: friends = [] } = useFriends();
-  const { data: sentRequests = [] } = useSentFriendRequests();
-  const { data: receivedRequests = [] } = useFriendRequests();
+  // 대기실·게임 내내 마운트되어 있으므로 다이얼로그가 열린 동안만 조회한다
+  const isOpen = player !== null;
+  const { data: friends = [] } = useFriends({ subscribed: isOpen });
+  const { data: sentRequests = [] } = useSentFriendRequests({ subscribed: isOpen });
+  const { data: receivedRequests = [] } = useFriendRequests({ subscribed: isOpen });
   const sendRequest = useSendFriendRequest();
   const respondRequest = useRespondRequest();
   const [isConfirmingTransfer, setIsConfirmingTransfer] = useState(false);
