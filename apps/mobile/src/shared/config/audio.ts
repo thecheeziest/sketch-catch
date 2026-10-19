@@ -12,6 +12,8 @@ import correct from '@assets/audio/correct.wav';
 import wrong from '@assets/audio/wrong.wav';
 import gameover from '@assets/audio/gameover.wav';
 import fanfare from '@assets/audio/fanfare.wav';
+import splashWhoosh from '@assets/audio/splash-whoosh.wav';
+import splashJingle from '@assets/audio/splash-jingle.wav';
 import home from '@assets/audio/bgm-home.m4a';
 import lobby from '@assets/audio/bgm-lobby.m4a';
 import classic from '@assets/audio/bgm-classic.m4a';
@@ -34,6 +36,8 @@ export const soundSources = {
   wrong,
   gameover,
   fanfare,
+  splashWhoosh,
+  splashJingle,
 };
 export const musicSources = { home, lobby, classic, relay, review, award };
 export type MusicScene = keyof typeof musicSources;
@@ -63,6 +67,8 @@ const durations = {
   wrong: 260,
   gameover: 800,
   fanfare: 1600,
+  splashWhoosh: 360,
+  splashJingle: 1000,
 };
 const ui = (sound: keyof typeof soundSources, haptic: Haptic = 'light'): FeedbackDefinition => ({
   sound,
@@ -95,7 +101,8 @@ export const feedbackDefinitions = {
   confirm: cue('confirm', 280, 'success'),
   warning: cue('warning', 300, 'warning', 8),
   notify: cue('notify', 230),
-  intro: cue('round', 450),
+  splashWhoosh: cue('splashWhoosh', 360),
+  splashJingle: cue('splashJingle', 1000, 'light'),
   matchStart: cue('round', 450, 'light'),
   matchFound: cue('match', 650, 'success', 5),
   matchCancel: ui('cancel', 'soft'),

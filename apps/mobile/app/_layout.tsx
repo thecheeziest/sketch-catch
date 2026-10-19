@@ -10,7 +10,7 @@ import { queryClient } from '@/shared/api';
 import { useFeedbackLifecycle } from '@/shared/lib/useFeedbackLifecycle';
 import { useBackgroundMusic } from '@/widgets/appFeedback/lib/useBackgroundMusic';
 import { useGameFeedback } from '@/widgets/appFeedback/lib/useGameFeedback';
-import { playFeedback } from '@/shared/lib/feedback';
+import { playFeedback, waitForFeedbackReady } from '@/shared/lib/feedback';
 import { colors, fontFamily, icons, theme } from '@/shared/config';
 import { hydrateAuthStore, useAppUpdateStore, useAuthStore, usePresenceStore } from '@/shared/model';
 import { SketchbookLoadingSpinner, ToastHost } from '@/shared/ui';
@@ -72,22 +72,41 @@ function SplashOverlay({
       useAppUpdateStore.getState().finishSplashIntro();
       return;
     }
-    playFeedback('intro', { key: 'splash-intro' });
-    const intro = Animated.sequence([
-      Animated.spring(logoX, { toValue: 0, speed: 7, bounciness: 5, useNativeDriver: true }),
-      createWobble(logoRotate),
-      Animated.delay(1000),
-    ]);
-    intro.start(({ finished }) => {
-      if (!finished) return;
+    let cancelled = false;
+    let current: Animated.CompositeAnimation | null = null;
+    const finishIntro = ({ finished }: Animated.EndResult) => {
+      if (!finished || cancelled) return;
       useAppUpdateStore.getState().finishSplashIntro();
       if (shouldWaitRef.current) {
         setIsWaiting(true);
       } else {
         fadeOut();
       }
+    };
+    // 콜드 스타트 직후엔 효과음 플레이어가 아직 로드 전이라, 잠깐 기다렸다가 소리와 등장을 함께 시작한다
+    waitForFeedbackReady(['splashWhoosh', 'splashJingle'], 600).then(() => {
+      if (cancelled) return;
+      playFeedback('splashWhoosh');
+      // 기본 정지 기준(0.001px)은 눈에 안 보이는 꼬리 움직임까지 기다려 흔들림·방울 소리가 늦어진다 — 0.5px 기준으로 끊는다
+      current = Animated.spring(logoX, {
+        toValue: 0,
+        speed: 7,
+        bounciness: 5,
+        restDisplacementThreshold: 0.5,
+        restSpeedThreshold: 0.5,
+        useNativeDriver: true,
+      });
+      current.start(({ finished }) => {
+        if (!finished || cancelled) return;
+        playFeedback('splashJingle');
+        current = Animated.sequence([createWobble(logoRotate), Animated.delay(1000)]);
+        current.start(finishIntro);
+      });
     });
-    return () => intro.stop();
+    return () => {
+      cancelled = true;
+      current?.stop();
+    };
   }, []);
 
   useEffect(() => {

@@ -117,11 +117,14 @@ afterEach(() => {
   vi.useRealTimers();
 });
 
+// 효과음 플레이어 수 — BGM 플레이어는 그 다음 인덱스부터 만들어진다
+const EFFECT_PLAYERS = 16;
+
 describe('TV 효과음·햅틱', () => {
   it('모든 모달이 TV 플레이어를 공유하며 켜짐 90ms·꺼짐 160ms에 햅틱을 낸다', async () => {
     feedback.playTvFeedback('on');
     await settle();
-    expect(native.players).toHaveLength(14);
+    expect(native.players).toHaveLength(EFFECT_PLAYERS);
     expect(native.players[0]?.play).toHaveBeenCalledOnce();
     vi.advanceTimersByTime(89);
     expect(native.impact).not.toHaveBeenCalled();
@@ -255,25 +258,25 @@ describe('게임 오디오 재생 제어', () => {
   it('BGM은 같은 화면군에서 위치를 유지하고 효과음·햅틱 설정과 독립적이다', async () => {
     engine.setMusicScene('home');
     await settle();
-    const bgm = native.players[14];
+    const bgm = native.players[EFFECT_PLAYERS];
     expect(bgm?.loop).toBe(true);
     expect(bgm?.source).toBe(101);
     engine.setMusicScene('home');
     preferences.useFeedbackStore.getState().updatePreferences({ soundEnabled: false });
-    expect(native.players).toHaveLength(15);
+    expect(native.players).toHaveLength(EFFECT_PLAYERS + 1);
     expect(bgm?.seekTo).not.toHaveBeenCalled();
     expect(bgm?.pause).not.toHaveBeenCalled();
     preferences.useFeedbackStore.getState().updatePreferences({ musicEnabled: false });
     expect(bgm?.pause).toHaveBeenCalledOnce();
     preferences.useFeedbackStore.getState().updatePreferences({ musicEnabled: true });
-    expect(native.players).toHaveLength(15);
+    expect(native.players).toHaveLength(EFFECT_PLAYERS + 1);
     expect(bgm?.volume).toBe(0.35);
   });
 
   it('결과 연출 때 BGM을 낮추고, 백그라운드에서는 플레이어를 해제했다가 복귀하면 새로 만들어 재생한다', async () => {
     engine.setMusicScene('classic');
     await settle();
-    const bgm = native.players[14];
+    const bgm = native.players[EFFECT_PLAYERS];
     engine.setMusicDucked(true);
     expect(bgm?.volume).toBeCloseTo(0.105);
     engine.setMusicDucked(false);
@@ -282,19 +285,19 @@ describe('게임 오디오 재생 제어', () => {
     native.appListener?.('background');
     // Android 미디어 세션이 이어폰 연결 시 다시 재생하지 못하도록 플레이어 자체를 해제하고 효과음은 무음으로 둔다
     expect(bgm?.remove).toHaveBeenCalledOnce();
-    expect(native.players.slice(0, 14).every(player => player.volume === 0)).toBe(true);
+    expect(native.players.slice(0, EFFECT_PLAYERS).every(player => player.volume === 0)).toBe(true);
     native.appState = 'active';
     native.appListener?.('active');
     await settle();
-    expect(native.players).toHaveLength(16);
-    expect(native.players[15]?.source).toBe(103);
-    expect(native.players[15]?.play).toHaveBeenCalledOnce();
+    expect(native.players).toHaveLength(EFFECT_PLAYERS + 2);
+    expect(native.players[EFFECT_PLAYERS + 1]?.source).toBe(103);
+    expect(native.players[EFFECT_PLAYERS + 1]?.play).toHaveBeenCalledOnce();
   });
 
   it('iOS 제어 센터 등 잠깐 비활성일 때는 해제하지 않고 일시정지만 한다', async () => {
     engine.setMusicScene('classic');
     await settle();
-    const bgm = native.players[14];
+    const bgm = native.players[EFFECT_PLAYERS];
     native.appState = 'inactive';
     native.appListener?.('inactive');
     expect(bgm?.pause).toHaveBeenCalledOnce();
@@ -308,12 +311,12 @@ describe('게임 오디오 재생 제어', () => {
     native.appListener?.('background');
     engine.setMusicScene('award');
     await settle();
-    expect(native.players).toHaveLength(15);
+    expect(native.players).toHaveLength(EFFECT_PLAYERS + 1);
     native.appState = 'active';
     native.appListener?.('active');
     await settle();
-    expect(native.players[15]?.source).toBe(106);
-    expect(native.players[15]?.play).toHaveBeenCalledOnce();
+    expect(native.players[EFFECT_PLAYERS + 1]?.source).toBe(106);
+    expect(native.players[EFFECT_PLAYERS + 1]?.play).toHaveBeenCalledOnce();
   });
 
   it('빠른 화면 전환은 마지막 곡만 만들고 이전 플레이어를 해제한다', async () => {
@@ -323,9 +326,9 @@ describe('게임 오디오 재생 제어', () => {
     engine.setMusicScene('classic');
     vi.advanceTimersByTime(200);
     await settle();
-    expect(native.players).toHaveLength(16);
-    expect(native.players[15]?.source).toBe(103);
-    expect(native.players[14]?.remove).toHaveBeenCalledOnce();
+    expect(native.players).toHaveLength(EFFECT_PLAYERS + 2);
+    expect(native.players[EFFECT_PLAYERS + 1]?.source).toBe(103);
+    expect(native.players[EFFECT_PLAYERS]?.remove).toHaveBeenCalledOnce();
   });
 
   it('페이드 도중 원래 화면으로 돌아가도 같은 BGM을 처음부터 다시 만들지 않는다', async () => {
@@ -336,9 +339,9 @@ describe('게임 오디오 재생 제어', () => {
     engine.setMusicScene('home');
     vi.advanceTimersByTime(200);
     await settle();
-    expect(native.players).toHaveLength(15);
-    expect(native.players[14]?.remove).not.toHaveBeenCalled();
-    expect(native.players[14]?.volume).toBe(0.35);
+    expect(native.players).toHaveLength(EFFECT_PLAYERS + 1);
+    expect(native.players[EFFECT_PLAYERS]?.remove).not.toHaveBeenCalled();
+    expect(native.players[EFFECT_PLAYERS]?.volume).toBe(0.35);
   });
 
   it('늦게 로딩된 BGM은 백그라운드에서 시작하지 않고 복귀 때만 재생한다', async () => {
@@ -347,17 +350,17 @@ describe('게임 오디오 재생 제어', () => {
     await settle();
     native.appState = 'background';
     native.appListener?.('background');
-    const pending = native.players[14];
+    const pending = native.players[EFFECT_PLAYERS];
     expect(pending?.remove).toHaveBeenCalledOnce();
-    expect(native.loads.has(14)).toBe(false);
+    expect(native.loads.has(EFFECT_PLAYERS)).toBe(false);
     expect(pending?.play).not.toHaveBeenCalled();
     native.appState = 'active';
     native.appListener?.('active');
     await settle();
-    const bgm = native.players[15];
+    const bgm = native.players[EFFECT_PLAYERS + 1];
     expect(bgm?.source).toBe(105);
     if (bgm) bgm.isLoaded = true;
-    native.loads.get(15)?.({ isLoaded: true });
+    native.loads.get(EFFECT_PLAYERS + 1)?.({ isLoaded: true });
     expect(bgm?.play).toHaveBeenCalledOnce();
   });
 });

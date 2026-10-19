@@ -215,6 +215,23 @@ export function initializeFeedback(): () => void {
   };
 }
 
+/**
+ * 오디오 준비 직후에 재생해야 하는 효과음(스플래시 등)이 로드될 때까지 기다린다.
+ * 시간 초과 시에도 resolve — 소리 없이 진행하는 편이 화면을 붙잡아 두는 것보다 낫다.
+ */
+export function waitForFeedbackReady(sounds: Array<keyof typeof soundSources>, timeoutMs: number): Promise<void> {
+  const isReady = () => ready && sounds.every(name => players[name]?.isLoaded);
+  if (isReady()) return Promise.resolve();
+  return new Promise(resolve => {
+    const startedAt = Date.now();
+    const timer = setInterval(() => {
+      if (!isReady() && Date.now() - startedAt < timeoutMs) return;
+      clearInterval(timer);
+      resolve();
+    }, 50);
+  });
+}
+
 function haptic(name: FeedbackName): Promise<void> {
   const { haptic: pattern } = getFeedbackDefinition(name);
   if (pattern === 'success') return Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
