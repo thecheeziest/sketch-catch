@@ -6,7 +6,7 @@ type PushStore = {
   setPendingInvite: (code: string | null) => void;
 };
 
-// D-11: 게임 초대 푸시 클릭 시 이미 다른 방에 속해 있으면 room-switch 확인 Dialog(NotificationGate)가 이 값을 읽는다
+// 게임 초대 푸시를 누르면 저장 — NotificationGate가 읽어 입장 확인 또는 D-11 방 이동 확인 Dialog를 띄운다
 export const usePushStore = create<PushStore>()(
   immer((set) => ({
     pendingInviteRoomCode: null,

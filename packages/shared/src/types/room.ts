@@ -58,3 +58,11 @@ export type RoomState = {
   // 이전 서버가 저장한 시상식 종료 시각 — 새 시상식 시작 시 제거 (자동 퇴장 없음)
   awardEndsAt?: number;
 };
+
+// 초대 수락 전 확인용 방 요약 — 초대받은 사람은 비밀번호 없이 들어오므로 잠금 여부와 무관하게 내려준다
+export type RoomPreview = {
+  code: string;
+  title: string;
+  status: RoomStatus;
+  full: boolean;
+};

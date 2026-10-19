@@ -1,4 +1,5 @@
 import type { FastifyPluginAsync } from 'fastify';
+import type { RoomPreview } from '@sketch-catch/shared';
 import { authenticate } from '../middleware/authenticate.js';
 import { createRoomSchema, roomCategoriesSchema, roomCodeSchema, SOCKET_NAMESPACE, SERVER_EVENT } from '@sketch-catch/shared';
 import {
@@ -88,6 +89,23 @@ export const roomsRoutes: FastifyPluginAsync = async (app) => {
 
       return reply.send(state);
     });
+  });
+
+  // 초대 푸시를 누른 사람에게 입장 확인 전 방 제목·상태를 보여 준다 — 초대 입장은 비밀번호를 묻지 않으므로 잠금 검사도 하지 않는다
+  app.get('/rooms/:code/preview', { preHandler: authenticate }, async (req, reply) => {
+    const codeParsed = roomCodeSchema.safeParse((req.params as { code: string }).code);
+    if (!codeParsed.success) return reply.status(400).send({ error: 'INVALID_CODE' });
+
+    const state = await getRoomState(codeParsed.data);
+    if (!state) return reply.status(404).send({ error: 'ROOM_NOT_FOUND' });
+
+    const preview: RoomPreview = {
+      code: state.code,
+      title: state.title ?? '게임 방',
+      status: state.status,
+      full: state.players.filter(p => !p.inAward && !p.left).length >= state.config.playerCountMax,
+    };
+    return reply.send(preview);
   });
 
   app.get('/rooms/:code', { preHandler: authenticate }, async (req, reply) => {

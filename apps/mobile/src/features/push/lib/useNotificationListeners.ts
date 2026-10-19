@@ -1,7 +1,7 @@
 import { useEffect } from 'react';
 import * as Notifications from 'expo-notifications';
 import { router } from 'expo-router';
-import { useToastStore, useRoomStore } from '@/shared/model';
+import { useToastStore } from '@/shared/model';
 import { usePushStore } from '../model/usePushStore';
 
 function parseRoomCode(data: unknown): string | null {
@@ -10,14 +10,8 @@ function parseRoomCode(data: unknown): string | null {
 }
 
 function handleGameInviteTap(roomCode: string): void {
-  const roomState = useRoomStore.getState().roomState;
-  if (roomState) {
-    // 이미 다른 방에 속해 있음 — D-11 NotificationGate Dialog가 확인 후 leave+join 처리
-    usePushStore.getState().setPendingInvite(roomCode);
-    return;
-  }
-  // 방 입장(소켓 연결·room:join)은 room/[code]/_layout이 처리한다
-  router.push(`/room/${roomCode}` as never);
+  // NotificationGate가 스플래시·로그인 이후 입장 확인(방에 없을 때) 또는 방 이동 확인(D-11)을 띄운다
+  usePushStore.getState().setPendingInvite(roomCode);
 }
 
 function handleResponse(response: Notifications.NotificationResponse): void {
