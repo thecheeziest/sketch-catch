@@ -1,17 +1,23 @@
+import { FeedbackPressable, type FeedbackPressableProps } from '@/shared/ui/FeedbackPressable';
 import { colors, spacing, textSizes } from '@/shared/config';
 import { PixelFrame } from '@/shared/ui/PixelFrame';
+import { PixelLoadingSpinner } from '@/shared/ui/PixelLoadingSpinner';
 import { Image, Text, View } from 'dripsy';
-import { type ImageSourcePropType, Pressable, type PressableProps, StyleSheet } from 'react-native';
+import { type ImageSourcePropType, StyleSheet } from 'react-native';
 
 export type ButtonColor = 'light' | 'primary' | 'secondary' | 'dark';
 type FontVariant = 'REGULAR' | 'BOLD';
 
-type Props = Omit<PressableProps, 'children'> & {
+type Props = Omit<FeedbackPressableProps, 'children'> & {
   label?: string;
   icon?: ImageSourcePropType;
   color?: ButtonColor;
   height?: number;
   fontVariant?: FontVariant;
+  textColor?: string;
+  pressedTextColor?: string;
+  // 요청 처리 중 — 라벨 대신 원형 스피너를 보이고 연타를 막는다
+  loading?: boolean;
 };
 
 type ColorTokens = {
@@ -84,8 +90,11 @@ export function Button({
   color = 'primary',
   height = 48,
   fontVariant = 'BOLD',
+  textColor,
+  pressedTextColor,
   style,
   disabled,
+  loading = false,
   ...rest
 }: Props) {
   const tokens = COLOR_MAP[color];
@@ -96,11 +105,18 @@ export function Button({
   const getBg = (pressed: boolean) => (disabled ? tokens.disabledBg : pressed ? tokens.pressedBg : tokens.bg);
   const getBorderColor = (pressed: boolean) =>
     disabled ? tokens.disabledBorder : pressed ? tokens.pressedBorder : tokens.border;
-  const textColor = disabled ? tokens.disabledText : tokens.text;
+  const getTextColor = (pressed: boolean) => {
+    if (disabled) return tokens.disabledText;
+    if (pressed && pressedTextColor) return pressedTextColor;
+    return textColor ?? tokens.text;
+  };
 
   return (
-    <Pressable
-      disabled={disabled}
+    <FeedbackPressable
+      feedback="tap"
+      pressScale={0.96}
+      disabled={disabled || loading}
+      accessibilityState={{ disabled: !!disabled || loading, busy: loading }}
       style={({ pressed }) => [
         iconOnly ? { width: height, height } : { height },
         typeof style === 'function' ? style({ pressed }) : style,
@@ -112,24 +128,32 @@ export function Button({
           <PixelFrame borderColor={getBorderColor(pressed)} style={StyleSheet.absoluteFill}>
             <View style={[StyleSheet.absoluteFill, { backgroundColor: getBg(pressed) }]} />
           </PixelFrame>
-          <View style={iconOnly ? styles.centerContent : styles.rowContent}>
+          <View style={[iconOnly ? styles.centerContent : styles.rowContent, loading && { opacity: 0 }]}>
             {icon && (
               <Image
                 source={icon}
                 sx={{ width: iconSize, height: iconSize }}
                 resizeMode="contain"
-                style={{ tintColor: textColor }}
+                style={{ tintColor: getTextColor(pressed) }}
               />
             )}
             {label && (
-              <Text variants={fontVariant === 'BOLD' ? ['bold'] : undefined} sx={{ ...textSize, color: textColor }}>
+              <Text
+                variants={fontVariant === 'BOLD' ? ['bold'] : undefined}
+                sx={{ ...textSize, color: getTextColor(pressed) }}
+              >
                 {label}
               </Text>
             )}
           </View>
+          {loading && (
+            <View style={[StyleSheet.absoluteFill, styles.centerContent]}>
+              <PixelLoadingSpinner size={Math.round(height * 0.5)} accessibilityLabel="처리 중" />
+            </View>
+          )}
         </>
       )}
-    </Pressable>
+    </FeedbackPressable>
   );
 }
 

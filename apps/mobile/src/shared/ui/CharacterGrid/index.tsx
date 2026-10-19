@@ -1,7 +1,8 @@
+import { FeedbackPressable } from '@/shared/ui/FeedbackPressable';
 import { CHARACTER_IDS, colors, getCharacterImageSource, spacing } from '@/shared/config';
 import { Image, View } from 'dripsy';
 import { useState } from 'react';
-import { type LayoutChangeEvent, Pressable, StyleSheet } from 'react-native';
+import { type LayoutChangeEvent, StyleSheet } from 'react-native';
 import { FlatList } from '../FlatList';
 import { PixelFrame } from '../PixelFrame';
 
@@ -35,7 +36,7 @@ export function CharacterGrid({ selectedId, onSelect }: Props) {
         const borderColor = selected ? colors.PRIMARY_300 : colors.SECONDARY_200;
         const backgroundColor = selected ? colors.PRIMARY_100 : colors.LIGHT_300;
         return (
-          <Pressable
+          <FeedbackPressable
             onPress={() => onSelect(item)}
             style={({ pressed }) => [styles.cell, { width: cellSize, height: cellSize }, pressed && { opacity: 0.7 }]}
           >
@@ -51,7 +52,7 @@ export function CharacterGrid({ selectedId, onSelect }: Props) {
                 )}
               </View>
             </PixelFrame>
-          </Pressable>
+          </FeedbackPressable>
         );
       }}
     />

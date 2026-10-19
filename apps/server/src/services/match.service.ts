@@ -1,10 +1,9 @@
 import { redis, setPresence, setUserRoom } from '../db/redis.js';
 import { createRoom } from './rooms.service.js';
+import { toPlayerProfile } from '../lib/playerProfile.js';
 import { prisma } from '../db/prisma.js';
-import { emitToUser } from '../socket/game.namespace.js';
-import { broadcastPresenceUpdate } from '../socket/presence.namespace.js';
+import { broadcastPresenceUpdate, emitToPresenceUser } from '../socket/presence.namespace.js';
 import {
-  SERVER_EVENT,
   ROOM_PLAYER_MIN,
   MODE2_PLAYER_MIN,
   ROOM_PLAYER_MAX,
@@ -12,6 +11,7 @@ import {
   MATCH_EXTEND_THRESHOLD_MS,
   MATCH_EXTEND_MS,
   MATCH_HARD_CAP_MS,
+  categorySchema,
 } from '@sketch-catch/shared';
 
 export type GameMode = 1 | 2;
@@ -52,7 +52,7 @@ async function getMemberCount(mode: GameMode): Promise<number> {
 async function broadcastLobbyUpdate(mode: GameMode, deadline: number | null): Promise<void> {
   const members = await redis.zrange(membersKey(mode), 0, -1);
   const payload = { mode, count: members.length, min: minPlayersForMode(mode), max: ROOM_PLAYER_MAX, deadline };
-  members.forEach((userId) => emitToUser(userId, SERVER_EVENT.MATCH_UPDATE, payload));
+  members.forEach((userId) => emitToPresenceUser(userId, 'match:update', payload));
 }
 
 function clearScheduledTimer(mode: GameMode): void {
@@ -160,7 +160,7 @@ async function finalizeMatch(mode: GameMode): Promise<void> {
 
   const users = await prisma.user.findMany({ where: { id: { in: userIds } } });
   const userMeta = Object.fromEntries(
-    users.map((u) => [u.id, { nickname: u.nickname, characterId: u.characterId }])
+    users.map((u) => [u.id, toPlayerProfile(u)])
   );
 
   const state = await createRoom({
@@ -168,9 +168,10 @@ async function finalizeMatch(mode: GameMode): Promise<void> {
     userIds,
     config: {
       roundCount: 5,
-      drawTimer: 30,
+      drawTimer: 60,
       answerTimer: 10,
-      categories: ['ANIMAL', 'FOOD', 'OBJECT', 'NATURE', 'PLACE', 'ACTION', 'JOB'],
+      // 모르는 사람끼리라 커스텀(출제자 직접 입력)은 빼고 제시어 카테고리 전부
+      categories: categorySchema.options.filter(category => category !== 'CUSTOM'),
       playerCountMax: ROOM_PLAYER_MAX,
     },
     locked: false,
@@ -183,6 +184,6 @@ async function finalizeMatch(mode: GameMode): Promise<void> {
   );
   userIds.forEach((id) => {
     broadcastPresenceUpdate(id, 'IN_LOBBY');
-    emitToUser(id, SERVER_EVENT.MATCH_FOUND, { code: state.code });
+    emitToPresenceUser(id, 'match:found', { code: state.code });
   });
 }

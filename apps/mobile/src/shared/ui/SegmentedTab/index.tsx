@@ -1,8 +1,9 @@
+import { FeedbackPressable } from '@/shared/ui/FeedbackPressable';
 import { Text, View } from 'dripsy'
 import { colors, textSizes } from '@/shared/config';
 import { BlurView } from 'expo-blur';
 import React, { useEffect, useRef } from 'react';
-import { Animated, Dimensions, Pressable, StyleSheet } from 'react-native';
+import { Animated, Dimensions, StyleSheet } from 'react-native';
 
 type Props = {
   tabs: string[];
@@ -41,7 +42,7 @@ export function SegmentedTab({ tabs, activeIndex, onTabPress, badges }: Props) {
         const badgeCount = badges?.[index] ?? 0;
 
         return (
-          <Pressable key={tab} style={styles.tab} onPress={() => onTabPress(index)}>
+          <FeedbackPressable key={tab} style={styles.tab} onPress={() => onTabPress(index)}>
             <View sx={{ flexDirection: 'row', alignItems: 'center', gap: 4 }}>
               <Text sx={{ color: isActive ? colors.PRIMARY_400 : colors.DARK_100 }}>
                 {tab}
@@ -54,7 +55,7 @@ export function SegmentedTab({ tabs, activeIndex, onTabPress, badges }: Props) {
                 </View>
               )}
             </View>
-          </Pressable>
+          </FeedbackPressable>
         );
       })}
 

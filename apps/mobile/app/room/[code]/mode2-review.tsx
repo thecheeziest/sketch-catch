@@ -1,307 +1,229 @@
-import { useCallback, useEffect, useState } from 'react';
-import { BackHandler, StyleSheet, useWindowDimensions } from 'react-native';
+import { useCallback, useEffect, useMemo, useState } from 'react';
+import { Alert, Keyboard, KeyboardAvoidingView, Linking, Pressable, StyleSheet } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { Image, ScrollView, Text, View } from 'dripsy';
-import { Stack, useLocalSearchParams, useRouter } from 'expo-router';
-import type { Mode2ReviewSheet, Mode2ReviewState, Mode2StepContent } from '@sketch-catch/shared';
-import { CLIENT_EVENT } from '@sketch-catch/shared';
-import { useAuthStore, useRoomStore } from '@/shared/model';
-import { useMode2Store } from '@/features/mode2/model/useMode2Store';
-import { useMode2Sender } from '@/features/mode2/api/useMode2Sender';
-import { ReviewProgressHeader } from '@/features/mode2/ui/ReviewProgressHeader';
-import { FinalJudgeButton } from '@/features/mode2/ui/FinalJudgeButton';
-import { BestSheetVoteList, type VoteSheet } from '@/features/mode2/ui/BestSheetVoteList';
-import { SparkleBadge } from '@/features/mode2/ui/SparkleBadge';
-import { DrawingCanvas, WordBanner } from '@/features/game/ui';
-import { useGameStore } from '@/features/game/model/useGameStore';
+import { Text, View } from 'dripsy';
+import { useLocalSearchParams } from 'expo-router';
+import { colors, fontFamily, getChatTextColor, spacing, textSizes } from '@/shared/config';
+import { useAuthStore, useRoomStore, useToastStore } from '@/shared/model';
 import { Button } from '@/shared/ui/Button';
 import { Dialog } from '@/shared/ui/Dialog';
-import { PixelFrame } from '@/shared/ui/PixelFrame';
-import { colors, fontFamily, getCharacterImageSource, spacing, textSizes } from '@/shared/config';
+import { gameSurface } from '@/features/game/config';
+import { useChatSender } from '@/features/game/api/useChatSender';
+import { CanvasStage, ChatInputBar, ChatStream } from '@/features/game/ui';
+import { useRoomChatStore } from '@/features/room/model/useRoomChatStore';
+import { useAwardSession } from '@/features/room/lib';
+import { CoinRewardChip, useCoinRewardStore } from '@/features/shop';
+import { ReferenceCanvas, useGifDownload, useMode2Store } from '@/features/mode2';
+import { useRevealPlayback } from '@/features/mode2/lib/useRevealPlayback';
+import { PixelSpeechBubble } from '@/features/mode2/ui/PixelSpeechBubble';
+import { RevealCharacterRow, type RevealSaveState } from '@/features/mode2/ui/RevealCharacterRow';
+import { RevealGuesser } from '@/features/mode2/ui/RevealGuesser';
+import { RevealPainter } from '@/features/mode2/ui/RevealPainter';
+import { ReplayGuideTooltip } from '@/features/mode2/ui/ReplayGuideTooltip';
 
-const FINAL_JUDGE_TIMER_SEC = 15;
-const BEST_VOTE_TIMER_SEC = 20;
+// 맞히는 사람 영역 높이 고정 — 원조자 발표 중에 비어 있어도 스케치북 크기가 흔들리지 않게 한다
+const GUESSER_AREA_HEIGHT = 112;
 
+// 모드 2의 시상식 = 정답 공개식. 실시간으로 함께 본 뒤(AWARD), 캐릭터를 눌러 다시 보고 GIF로 저장한다.
 export default function Mode2ReviewScreen() {
-  const router = useRouter();
   const { code } = useLocalSearchParams<{ code: string }>();
-  const myId = useAuthStore.getState().user?.id ?? '';
-  const socket = useRoomStore((s) => s.socket);
-  const roomState = useRoomStore((s) => s.roomState);
-  const review = useMode2Store((s) => s.review);
-  const { judgeFinal, voteBest } = useMode2Sender();
-  const { height: windowHeight } = useWindowDimensions();
+  const myId = useAuthStore(s => s.user?.id) ?? '';
+  const liveRoomState = useRoomStore(s => s.roomState);
+  // 공개식 화면은 이후 대기실·새 게임 상태가 도착해도 이번 판의 참가자 구성을 유지한다
+  const [roomSnapshot] = useState(() => useRoomStore.getState().roomState);
+  const review = useMode2Store(s => s.review);
+  const reviewEntryStartAt = useMode2Store(s => s.reviewEntryStartAt);
+  const gifs = useMode2Store(s => s.gifs);
+  const chatMessages = useRoomChatStore(s => s.awardMessages);
+  const coinReward = useCoinRewardStore(s => s.reward);
+  const { sendChat } = useChatSender();
+  const { saveGif } = useGifDownload();
+  const { rematch, exit, rematching, rematchError } = useAwardSession(code ?? '');
+  const { scene, isLive, isFinished, startReplay } = useRevealPlayback(review, reviewEntryStartAt);
 
-  const [selectedVoteId, setSelectedVoteId] = useState<string | null>(null);
-  const [hasJudged, setHasJudged] = useState(false);
-  const [exitDialogVisible, setExitDialogVisible] = useState(false);
+  const [guideVisible, setGuideVisible] = useState(false);
+  const [saving, setSaving] = useState(false);
 
-  // 소켓 연결 후 방 재입장 + 화면 독립 진입 대비 mode2:review 안전장치 구독
-  // (reset 없이 review만 구독 — mode2.tsx의 registerMode2Listeners를 다시 호출하지 않는다)
+  // 실시간 발표가 모두 끝난 순간 한 번 다시 보기 안내를 띄운다
   useEffect(() => {
-    if (!socket || !code) return;
-    const handleConnect = (): void => {
-      socket.emit(CLIENT_EVENT.ROOM_JOIN, { code });
-    };
-    const handleReview = (payload: Mode2ReviewState): void => {
-      useMode2Store.setState({ review: payload });
-    };
-    socket.on('connect', handleConnect);
-    socket.on('mode2:review', handleReview);
-    if (socket.connected) handleConnect();
-    return () => {
-      socket.off('connect', handleConnect);
-      socket.off('mode2:review', handleReview);
-    };
-  }, [socket, code]);
+    if (isFinished) setGuideVisible(true);
+  }, [isFinished]);
 
-  // 게임 종료(리뷰+투표 종료) → 종료 화면 라우팅
-  useEffect(() => {
-    if (roomState?.status === 'AWARD') {
-      router.replace(`/room/${code}/mode2-end` as never);
+  const players = useMemo(
+    () => [...(roomSnapshot?.players ?? [])].sort((a, b) => a.slot - b.slot),
+    [roomSnapshot?.players],
+  );
+  const characterOf = (userId: string | null | undefined): string =>
+    players.find(p => p.id === userId)?.characterId ?? '';
+
+  const isInAwardRoster = liveRoomState?.players.some(p => p.id === myId && p.inAward === true) ?? false;
+  // 새 게임이 시작되면 시상식 유저는 명단에서 빠져 awardViewers로 옮겨진다 - 채팅은 계속 가능, 한번 더는 불가
+  const isAwardViewer = liveRoomState?.awardViewers?.some(p => p.id === myId) ?? false;
+  const canChat = isInAwardRoster || isAwardViewer;
+  const canRematch =
+    isFinished && isInAwardRoster && (liveRoomState?.status === 'AWARD' || liveRoomState?.status === 'LOBBY');
+
+  const displayedSheetId = scene ? review?.sheets[scene.sheetIndex]?.sheetId : undefined;
+  const saveState: RevealSaveState = (() => {
+    if (saving) return 'saving';
+    if (!isFinished || !displayedSheetId || !gifs[displayedSheetId]) return 'disabled';
+    return 'ready';
+  })();
+
+  const handleSelect = useCallback(
+    (playerId: string): void => {
+      const sheetIndex = review?.sheets.findIndex(sheet => sheet.ownerId === playerId) ?? -1;
+      if (sheetIndex < 0) return;
+      setGuideVisible(false);
+      startReplay(sheetIndex);
+    },
+    [review?.sheets, startReplay],
+  );
+
+  const handleSave = async (): Promise<void> => {
+    if (!displayedSheetId || saving) return;
+    setSaving(true);
+    try {
+      await saveGif(displayedSheetId);
+      useToastStore.getState().show('저장 완료! 갤러리에서 확인하세요', 'success');
+    } catch (error) {
+      if (error instanceof Error && error.message === 'MEDIA_PERMISSION_DENIED') {
+        Alert.alert('사진 접근 권한이 필요해요', '설정에서 사진 접근을 허용하면 GIF를 저장할 수 있어요.', [
+          { text: '닫기', style: 'cancel' },
+          { text: '설정으로 이동', onPress: () => void Linking.openSettings() },
+        ]);
+      } else {
+        useToastStore.getState().show('저장에 실패했어요. 잠시 후 다시 시도해 주세요', 'error');
+      }
+    } finally {
+      setSaving(false);
     }
-  }, [roomState?.status, code, router]);
-
-  const handleExitAttempt = useCallback((): void => {
-    setExitDialogVisible(true);
-  }, []);
-
-  useEffect(() => {
-    const subscription = BackHandler.addEventListener('hardwareBackPress', () => {
-      handleExitAttempt();
-      return true;
-    });
-    return () => subscription.remove();
-  }, [handleExitAttempt]);
-
-  const handleConfirmExit = (): void => {
-    socket?.emit(CLIENT_EVENT.ROOM_LEAVE);
-    setExitDialogVisible(false);
-    router.replace('/(tabs)' as never);
   };
 
-  const players = roomState?.players ?? [];
-  const currentSheet: Mode2ReviewSheet | undefined = review?.sheets[review.currentSheetIndex];
-
-  // 판정 시트/단계가 바뀌면 로컬 판정 완료 표시 초기화
-  useEffect(() => {
-    setHasJudged(false);
-  }, [review?.currentSheetIndex, review?.subPhase]);
-
-  // BEST_VOTE 진입 시마다 선택값 초기화
-  useEffect(() => {
-    if (review?.subPhase === 'BEST_VOTE') {
-      setSelectedVoteId(null);
-    }
-  }, [review?.subPhase]);
-
-  // FINAL_JUDGE: 마지막 단계 콘텐츠 / SLIDESHOW: currentFrameIndex 단계 콘텐츠
-  const displayContent: Mode2StepContent | null = (() => {
-    if (!review || !currentSheet) return null;
-    if (review.subPhase === 'FINAL_JUDGE') {
-      const last = currentSheet.steps[currentSheet.steps.length - 1];
-      return last?.content ?? null;
-    }
-    if (review.subPhase === 'SLIDESHOW') {
-      const idx = review.currentFrameIndex ?? 0;
-      return currentSheet.steps[idx]?.content ?? null;
-    }
-    return null;
-  })();
-
-  // DrawingCanvas(isDrawer=false)는 useGameStore.remoteStrokes를 읽는다 — 정적 리뷰 프레임을 그 형식으로 동기화
-  useEffect(() => {
-    if (displayContent?.kind === 'DRAW') {
-      useGameStore.setState({
-        remoteStrokes: displayContent.strokes.map((s) => ({
-          strokeId: s.id,
-          authorId: s.authorId,
-          color: s.color,
-          width: s.width,
-          points: s.points,
-          ended: true,
-        })),
-      });
-    } else {
-      useGameStore.setState({ remoteStrokes: [] });
-    }
-  }, [displayContent]);
-
-  const referenceHeight = Math.round(windowHeight * 0.4);
-
-  const renderReferenceContent = (content: Mode2StepContent | null) => {
-    if (!content) return null;
-    if (content.kind === 'DRAW') {
-      return (
-        <View style={{ height: referenceHeight }}>
-          <DrawingCanvas isDrawer={false} />
-        </View>
-      );
-    }
-    return <WordBanner word={content.text} />;
-  };
-
-  const isOwner = currentSheet?.ownerId === myId;
-
-  const headerText = (() => {
-    if (!review) return '';
-    if (review.subPhase === 'BEST_VOTE') return '가장 웃긴 시트에 투표하세요!';
-    if (review.subPhase === 'BEST_REVEAL') return '오늘의 베스트 발표';
-    return `시트 ${review.currentSheetIndex + 1}/${review.sheets.length} 다시보기`;
-  })();
-
-  const headerTimer = (() => {
-    if (!review) return undefined;
-    if (review.subPhase === 'FINAL_JUDGE') return FINAL_JUDGE_TIMER_SEC;
-    if (review.subPhase === 'BEST_VOTE') return BEST_VOTE_TIMER_SEC;
-    return undefined;
-  })();
-
-  const voteSheets: VoteSheet[] = (review?.sheets ?? []).map((s) => {
-    const owner = players.find((p) => p.id === s.ownerId);
-    return {
-      sheetId: s.sheetId,
-      ownerId: s.ownerId,
-      nickname: owner?.nickname ?? s.ownerId,
-      characterId: owner?.characterId ?? 'cat',
-    };
-  });
-
-  const bestSheets = (review?.bestSheetIds ?? [])
-    .map((id) => review?.sheets.find((s) => s.sheetId === id))
-    .filter((s): s is Mode2ReviewSheet => s != null)
-    .map((s) => {
-      const owner = players.find((p) => p.id === s.ownerId);
-      return {
-        sheetId: s.sheetId,
-        nickname: owner?.nickname ?? s.ownerId,
-        characterId: owner?.characterId ?? 'cat',
-      };
-    });
+  // 채팅 스트림 — 게임 진행 중과 동일하게 우상단에 말풍선으로 표시 (정답 판정 없는 자유 채팅)
+  const streamItems = useMemo(
+    () =>
+      chatMessages.slice(-5).map(m => ({
+        id: m.id,
+        nickname: m.nickname,
+        text: m.text,
+        characterId: players.find(p => p.id === m.userId)?.characterId ?? '',
+        textColor: getChatTextColor(players.find(p => p.id === m.userId)?.chatColorId),
+        isCorrect: false,
+        createdAt: m.createdAt,
+      })),
+    [chatMessages, players],
+  );
 
   return (
     <SafeAreaView style={styles.container} edges={['top', 'bottom']}>
-      <Stack.Screen options={{ gestureEnabled: false }} />
-
-      <ReviewProgressHeader key={`${review?.subPhase}-${review?.currentSheetIndex}`} text={headerText} timerSec={headerTimer} />
-
-      {review?.subPhase === 'FINAL_JUDGE' && currentSheet && (
-        <View sx={{ flex: 1, paddingHorizontal: spacing.MD, paddingTop: spacing.LG, gap: spacing.MD }}>
-          {renderReferenceContent(displayContent)}
-          {isOwner && !hasJudged && (
-            <Text sx={{ ...textSizes.T3, color: colors.LIGHT_100, textAlign: 'center' }}>
-              당신이 적은 문장이 이렇게 바뀌었어요!
-            </Text>
-          )}
-          <View sx={{ flex: 1 }} />
-          {isOwner && hasJudged ? (
-            <View sx={{ paddingVertical: spacing.LG, alignItems: 'center' }}>
-              <Text sx={{ ...textSizes.B1, color: colors.GRAY, textAlign: 'center' }}>
-                판정 완료, 다시보기를 준비하고 있어요
-              </Text>
-            </View>
-          ) : (
-            <FinalJudgeButton
-              isOwner={isOwner}
-              onJudge={(ok) => {
-                judgeFinal(currentSheet.sheetId, ok);
-                setHasJudged(true);
-              }}
-            />
-          )}
-        </View>
-      )}
-
-      {review?.subPhase === 'SLIDESHOW' && currentSheet && (
-        <View sx={{ flex: 1, paddingHorizontal: spacing.MD, paddingTop: spacing.LG }}>
-          {renderReferenceContent(displayContent)}
-          <View sx={{ flexDirection: 'row', justifyContent: 'center', gap: spacing.XS, paddingVertical: spacing.MD }}>
-            {currentSheet.steps.map((step, i) => (
-              <View
-                key={step.stepIndex}
-                sx={{
-                  width: 8,
-                  height: 8,
-                  borderRadius: 4,
-                  backgroundColor: i === (review.currentFrameIndex ?? 0) ? colors.PRIMARY_400 : colors.DARK_100,
-                }}
-              />
-            ))}
-          </View>
-        </View>
-      )}
-
-      {review?.subPhase === 'BEST_VOTE' && (
-        <View sx={{ flex: 1 }}>
-          <BestSheetVoteList sheets={voteSheets} myId={myId} selectedId={selectedVoteId} onSelect={setSelectedVoteId} />
-          <View sx={{ padding: spacing.MD }}>
-            <Button
-              label="투표하기"
-              color="primary"
-              height={48}
-              disabled={!selectedVoteId}
-              onPress={() => {
-                if (selectedVoteId) voteBest(selectedVoteId);
-              }}
-            />
-          </View>
-        </View>
-      )}
-
-      {review?.subPhase === 'BEST_REVEAL' && (
-        <View sx={{ flex: 1, alignItems: 'center', paddingTop: spacing.XL }}>
-          <Text sx={{ ...textSizes.T1, fontFamily: fontFamily.BOLD, color: colors.LIGHT_100, marginBottom: spacing.LG }}>
-            오늘의 베스트 🏆
+      {/* 타이틀 + 한번 더 / 나가기 — 모드 1 시상식과 동일 */}
+      <View sx={sxStyles.titleRow}>
+        <View sx={{ flex: 1, flexDirection: 'row', alignItems: 'center', gap: spacing.SM }}>
+          <Text style={styles.title} sx={{ color: colors.LIGHT_100 }}>
+            정답 공개
           </Text>
-          <ScrollView horizontal contentContainerStyle={{ gap: spacing.MD, paddingHorizontal: spacing.MD }}>
-            {bestSheets.map((sheet) => {
-              const source = getCharacterImageSource(sheet.characterId);
-              return (
-                <SparkleBadge key={sheet.sheetId}>
-                  <View sx={{ width: 96, height: 96 }}>
-                    <PixelFrame borderColor={colors.PRIMARY_400} style={StyleSheet.absoluteFill}>
-                      <View style={[StyleSheet.absoluteFill, { backgroundColor: colors.DARK_100 }]} />
-                    </PixelFrame>
-                    <View sx={{ flex: 1, alignItems: 'center', justifyContent: 'center' }}>
-                      {source !== null ? (
-                        <Image source={source} sx={{ width: 48, height: 48 }} resizeMode="contain" />
-                      ) : (
-                        <View sx={{ width: 48, height: 48, backgroundColor: colors.SECONDARY_400 }} />
-                      )}
-                    </View>
-                    <View sx={{ paddingBottom: spacing.XS, paddingHorizontal: spacing.XS }}>
-                      <Text sx={{ ...textSizes.B3, color: colors.LIGHT_100, textAlign: 'center' }} numberOfLines={1}>
-                        {sheet.nickname}
-                      </Text>
-                    </View>
-                  </View>
-                </SparkleBadge>
-              );
-            })}
-          </ScrollView>
+          {coinReward && coinReward.gameId === roomSnapshot?.gameId && <CoinRewardChip reward={coinReward} />}
         </View>
-      )}
+        <View sx={{ flexDirection: 'row', gap: spacing.XS }}>
+          <Button
+            label="한번 더!"
+            color="primary"
+            height={32}
+            onPress={rematch}
+            loading={rematching}
+            disabled={!canRematch}
+          />
+          <Button label="나가기" color="light" height={32} onPress={exit} />
+        </View>
+      </View>
 
+      <RevealCharacterRow
+        players={players}
+        myId={myId}
+        highlightedId={scene?.ownerId ?? null}
+        selectable={isFinished}
+        onSelect={handleSelect}
+        saveState={saveState}
+        onSave={() => void handleSave()}
+      />
+
+      <Pressable style={styles.stage} onPress={Keyboard.dismiss} accessible={false}>
+        {scene ? (
+          <>
+            <View sx={{ alignItems: 'center', gap: 12, paddingHorizontal: spacing.MD, paddingTop: spacing.SM }}>
+              <RevealPainter key={scene.ownerId ?? 'owner'} characterId={characterOf(scene.ownerId)} />
+              <PixelSpeechBubble text={scene.ownerText} tail="up" />
+            </View>
+
+            <View sx={{ flex: 1, paddingHorizontal: spacing.MD, paddingVertical: spacing.SM }}>
+              <CanvasStage>
+                <ReferenceCanvas strokes={scene.strokes} />
+              </CanvasStage>
+            </View>
+
+            <View sx={{ height: GUESSER_AREA_HEIGHT, paddingHorizontal: spacing.MD, justifyContent: 'flex-end' }}>
+              {scene.guesser && (
+                <RevealGuesser
+                  key={scene.guesser.authorId}
+                  characterId={characterOf(scene.guesser.authorId)}
+                  text={scene.guesser.text}
+                  icon={scene.guesser.icon}
+                />
+              )}
+            </View>
+          </>
+        ) : (
+          <View sx={{ flex: 1, alignItems: 'center', justifyContent: 'center' }}>
+            <Text sx={{ ...textSizes.B1, color: colors.GRAY }}>정답 공개를 준비하고 있어요...</Text>
+          </View>
+        )}
+
+        {/* 채팅 말풍선 — 게임 진행 화면과 동일하게 우상단에 겹쳐 표시 */}
+        <ChatStream items={streamItems} />
+        {guideVisible && !isLive && <ReplayGuideTooltip onClose={() => setGuideVisible(false)} />}
+      </Pressable>
+
+      <KeyboardAvoidingView behavior="padding">
+        <ChatInputBar
+          isDrawer={false}
+          onSend={sendChat}
+          disabled={!canChat}
+          placeholder={canChat ? '채팅을 입력하세요' : '채팅할 수 없는 상태예요'}
+        />
+      </KeyboardAvoidingView>
       <Dialog
-        visible={exitDialogVisible}
-        onClose={() => setExitDialogVisible(false)}
-        title="게임에서 나가기"
-        buttons={[
-          { label: '계속 플레이', color: 'primary', onPress: () => setExitDialogVisible(false) },
-          { label: '나가기', color: 'dark', onPress: handleConfirmExit },
-        ]}
-      >
-        <Text sx={{ ...textSizes.B2, color: colors.LIGHT_100 }}>
-          게임을 나가면 현재 진행 중인 시트가 비어있는 상태로 처리됩니다. 계속할까요?
-        </Text>
-      </Dialog>
+        visible={rematchError !== null}
+        onClose={() => {}}
+        dismissible={false}
+        title={rematchError ?? ''}
+        buttons={[{ label: '홈으로', color: 'primary', onPress: exit }]}
+      />
     </SafeAreaView>
   );
 }
 
+const sxStyles = {
+  titleRow: {
+    flexDirection: 'row' as const,
+    alignItems: 'center' as const,
+    justifyContent: 'space-between' as const,
+    paddingHorizontal: spacing.MD,
+    paddingVertical: spacing.SM,
+  },
+};
+
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: colors.DARK_200,
+    backgroundColor: gameSurface.FRAME,
+  },
+  stage: {
+    flex: 1,
+    position: 'relative',
+  },
+  title: {
+    fontFamily: fontFamily.REGULAR,
+    ...textSizes.T1,
   },
 });

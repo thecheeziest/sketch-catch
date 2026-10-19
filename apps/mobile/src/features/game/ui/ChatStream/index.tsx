@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import { Image, Text, View } from 'dripsy';
-import { StyleSheet, useWindowDimensions } from 'react-native';
+import { StyleSheet } from 'react-native';
 import Animated, { FadeInDown, FadeOut, LinearTransition } from 'react-native-reanimated';
 import { fontFamily, getCharacterColor, getCharacterImageSource } from '@/shared/config';
 import { PixelFrame } from '@/shared/ui/PixelFrame';
@@ -15,6 +15,8 @@ export type ChatStreamItem = {
   createdAt: number;
   /** 정답 시 획득 점수 — 도착 전(찰나)에는 배지를 "정답"으로 대체 표시 */
   score?: number;
+  /** 상점에서 산 채팅 글자색 — null이면 기본색 */
+  textColor?: string | null;
 };
 
 type Props = {
@@ -33,10 +35,6 @@ const CHIP_SIZE = 16;
  * (흰 캔버스 위에서 글자가 배경과 함께 흰색으로 수렴해 대비가 붕괴).
  */
 export function ChatStream({ items }: Props) {
-  const { width } = useWindowDimensions();
-  const columnWidth = Math.floor(width * 0.72);
-  const maxRowWidth = Math.floor(width * 0.7);
-
   // 5초 만료는 시간 경과만으로도 재렌더가 필요 — items가 안 바뀌어도 틱을 돌리다가,
   // 살아있는 메시지가 없어지면 인터벌을 스스로 정리한다(무한 리렌더 방지).
   const [, setTick] = useState(0);
@@ -52,11 +50,20 @@ export function ChatStream({ items }: Props) {
   const visible = items.filter((i) => Date.now() - i.createdAt < DISPLAY_MS);
 
   return (
-    <View pointerEvents="none" style={[styles.container, { width: columnWidth }]}>
+    <View pointerEvents="none" style={styles.container}>
       {visible.map((item, index) => {
         const ageBg = AGE_STEPS[AGE_STEPS.length - visible.length + index] ?? AGE_STEPS[AGE_STEPS.length - 1];
-        const bg = item.isCorrect ? chatStream.CORRECT_BG : ageBg;
-        const fg = item.isCorrect ? chatStream.CORRECT_FG : chatStream.TEXT_FG;
+        // 글자색을 산 메시지는 대비를 지키려고 가장 어두운 단계 배경에 얹는다
+        const hasTextColor = !item.isCorrect && !!item.textColor;
+        const bg = (() => {
+          if (item.isCorrect) return chatStream.CORRECT_BG;
+          if (hasTextColor) return AGE_STEPS[AGE_STEPS.length - 1];
+          return ageBg;
+        })();
+        const fg = (() => {
+          if (item.isCorrect) return chatStream.CORRECT_FG;
+          return item.textColor ?? chatStream.TEXT_FG;
+        })();
         const nameFg = item.isCorrect ? chatStream.CORRECT_FG : chatStream.NAME_FG;
         const imageSource = getCharacterImageSource(item.characterId);
 
@@ -77,7 +84,7 @@ export function ChatStream({ items }: Props) {
                 gap: 7,
                 paddingHorizontal: 10,
                 paddingVertical: 7,
-                maxWidth: maxRowWidth,
+                maxWidth: '100%',
               }}
             >
               {imageSource !== null ? (
@@ -91,12 +98,8 @@ export function ChatStream({ items }: Props) {
               >
                 {item.nickname}
               </Text>
-              <Text
-                sx={{ fontFamily: fontFamily.REGULAR, fontSize: 13, color: fg, flexShrink: 1 }}
-                numberOfLines={1}
-              >
-                {item.text}
-              </Text>
+              {/* 긴 채팅도 말줄임 없이 전체를 보여준다 (최대 30자라 두세 줄 안에서 끝난다) */}
+              <Text sx={{ fontFamily: fontFamily.REGULAR, fontSize: 13, color: fg, flexShrink: 1 }}>{item.text}</Text>
               {item.isCorrect && (
                 <Text sx={{ fontFamily: fontFamily.BOLD, fontSize: 11, color: chatStream.CORRECT_FG, flexShrink: 0 }}>
                   {item.score != null ? `+${item.score}` : '정답'}
@@ -113,6 +116,7 @@ export function ChatStream({ items }: Props) {
 const styles = StyleSheet.create({
   container: {
     position: 'absolute',
+    width: '72%',
     top: 10,
     right: 10,
     alignItems: 'flex-end',

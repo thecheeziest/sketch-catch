@@ -1,7 +1,8 @@
+import { FeedbackPressable } from '@/shared/ui/FeedbackPressable';
 import { Image, Text, View } from 'dripsy'
 import { getCharacterImageSource, colors, spacing } from '@/shared/config';
 import { copyToClipboard } from '@/shared/lib';
-import { Pressable } from 'react-native';
+
 import { Icon } from '@/shared/ui/Icon';
 
 type Props = {
@@ -31,13 +32,13 @@ export function ProfileCard({ nickname, friendCode, characterId }: Props) {
             #{friendCode}
           </Text>
         </View>
-        <Pressable
+        <FeedbackPressable
           onPress={handleCopy}
           style={({ pressed }) => (pressed ? { opacity: 0.5 } : null)}
           hitSlop={8}
         >
           <Icon name="COPY" size={20} />
-        </Pressable>
+        </FeedbackPressable>
       </View>
     </View>
   );

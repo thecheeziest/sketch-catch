@@ -1,5 +1,5 @@
 import { useEffect, useRef } from 'react';
-import type { Point } from '@sketch-catch/shared';
+import type { PaintSpan, Point } from '@sketch-catch/shared';
 import { useRoomStore } from '@/shared/model/room';
 
 const FLUSH_INTERVAL = 50; // ms
@@ -10,7 +10,7 @@ type Buffer = {
 } | null;
 
 export function useStrokeSender(isDrawer: boolean) {
-  const socket = useRoomStore((s) => s.socket);
+  const socket = useRoomStore(s => s.socket);
   const bufferRef = useRef<Buffer>(null);
   const intervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
@@ -67,5 +67,9 @@ export function useStrokeSender(isDrawer: boolean) {
     };
   }, []);
 
-  return { startStroke, pushPoint, endStroke, undo, clear };
+  const fill = (strokeId: string, color: string, paintSpans: PaintSpan[]): void => {
+    if (isDrawer) socket?.emit('stroke:fill', { strokeId, color, paintSpans });
+  };
+
+  return { startStroke, pushPoint, endStroke, undo, clear, fill };
 }

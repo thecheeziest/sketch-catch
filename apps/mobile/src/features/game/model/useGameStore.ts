@@ -1,6 +1,15 @@
 import { create } from 'zustand';
 import { immer } from 'zustand/middleware/immer';
-import type { StrokeEvent, Point, RoundStart, RoundEnd, GameResult, ChatMessage } from '@sketch-catch/shared';
+import type {
+  StrokeEvent,
+  PaintSpan,
+  Point,
+  RoundStart,
+  RoundEnd,
+  GameResult,
+  ChatMessage,
+  RoomState,
+} from '@sketch-catch/shared';
 import { useRoomStore } from '@/shared/model/room';
 import { useAuthStore } from '@/shared/model/auth';
 import { colors } from '@/shared/config';
@@ -12,15 +21,32 @@ type RemoteStroke = {
   authorId: string;
   color: string;
   width: number;
+  paintSpans?: PaintSpan[];
   points: Point[];
   ended: boolean;
 };
 
+function toRemoteStroke(e: StrokeEvent): RemoteStroke {
+  return {
+    strokeId: e.strokeId,
+    authorId: e.authorId,
+    color: e.color ?? colors.DARK_500,
+    width: e.width ?? 8,
+    points: e.points ?? [],
+    paintSpans: e.paintSpans,
+    ended: e.ended ?? false,
+  };
+}
+
 type GameStore = {
-  round: { roundIndex: number; drawerId: string; durationSec: number } | null;
+  // 지금 진행 중인 게임 1판의 식별자 (room:state 기준). 다른 gameId의 이벤트는 지난 게임 것으로 보고 버린다
+  gameId: string | null;
+  round: { roundIndex: number; drawerId: string; durationSec: number; endsAt: number } | null;
   promptForDrawer: string | null;
   promptHint: string | null;
   needsCustomPrompt: boolean;
+  waitingForPrompt: boolean;
+  promptInputEndsAt: number | null;
   // 이번 라운드가 출제자가 직접 제시어를 입력하는 커스텀 라운드인지 여부
   // (프리셋 제시어 라운드에선 '정답 인정' 수동 버튼을 노출하지 않는다)
   isCustomRound: boolean;
@@ -34,16 +60,19 @@ type GameStore = {
   color: string;
   width: number;
   eraser: boolean;
+  paint: boolean;
   // 출제자 본인은 stroke:remote를 받지 않으므로(서버가 sender 제외 broadcast), 지우기/되돌리기
   // 신호를 스토어 nonce로 전달해 DrawingCanvas의 로컬 stroke도 함께 정리한다.
   drawerClearNonce: number;
   drawerUndoNonce: number;
   // actions
-  registerGameListeners: () => void;
+  // 방 소켓에 게임 이벤트 리스너를 1회 등록하고 해제 함수를 돌려준다 (room/[code]/_layout에서 호출)
+  registerGameListeners: () => () => void;
   applyRemoteStroke: (e: StrokeEvent) => void;
   setColor: (c: string) => void;
   setWidth: (w: number) => void;
   setEraser: (on: boolean) => void;
+  setPaint: (on: boolean) => void;
   clearRemote: () => void;
   requestDrawerClear: () => void;
   requestDrawerUndo: () => void;
@@ -52,10 +81,13 @@ type GameStore = {
 
 export const useGameStore = create<GameStore>()(
   immer((set, get) => ({
+    gameId: null,
     round: null,
     promptForDrawer: null,
     promptHint: null,
     needsCustomPrompt: false,
+    waitingForPrompt: false,
+    promptInputEndsAt: null,
     isCustomRound: false,
     remoteStrokes: [],
     chatMessages: [],
@@ -67,11 +99,12 @@ export const useGameStore = create<GameStore>()(
     color: '#14101C',
     width: 8,
     eraser: false,
+    paint: false,
     drawerClearNonce: 0,
     drawerUndoNonce: 0,
 
     applyRemoteStroke: (e: StrokeEvent) => {
-      set((st) => {
+      set(st => {
         if (e.strokeId === '__clear__') {
           st.remoteStrokes = [];
           return;
@@ -80,7 +113,7 @@ export const useGameStore = create<GameStore>()(
           st.remoteStrokes.pop();
           return;
         }
-        const existing = st.remoteStrokes.find((s) => s.strokeId === e.strokeId);
+        const existing = st.remoteStrokes.find(s => s.strokeId === e.strokeId);
         if (existing) {
           if (e.points) {
             existing.points = existing.points.concat(e.points);
@@ -89,26 +122,30 @@ export const useGameStore = create<GameStore>()(
             existing.ended = e.ended;
           }
         } else {
-          st.remoteStrokes.push({
-            strokeId: e.strokeId,
-            authorId: e.authorId,
-            color: e.color ?? colors.DARK_500,
-            width: e.width ?? 8,
-            points: e.points ?? [],
-            ended: e.ended ?? false,
-          });
+          st.remoteStrokes.push(toRemoteStroke(e));
         }
       });
     },
 
     registerGameListeners: () => {
       const socket = useRoomStore.getState().socket;
-      if (!socket) return;
+      if (!socket) return () => undefined;
       const myId = useAuthStore.getState().user?.id;
+      const isCurrentGame = (gameId: string): boolean => gameId === get().gameId;
 
-      // 이벤트명 리터럴 직접 사용 — D-04-04
-      socket.on('game:round:start', (payload: RoundStart) => {
-        set((st) => {
+      // 새 게임이 시작되거나(대기실 → 게임) 대기실로 돌아오면 gameId가 바뀐다 — 이전 판의 데이터를 비운다
+      const handleRoomState = (state: RoomState): void => {
+        const nextGameId = state.gameId ?? null;
+        if (nextGameId === get().gameId) return;
+        get().reset();
+        set(st => {
+          st.gameId = nextGameId;
+        });
+      };
+
+      const handleRoundStart = (payload: RoundStart): void => {
+        if (!isCurrentGame(payload.gameId)) return;
+        set(st => {
           // 커스텀 라운드는 제시어 입력 전/후 두 번의 round:start를 같은 roundIndex로 보낸다.
           // 새 라운드 진입 시점에만 커스텀 여부를 확정하고, 후속 재전송에선 유지한다.
           const isNewRound = st.round?.roundIndex !== payload.roundIndex;
@@ -116,15 +153,18 @@ export const useGameStore = create<GameStore>()(
             roundIndex: payload.roundIndex,
             drawerId: payload.drawerId,
             durationSec: payload.durationSec,
+            endsAt: Date.now() + payload.durationSec * 1000,
           };
           if (isNewRound) {
-            st.isCustomRound = payload.needsCustomPrompt === true;
+            st.isCustomRound = payload.isCustomRound ?? payload.needsCustomPrompt === true;
             // 새 라운드 진입 — 직전 라운드의 정답/오답/결과 오버레이 데이터를 정리한다
             // (결과 오버레이·정답 공개·입력창 상태는 이 값들을 기준으로 삼는다).
             st.correct = null;
             st.wrongAnswer = null;
             st.roundResult = null;
           }
+          st.waitingForPrompt = payload.needsCustomPrompt === true;
+          st.promptInputEndsAt = payload.promptInputEndsAt ?? null;
           if (payload.drawerId === myId) {
             st.promptForDrawer = payload.promptForDrawer ?? null;
             // 커스텀 모드: 제시어 입력 전 첫 game:round:start 이벤트
@@ -133,94 +173,168 @@ export const useGameStore = create<GameStore>()(
             st.promptForDrawer = null;
             st.needsCustomPrompt = false;
           }
-          st.promptHint = payload.promptForDrawer
-            ? payload.promptForDrawer.split('').map((ch) => (ch === ' ' ? ' ' : 'ㅇ')).join('')
-            : null;
+          st.promptHint = payload.promptHint ?? null;
           // 커스텀 모드: 서버가 제시어를 받은 뒤 다시 game:round:start를 보낼 때 캔버스 유지
-          if (!payload.needsCustomPrompt) {
+          if (isNewRound) {
             st.remoteStrokes = [];
           }
         });
-      });
+      };
 
-      socket.on('game:round:end', (payload: RoundEnd) => {
-        set((st) => {
+      const handleRoundEnd = (payload: RoundEnd): void => {
+        if (!isCurrentGame(payload.gameId)) return;
+        set(st => {
           st.roundResult = payload;
         });
-      });
+      };
 
-      socket.on('game:end', (payload: GameResult) => {
-        set((st) => {
+      const handleHint = (payload: { gameId: string; roundIndex: number; promptHint: string }): void => {
+        if (!isCurrentGame(payload.gameId)) return;
+        set(st => {
+          if (st.round?.roundIndex !== payload.roundIndex) return;
+          st.promptHint = payload.promptHint;
+        });
+      };
+
+      const handleGameEnd = (payload: GameResult): void => {
+        if (!isCurrentGame(payload.gameId)) return;
+        set(st => {
           st.result = payload;
         });
-      });
+      };
 
-      socket.on('stroke:remote', (e: StrokeEvent) => {
+      const handleStrokeRemote = (e: StrokeEvent): void => {
         get().applyRemoteStroke(e);
-      });
+      };
 
-      socket.on('chat:message', (msg: ChatMessage) => {
-        set((st) => {
-          st.chatMessages.push(msg);
+      // 재접속 직후 실시간 메시지와 기록(chat:sync)이 겹쳐 올 수 있어 id로 중복을 거른다
+      const appendChatMessages = (messages: ChatMessage[]): void => {
+        set(st => {
+          const knownIds = new Set(st.chatMessages.map(m => m.id));
+          for (const msg of messages) {
+            if (knownIds.has(msg.id)) continue;
+            knownIds.add(msg.id);
+            st.chatMessages.push(msg);
+          }
+          st.chatMessages.sort((a, b) => a.createdAt - b.createdAt);
           if (st.chatMessages.length > MAX_CHAT_MESSAGES) {
             st.chatMessages.splice(0, st.chatMessages.length - MAX_CHAT_MESSAGES);
           }
         });
-      });
+      };
 
-      socket.on('chat:correct', (payload: { userId: string; messageId: string }) => {
-        set((st) => {
-          st.correct = payload;
+      const handleChatMessage = (msg: ChatMessage): void => {
+        // 대기실·시상식 채팅은 useRoomChatStore가 따로 보관한다
+        if (msg.channel !== undefined) return;
+        appendChatMessages([msg]);
+      };
+
+      // 재접속 시 끊겨 있던 동안의 게임 채팅
+      const handleChatSync = (payload: { gameId: string; messages: ChatMessage[] }): void => {
+        if (!isCurrentGame(payload.gameId)) return;
+        appendChatMessages(payload.messages.filter(msg => msg.channel === undefined));
+      };
+
+      // 재접속 시 현재 라운드 그림 전체 — 끊겨 있던 동안 놓친 획까지 포함하므로 관전 캔버스를 통째로 교체한다
+      const handleStrokeSync = (payload: { gameId: string; roundIndex: number; strokes: StrokeEvent[] }): void => {
+        if (!isCurrentGame(payload.gameId)) return;
+        set(st => {
+          if (st.round?.roundIndex !== payload.roundIndex) return;
+          st.remoteStrokes = payload.strokes.map(toRemoteStroke);
         });
-      });
+      };
 
-      socket.on('answer:wrong', (payload: { messageId: string; roundIndex: number }) => {
-        set((st) => {
+      const handleChatCorrect = (payload: { gameId: string; userId: string; messageId: string }): void => {
+        if (!isCurrentGame(payload.gameId)) return;
+        set(st => {
+          st.correct = { userId: payload.userId, messageId: payload.messageId };
+        });
+      };
+
+      const handleAnswerWrong = (payload: { messageId: string; roundIndex: number }): void => {
+        set(st => {
           // 네트워크 지연으로 응답이 라운드 종료 후 도착하면 다음 라운드 시작 화면에서
           // 엉뚱하게 "오답입니다" 피드백이 뜬다 — 이미 지난 라운드의 응답이면 무시한다.
           if (st.round !== null && payload.roundIndex !== st.round.roundIndex) return;
           st.wrongAnswer = payload;
         });
-      });
+      };
+
+      // 이벤트명 리터럴 직접 사용 — D-04-04
+      socket.on('room:state', handleRoomState);
+      socket.on('game:round:start', handleRoundStart);
+      socket.on('game:round:end', handleRoundEnd);
+      socket.on('game:hint', handleHint);
+      socket.on('game:end', handleGameEnd);
+      socket.on('stroke:remote', handleStrokeRemote);
+      socket.on('stroke:sync', handleStrokeSync);
+      socket.on('chat:message', handleChatMessage);
+      socket.on('chat:sync', handleChatSync);
+      socket.on('chat:correct', handleChatCorrect);
+      socket.on('answer:wrong', handleAnswerWrong);
+
+      return () => {
+        socket.off('room:state', handleRoomState);
+        socket.off('game:round:start', handleRoundStart);
+        socket.off('game:round:end', handleRoundEnd);
+        socket.off('game:hint', handleHint);
+        socket.off('game:end', handleGameEnd);
+        socket.off('stroke:remote', handleStrokeRemote);
+        socket.off('stroke:sync', handleStrokeSync);
+        socket.off('chat:message', handleChatMessage);
+        socket.off('chat:sync', handleChatSync);
+        socket.off('chat:correct', handleChatCorrect);
+        socket.off('answer:wrong', handleAnswerWrong);
+      };
     },
 
-    setColor: (c) =>
-      set((st) => {
+    setColor: c =>
+      set(st => {
         st.color = c;
         st.eraser = false;
       }),
 
-    setWidth: (w) =>
-      set((st) => {
+    setWidth: w =>
+      set(st => {
         st.width = w;
       }),
 
-    setEraser: (on) =>
-      set((st) => {
+    setEraser: on =>
+      set(st => {
         st.eraser = on;
+        st.paint = false;
+      }),
+
+    setPaint: on =>
+      set(st => {
+        st.paint = on;
+        st.eraser = false;
       }),
 
     clearRemote: () =>
-      set((st) => {
+      set(st => {
         st.remoteStrokes = [];
       }),
 
     requestDrawerClear: () =>
-      set((st) => {
+      set(st => {
         st.drawerClearNonce += 1;
       }),
 
     requestDrawerUndo: () =>
-      set((st) => {
+      set(st => {
         st.drawerUndoNonce += 1;
       }),
 
     reset: () =>
-      set((st) => {
+      set(st => {
+        st.gameId = null;
         st.round = null;
         st.promptForDrawer = null;
         st.promptHint = null;
         st.needsCustomPrompt = false;
+        st.waitingForPrompt = false;
+        st.promptInputEndsAt = null;
         st.isCustomRound = false;
         st.remoteStrokes = [];
         st.chatMessages = [];
@@ -231,8 +345,9 @@ export const useGameStore = create<GameStore>()(
         st.color = '#14101C';
         st.width = 8;
         st.eraser = false;
+        st.paint = false;
         st.drawerClearNonce = 0;
         st.drawerUndoNonce = 0;
       }),
-  }))
+  })),
 );

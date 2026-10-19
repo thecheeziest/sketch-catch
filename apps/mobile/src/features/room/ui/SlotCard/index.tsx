@@ -1,9 +1,12 @@
+import { FeedbackPressable } from '@/shared/ui/FeedbackPressable';
 import { colors, getCharacterImageSource, spacing, textSizes } from '@/shared/config';
 import { Badge } from '@/shared/ui/Badge';
+import { CosmeticAvatar } from '@/shared/ui/CosmeticAvatar';
+import { Button } from '@/shared/ui/Button';
 import { Icon } from '@/shared/ui/Icon';
 import { PixelFrame } from '@/shared/ui/PixelFrame';
 import type { Player } from '@sketch-catch/shared';
-import { Image, Text, View } from 'dripsy';
+import { Text, View } from 'dripsy';
 import { useEffect } from 'react';
 import { StyleSheet } from 'react-native';
 import Animated, {
@@ -20,9 +23,14 @@ type Props = {
   isMe: boolean;
   cardWidth: number;
   isLeft?: boolean; // 게임 강제종료 시 중도 퇴장 플레이어 표시
+  isWaiting?: boolean; // 시상식에서 [한번 더!]로 대기실에 재입장해 다음 게임을 기다리는 플레이어
+  onPress?: () => void;
+  statusLabel?: string;
+  // 시상식에 남은 방장에게 돌아오라고 재촉 - 시상식 중인 유저 카드 위에 버튼으로 표시
+  onNudge?: () => void;
 };
 
-export function SlotCard({ player, isMe, cardWidth, isLeft = false }: Props) {
+export function SlotCard({ player, isMe, cardWidth, isLeft = false, isWaiting = false, onPress, statusLabel, onNudge }: Props) {
   const shineProgress = useSharedValue(0);
 
   useEffect(() => {
@@ -72,8 +80,16 @@ export function SlotCard({ player, isMe, cardWidth, isLeft = false }: Props) {
   const imageSource = getCharacterImageSource(player.characterId);
   // 좁은 그리드(4열 등)에서 캐릭터 이미지가 카드 높이를 넘겨 닉네임과 겹치지 않도록 카드 폭에 비례
   const charSize = Math.max(28, Math.min(44, Math.round(cardWidth * 0.5)));
+  const secondaryLabel = (() => {
+    if (isLeft) return '나감';
+    if (statusLabel !== undefined) return statusLabel;
+    if (player.isReady) return '준비 완료';
+    return '대기 중';
+  })();
+
 
   return (
+    <FeedbackPressable onPress={onPress} disabled={!onPress}>
     <View sx={{ aspectRatio: 0.85, margin: spacing.XS, width: cardWidth }}>
       <PixelFrame
         borderColor={borderColor}
@@ -93,16 +109,17 @@ export function SlotCard({ player, isMe, cardWidth, isLeft = false }: Props) {
         )}
         <View sx={{ flex: 1, alignItems: 'center', justifyContent: 'center', paddingTop: spacing.XS }}>
           {imageSource !== null ? (
-            <Image
-              source={imageSource}
-              sx={{ width: charSize, height: charSize }}
-              resizeMode="contain"
-              style={isLeft ? styles.dimmedImage : undefined}
+            <CosmeticAvatar
+              characterId={player.characterId}
+              frameId={player.frameId}
+              backgroundId={player.backgroundId}
+              size={Math.round(charSize / 0.8)}
+              dimmed={isLeft || isWaiting}
             />
           ) : (
             <View
               sx={{ width: charSize, height: charSize, backgroundColor: colors.SECONDARY_400 }}
-              style={isLeft ? styles.dimmedImage : undefined}
+              style={isLeft || isWaiting ? styles.dimmedImage : undefined}
             />
           )}
         </View>
@@ -117,17 +134,44 @@ export function SlotCard({ player, isMe, cardWidth, isLeft = false }: Props) {
           </Text>
           {!isHost && (
             <Text variant="B4" sx={{ color: isLeft ? colors.GRAY : player.isReady ? colors.LIGHT_100 : colors.DARK_100, textAlign: 'center' }} numberOfLines={1}>
-              {isLeft ? '나감' : player.isReady ? '준비 완료' : '대기 중'}
+              {secondaryLabel}
             </Text>
           )}
         </View>
         {isHost && !isLeft && <Animated.View style={[styles.shine, shineStyle]} pointerEvents="none" />}
+        {isWaiting && !isLeft && (
+          <View style={styles.awardOverlay} pointerEvents="none">
+            <Text variant="B4" sx={{ color: colors.LIGHT_100, textAlign: 'center' }}>
+              게임 대기 중
+            </Text>
+          </View>
+        )}
+        {/* 시상식에서 아직 [한번 더!]를 누르지 않은 유저 */}
+        {player.inAward === true && (
+          <View style={styles.awardOverlay} pointerEvents="box-none">
+            <Text variant="B4" sx={{ color: colors.LIGHT_100, textAlign: 'center' }}>
+              시상 진행 중..
+            </Text>
+            {onNudge !== undefined && (
+              <View sx={{ marginTop: spacing.XS }}>
+                <Button label="재촉하기" color="primary" height={26} onPress={onNudge} />
+              </View>
+            )}
+          </View>
+        )}
       </PixelFrame>
     </View>
+    </FeedbackPressable>
   );
 }
 
 const styles = StyleSheet.create({
+  awardOverlay: {
+    ...StyleSheet.absoluteFill,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: `${colors.DARK_200}B3`,
+  },
   badgeContainer: { position: 'absolute', top: 8, right: 8, zIndex: 1 },
   leftBadge: {
     width: 22,

@@ -4,9 +4,10 @@ import type { RoomState } from '@sketch-catch/shared';
 const mockRedisSet = vi.fn().mockResolvedValue('OK');
 const mockRedisGet = vi.fn();
 const mockRedisDel = vi.fn();
+const mockRedisZadd = vi.fn().mockResolvedValue(1);
 
 vi.mock('../db/redis.js', () => ({
-  redis: { set: mockRedisSet, get: mockRedisGet, del: mockRedisDel },
+  redis: { set: mockRedisSet, get: mockRedisGet, del: mockRedisDel, zadd: mockRedisZadd },
   setPresence: vi.fn(),
   getPresence: vi.fn(),
 }));
@@ -49,6 +50,7 @@ describe('rooms.service', () => {
       'EX',
       7200
     );
+    expect(mockRedisZadd).toHaveBeenCalledWith('rooms:index', expect.any(Number), state.code);
   });
 
   it('ROOM-01: createRoom이 title/locked/config를 RoomState에 반영한다', async () => {
@@ -131,5 +133,17 @@ describe('rooms.service', () => {
       await expect(withRoomLock('ABC123', fn)).rejects.toThrow('boom');
       expect(mockRedisDel).toHaveBeenCalledWith('room:ABC123:lock');
     });
+  });
+});
+
+describe('방 카테고리 검증', () => {
+  it('카테고리를 하나도 고르지 않으면 방 생성·설정 변경 입력을 거부한다', async () => {
+    const { createRoomSchema, roomCategoriesSchema } = await import('@sketch-catch/shared');
+    const input = { mode: 1, playerCountMax: 4, roundCount: 2, drawTimer: 60, categories: [] };
+
+    expect(createRoomSchema.safeParse(input).success).toBe(false);
+    expect(createRoomSchema.safeParse({ ...input, categories: ['MEME'] }).success).toBe(true);
+    expect(roomCategoriesSchema.safeParse([]).success).toBe(false);
+    expect(roomCategoriesSchema.safeParse(['NOT_A_CATEGORY']).success).toBe(false);
   });
 });

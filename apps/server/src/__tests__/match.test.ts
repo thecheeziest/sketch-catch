@@ -1,5 +1,4 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
-import { SERVER_EVENT } from '@sketch-catch/shared';
 
 // 실제 ioredis 대신 ZSET/문자열 키만 지원하는 in-memory fake — match.service가 쓰는 명령만 구현
 const { zsets, strings } = vi.hoisted(() => ({
@@ -87,22 +86,18 @@ vi.mock('../services/rooms.service.js', () => ({
   })),
 }));
 
-vi.mock('../socket/game.namespace.js', () => ({
-  emitToUser: vi.fn(),
-}));
-
 vi.mock('../socket/presence.namespace.js', () => ({
   broadcastPresenceUpdate: vi.fn(),
+  emitToPresenceUser: vi.fn(),
 }));
 
 import { enqueueMatch, dequeueMatch } from '../services/match.service.js';
 import { redis, setPresence, setUserRoom } from '../db/redis.js';
 import { createRoom } from '../services/rooms.service.js';
-import { emitToUser } from '../socket/game.namespace.js';
-import { broadcastPresenceUpdate } from '../socket/presence.namespace.js';
+import { broadcastPresenceUpdate, emitToPresenceUser } from '../socket/presence.namespace.js';
 
 const mockedCreateRoom = vi.mocked(createRoom);
-const mockedEmitToUser = vi.mocked(emitToUser);
+const mockedEmitToUser = vi.mocked(emitToPresenceUser);
 
 const T0 = new Date('2026-01-01T00:00:00.000Z').getTime();
 
@@ -133,7 +128,7 @@ describe('match.service', () => {
 
     const deadline = T0 + 20_000;
     (['u1', 'u2', 'u3'] as const).forEach((id) => {
-      expect(mockedEmitToUser).toHaveBeenCalledWith(id, SERVER_EVENT.MATCH_UPDATE, {
+      expect(mockedEmitToUser).toHaveBeenCalledWith(id, 'match:update', {
         mode: 1,
         count: 3,
         min: 3,
@@ -157,7 +152,7 @@ describe('match.service', () => {
 
     const deadline = T0 + 20_000;
     (['u1', 'u2', 'u3', 'u4'] as const).forEach((id) => {
-      expect(mockedEmitToUser).toHaveBeenCalledWith(id, SERVER_EVENT.MATCH_UPDATE, {
+      expect(mockedEmitToUser).toHaveBeenCalledWith(id, 'match:update', {
         mode: 2,
         count: 4,
         min: 4,
@@ -179,7 +174,7 @@ describe('match.service', () => {
       expect.objectContaining({ mode: 1, userIds: ['u1', 'u2', 'u3'] })
     );
     (['u1', 'u2', 'u3'] as const).forEach((id) => {
-      expect(mockedEmitToUser).toHaveBeenCalledWith(id, SERVER_EVENT.MATCH_FOUND, { code: 'ABC123' });
+      expect(mockedEmitToUser).toHaveBeenCalledWith(id, 'match:found', { code: 'ABC123' });
       expect(setUserRoom).toHaveBeenCalledWith(id, 'ABC123');
       expect(setPresence).toHaveBeenCalledWith(id, 'IN_LOBBY');
       expect(broadcastPresenceUpdate).toHaveBeenCalledWith(id, 'IN_LOBBY');
@@ -196,7 +191,7 @@ describe('match.service', () => {
     await enqueueMatch('u4', 1);
 
     const expectedDeadline = T0 + 16_000 + 8_000;
-    expect(mockedEmitToUser).toHaveBeenCalledWith('u4', SERVER_EVENT.MATCH_UPDATE, {
+    expect(mockedEmitToUser).toHaveBeenCalledWith('u4', 'match:update', {
       mode: 1,
       count: 4,
       min: 3,
@@ -224,7 +219,7 @@ describe('match.service', () => {
     mockedEmitToUser.mockClear();
     await enqueueMatch('u7', 1); // 요청상 다음 deadline은 T0+49500이지만 하드 캡(T0+45000)으로 clamp
 
-    expect(mockedEmitToUser).toHaveBeenCalledWith('u7', SERVER_EVENT.MATCH_UPDATE, {
+    expect(mockedEmitToUser).toHaveBeenCalledWith('u7', 'match:update', {
       mode: 1,
       count: 7,
       min: 3,
@@ -264,7 +259,7 @@ describe('match.service', () => {
     expect(redis.zrem).toHaveBeenCalledWith('matchlobby:1:members', 'u1');
     expect(redis.zrem).toHaveBeenCalledWith('matchlobby:2:members', 'u1');
     (['u2', 'u3'] as const).forEach((id) => {
-      expect(mockedEmitToUser).toHaveBeenCalledWith(id, SERVER_EVENT.MATCH_UPDATE, {
+      expect(mockedEmitToUser).toHaveBeenCalledWith(id, 'match:update', {
         mode: 1,
         count: 2,
         min: 3,

@@ -1,17 +1,17 @@
+import { FeedbackPressable } from '@/shared/ui/FeedbackPressable';
 import { View } from 'dripsy';
-import { Pressable, useWindowDimensions } from 'react-native';
+import { useWindowDimensions } from 'react-native';
 import type { Player } from '@sketch-catch/shared';
 import { gameSurface } from '@/features/game/config';
 import { PlayerCell } from '../PlayerCell';
 
 const COLUMNS = 6;
-const ROWS = 2;
-const MAX_SLOTS = COLUMNS * ROWS; // 12
 const CELL_MARGIN = 3;
 const GRID_PADDING = 12;
 
 type Props = {
   players: Player[];
+  availableWidth?: number;
   myId: string;
   drawerId: string;
   /** 정답 처리된 유저 (라운드 종료까지 유지) */
@@ -26,6 +26,7 @@ type Props = {
 
 export function PlayerGrid({
   players,
+  availableWidth,
   myId,
   drawerId,
   solvedUserId,
@@ -36,18 +37,15 @@ export function PlayerGrid({
 }: Props) {
   const { width: screenWidth } = useWindowDimensions();
   const cellWidth = Math.floor(
-    (screenWidth - GRID_PADDING * 2 - CELL_MARGIN * 2 * COLUMNS) / COLUMNS,
+    ((availableWidth ?? screenWidth) - GRID_PADDING * 2 - CELL_MARGIN * 2 * COLUMNS) / COLUMNS,
   );
 
   // 첫 칸은 항상 본인, 나머지는 입장 순서 (본인 제외)
-  const me = players.find((p) => p.id === myId) ?? null;
-  const others = players.filter((p) => p.id !== myId);
+  const me = players.find(p => p.id === myId) ?? null;
+  const others = players.filter(p => p.id !== myId);
 
   const slots: (Player | null)[] = [me, ...others];
-  while (slots.length < MAX_SLOTS) {
-    slots.push(null);
-  }
-  const slotItems = slots.slice(0, MAX_SLOTS);
+  const slotItems = slots;
 
   const handleCellPress = (player: Player | null): void => {
     if (!isDrawerView || player === null || player.left || onSelectPlayer === undefined) return;
@@ -71,7 +69,7 @@ export function PlayerGrid({
       }}
     >
       {slotItems.map((player, index) => (
-        <Pressable
+        <FeedbackPressable
           key={player?.id ?? `spacer-${index}`}
           onPress={() => handleCellPress(player)}
           disabled={!isDrawerView || player === null || player?.id === myId}
@@ -86,7 +84,7 @@ export function PlayerGrid({
             isLeft={player?.left === true}
             cellWidth={cellWidth}
           />
-        </Pressable>
+        </FeedbackPressable>
       ))}
     </View>
   );

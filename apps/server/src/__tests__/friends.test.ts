@@ -4,7 +4,7 @@ import { describe, it, expect, vi, beforeEach } from 'vitest';
 vi.mock('../db/prisma.js', () => ({
   prisma: {
     user: { findUnique: vi.fn() },
-    friendRequest: { create: vi.fn(), findUnique: vi.fn(), update: vi.fn() },
+    friendRequest: { create: vi.fn(), findUnique: vi.fn(), findFirst: vi.fn(), update: vi.fn() },
     friendship: { findUnique: vi.fn(), findMany: vi.fn(), create: vi.fn(), delete: vi.fn() },
     $transaction: vi.fn(async (ops: unknown[]) => {
       const results = [];
@@ -78,10 +78,32 @@ describe('sendFriendRequest', () => {
     vi.mocked(prisma.friendship.findUnique).mockResolvedValue(null);
     vi.mocked(prisma.friendRequest.create).mockResolvedValue({} as any);
 
-    await expect(sendFriendRequest('u1', '닉네임#ABCDE')).resolves.toEqual({ id: 'u2', pushToken: null });
+    await expect(sendFriendRequest('u1', '닉네임#ABCDE')).resolves.toEqual({
+      id: 'u2',
+      pushToken: null,
+      autoAccepted: false,
+    });
     expect(prisma.friendRequest.create).toHaveBeenCalledWith(
       expect.objectContaining({ data: expect.objectContaining({ senderId: 'u1', receiverId: 'u2' }) })
     );
+  });
+
+  it('상대가 보낸 대기 요청이 있으면 새 요청 없이 수락하고 친구 관계를 만든다', async () => {
+    vi.mocked(prisma.user.findUnique).mockResolvedValue({ id: 'u2', pushToken: 'tok' } as any);
+    vi.mocked(prisma.friendship.findUnique).mockResolvedValue(null);
+    vi.mocked(prisma.friendRequest.findFirst).mockResolvedValueOnce({ id: 'req-from-u2' } as any);
+
+    await expect(sendFriendRequest('u1', '닉네임#ABCDE')).resolves.toEqual({
+      id: 'u2',
+      pushToken: 'tok',
+      autoAccepted: true,
+    });
+    expect(prisma.friendRequest.update).toHaveBeenCalledWith({
+      where: { id: 'req-from-u2' },
+      data: { status: 'ACCEPTED' },
+    });
+    expect(prisma.friendship.create).toHaveBeenCalledWith({ data: { userAId: 'u1', userBId: 'u2' } });
+    expect(prisma.friendRequest.create).not.toHaveBeenCalled();
   });
 
   it('중복 요청 (create 실패) → DuplicateRequestError', async () => {

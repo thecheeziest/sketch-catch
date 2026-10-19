@@ -1,7 +1,8 @@
-import { Image, Text, View } from 'dripsy';
+import { Text, View } from 'dripsy';
 import { StyleSheet } from 'react-native';
 import type { Player } from '@sketch-catch/shared';
 import { fontFamily, getCharacterImageSource } from '@/shared/config';
+import { CosmeticAvatar } from '@/shared/ui/CosmeticAvatar';
 import { PixelFrame } from '@/shared/ui/PixelFrame';
 import { gameSurface, gameText, playerDot, playerRing } from '@/features/game/config';
 
@@ -53,11 +54,12 @@ export function PlayerCell({ player, isMe, isDrawer, isSolved, hasGuessed, isSel
 
       <View sx={{ flex: 1, alignItems: 'center', justifyContent: 'center', gap: 2, paddingVertical: 4 }}>
         {imageSource !== null ? (
-          <Image
-            source={imageSource}
-            sx={{ width: 28, height: 28 }}
-            resizeMode="contain"
-            style={isLeft ? styles.dimmed : undefined}
+          <CosmeticAvatar
+            characterId={player.characterId}
+            frameId={player.frameId}
+            backgroundId={player.backgroundId}
+            size={34}
+            dimmed={isLeft}
           />
         ) : (
           <View sx={{ width: 28, height: 28, backgroundColor: playerRing.SELECTED }} style={isLeft ? styles.dimmed : undefined} />

@@ -1,0 +1,44 @@
+name: Words Import
+
+# 제시어 풀 적재 (apps/server/scripts/import-words.ts). 여러 번 실행해도 안전하다.
+# 매월 1일 04:00 KST 자동 실행 + 새 DB를 만든 직후 Actions 탭에서 1회 수동 실행한다.
+# 저장소 Secret DIRECT_URL(Neon 직접 주소)이 필요하다.
+on:
+  schedule:
+    - cron: '0 19 1 * *'
+  workflow_dispatch:
+
+concurrency:
+  group: words-import
+  cancel-in-progress: false
+
+jobs:
+  import:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: 9.12.0
+          run_install: false
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version-file: .nvmrc
+          cache: pnpm
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile --filter @sketch-catch/server...
+
+      - name: Generate Prisma Client
+        run: pnpm --filter @sketch-catch/server prisma:generate
+
+      - name: Import words
+        run: pnpm --filter @sketch-catch/server words:import
+        env:
+          DATABASE_URL: ${{ secrets.DIRECT_URL }}

@@ -3,7 +3,7 @@ import type { RoomState, Mode1RoundCurrent } from '@sketch-catch/shared';
 
 // word.service mock
 vi.mock('../services/word.service.js', () => ({
-  pickWord: vi.fn().mockResolvedValue({ word: '강아지', category: 'ANIMAL' }),
+  pickRoundWord: vi.fn().mockResolvedValue({ word: '강아지', category: 'ANIMAL' }),
 }));
 
 // rooms.service mock
@@ -12,14 +12,21 @@ vi.mock('../services/rooms.service.js', () => ({
   saveRoomState: vi.fn(),
 }));
 
+// 시상식 진입 시 presence 갱신이 실제 Redis에 닿지 않도록 차단
+vi.mock('../db/redis.js', () => ({
+  redis: { set: vi.fn(), get: vi.fn(), del: vi.fn() },
+  setPresence: vi.fn(),
+}));
+vi.mock('../socket/presence.namespace.js', () => ({ broadcastPresenceUpdate: vi.fn() }));
+
 import { getRoomState, saveRoomState } from '../services/rooms.service.js';
-import { pickWord } from '../services/word.service.js';
-import { startRound, endRound, calcScore, handlePlayerLeft } from '../socket/handlers/game.js';
+import { pickRoundWord } from '../services/word.service.js';
+import { startRound, endRound, endGame, calcScore, handlePlayerLeft } from '../socket/handlers/game.js';
 import { handleStrokeStart, handleStrokeClear } from '../socket/handlers/stroke.js';
 import { handleChatSend, handleAnswerAccept } from '../socket/handlers/chat.js';
 
 const mockGetRoomState = vi.mocked(getRoomState);
-const mockPickWord = vi.mocked(pickWord);
+const mockPickWord = vi.mocked(pickRoundWord);
 const mockSaveRoomState = vi.mocked(saveRoomState);
 
 function makeRoomState(overrides: Partial<RoomState> = {}): RoomState {
@@ -158,7 +165,7 @@ describe('game state machine (MD1-01, MD1-05)', () => {
       randomSpy.mockRestore();
     }
 
-    expect(mockPickWord).toHaveBeenCalledWith(['ANIMAL']);
+    expect(mockPickWord).toHaveBeenCalledWith('ANIMAL', expect.any(Array), undefined);
     const savedState = mockSaveRoomState.mock.calls[0]![0]! as RoomState;
     expect((savedState.current as Mode1RoundCurrent).prompt).toBe('강아지');
     expect(game._broadcastEmit).toHaveBeenCalledWith(
@@ -205,6 +212,8 @@ describe('game state machine (MD1-01, MD1-05)', () => {
 
     // endRound가 saveRoomState를 호출하기 위해 다시 state 반환
     const stateAfterStart = mockSaveRoomState.mock.calls[0]![0]! as RoomState;
+    // 남은 10초 글자 수 공개 타이머(20초 지점)가 먼저 현재 상태를 읽는다
+    mockGetRoomState.mockResolvedValueOnce(stateAfterStart);
     mockGetRoomState.mockResolvedValueOnce(stateAfterStart);
     // 다음 라운드(roundIndex=1) 시작을 위한 state (3초 delay 후)
     mockGetRoomState.mockResolvedValueOnce(null); // endGame 방지
@@ -344,7 +353,7 @@ describe('answer detect (MD1-02)', () => {
       status: 'MODE1_ROUND_START',
       current: {
         roundIndex: 0,
-        drawerId: 'userA',
+        drawerId: 'u1',
         prompt: '강아지',
         startedAt: Date.now() - 5000,
       } satisfies Mode1RoundCurrent,
@@ -357,20 +366,34 @@ describe('answer detect (MD1-02)', () => {
     // endRound 내부에서 getRoomState 재호출
     mockGetRoomState.mockResolvedValueOnce(makeChatRoomState({ status: 'MODE1_ROUND_START' }));
     const game = makeNamespace();
-    const socket = { data: { userId: 'userB' }, rooms: new Set(['room:ABC123']), emit: vi.fn() };
+    const socket = { data: { userId: 'u2' }, rooms: new Set(['room:ABC123']), emit: vi.fn() };
     await handleChatSend(game as any, socket as any, { text: '  강아지 ' });
     // chat:message broadcast
-    expect(game._broadcastEmit).toHaveBeenCalledWith('chat:message', expect.objectContaining({ userId: 'userB' }));
+    expect(game._broadcastEmit).toHaveBeenCalledWith('chat:message', expect.objectContaining({ userId: 'u2' }));
     // chat:correct broadcast
-    expect(game._broadcastEmit).toHaveBeenCalledWith('chat:correct', expect.objectContaining({ userId: 'userB' }));
+    expect(game._broadcastEmit).toHaveBeenCalledWith('chat:correct', expect.objectContaining({ userId: 'u2' }));
     // saveRoomState 호출 (endRound가 실행됨)
     expect(mockSaveRoomState).toHaveBeenCalled();
+  });
+
+  it('answer detect: 띄어쓰기만 다른 답은 정답 처리', async () => {
+    const spaced = (): RoomState =>
+      makeChatRoomState({
+        current: { roundIndex: 0, drawerId: 'u1', prompt: '오징어 게임', startedAt: Date.now() - 5000 },
+      });
+    mockGetRoomState.mockReset();
+    mockGetRoomState.mockResolvedValueOnce(spaced());
+    mockGetRoomState.mockResolvedValueOnce(spaced());
+    const game = makeNamespace();
+    const socket = { data: { userId: 'u2' }, rooms: new Set(['room:ABC123']), emit: vi.fn() };
+    await handleChatSend(game as any, socket as any, { text: '오징어게임' });
+    expect(game._broadcastEmit).toHaveBeenCalledWith('chat:correct', expect.objectContaining({ userId: 'u2' }));
   });
 
   it('answer detect: 부분 일치는 오답 — chat:correct 미발생, answer:wrong은 제출자에게만 전달', async () => {
     mockGetRoomState.mockResolvedValueOnce(makeChatRoomState());
     const game = makeNamespace();
-    const socket = { data: { userId: 'userB' }, rooms: new Set(['room:ABC123']), emit: vi.fn() };
+    const socket = { data: { userId: 'u2' }, rooms: new Set(['room:ABC123']), emit: vi.fn() };
     await handleChatSend(game as any, socket as any, { text: '강아지다' });
     // chat:message는 broadcast됨
     expect(game._broadcastEmit).toHaveBeenCalledWith('chat:message', expect.anything());
@@ -395,7 +418,7 @@ describe('answer accept (MD1-03)', () => {
       status: 'MODE1_ROUND_START',
       current: {
         roundIndex: 0,
-        drawerId: 'userA',
+        drawerId: 'u1',
         prompt: '강아지',
         startedAt: Date.now() - 3000,
       } satisfies Mode1RoundCurrent,
@@ -406,7 +429,7 @@ describe('answer accept (MD1-03)', () => {
     // 먼저 chat:send로 메시지 생성 (recentMessages에 저장됨)
     mockGetRoomState.mockResolvedValueOnce(makeAcceptRoomState());
     const game = makeNamespace();
-    const socketB = { data: { userId: 'userB' }, rooms: new Set(['room:ABC123']), emit: vi.fn() };
+    const socketB = { data: { userId: 'u2' }, rooms: new Set(['room:ABC123']), emit: vi.fn() };
     await handleChatSend(game as any, socketB as any, { text: '고양이' });
 
     // broadcast된 chat:message의 id 추출
@@ -420,10 +443,10 @@ describe('answer accept (MD1-03)', () => {
     mockSaveRoomState.mockResolvedValue(undefined);
     mockGetRoomState.mockResolvedValueOnce(makeAcceptRoomState());
     mockGetRoomState.mockResolvedValueOnce(makeAcceptRoomState());
-    const socketA = { data: { userId: 'userA' }, rooms: new Set(['room:ABC123']), emit: vi.fn() };
+    const socketA = { data: { userId: 'u1' }, rooms: new Set(['room:ABC123']), emit: vi.fn() };
     await handleAnswerAccept(game as any, socketA as any, { messageId });
 
-    expect(game._broadcastEmit).toHaveBeenCalledWith('chat:correct', expect.objectContaining({ userId: 'userB' }));
+    expect(game._broadcastEmit).toHaveBeenCalledWith('chat:correct', expect.objectContaining({ userId: 'u2' }));
     expect(mockSaveRoomState).toHaveBeenCalled();
   });
 
@@ -437,20 +460,20 @@ describe('answer accept (MD1-03)', () => {
 });
 
 describe('score calc (MD1-04)', () => {
-  it('score calc: 맞힌 사람 max(100, 1000 - 경과초*30)', () => {
-    // 0ms 경과: guesser=max(100, 1000-0*30)=1000
-    expect(calcScore(0).guesserScore).toBe(1000);
-    // 30000ms=30초 경과: guesser=max(100, 1000-30*30)=max(100,100)=100
-    expect(calcScore(30000).guesserScore).toBe(100);
-    // 60000ms=60초 경과: guesser=max(100, 1000-60*30)=max(100,-800)=100
-    expect(calcScore(60000).guesserScore).toBe(100);
+  it('score calc: 맞힌 사람 500 + 남은 시간 비율 × 500 (방 타이머 기준)', () => {
+    expect(calcScore(0, 60).guesserScore).toBe(1000);
+    expect(calcScore(30000, 60).guesserScore).toBe(750);
+    expect(calcScore(60000, 60).guesserScore).toBe(500);
+    // 타이머가 길어도 같은 비율이면 같은 점수
+    expect(calcScore(45000, 90).guesserScore).toBe(750);
+    // 타이머를 넘긴 응답(지연 도착)도 최소 500점, 음수 경과는 최대 1000점
+    expect(calcScore(70000, 60).guesserScore).toBe(500);
+    expect(calcScore(-100, 60).guesserScore).toBe(1000);
   });
 
-  it('score calc: 출제자 min(500, 맞힌점수*0.5)', () => {
-    // 0ms: guesser=1000, drawer=min(500, floor(1000*0.5))=min(500,500)=500
-    expect(calcScore(0).drawerScore).toBe(500);
-    // 30000ms: guesser=100, drawer=min(500, floor(100*0.5))=min(500,50)=50
-    expect(calcScore(30000).drawerScore).toBe(50);
+  it('score calc: 출제자는 맞힌 시점과 무관하게 고정 300점', () => {
+    expect(calcScore(0, 60).drawerScore).toBe(300);
+    expect(calcScore(59000, 60).drawerScore).toBe(300);
   });
 });
 
@@ -518,6 +541,24 @@ describe('handlePlayerLeft 인원부족 종료 (OFFL-03)', () => {
     expect(mockSaveRoomState).toHaveBeenCalledTimes(1);
   });
 
+  it('퇴장 플레이어의 남은 턴은 다른 플레이어로 채우지 않고 빼서 순서를 당긴다', async () => {
+    const state = makeFourPlayerRoomState({
+      status: 'MODE1_ROUND_START',
+      current: {
+        roundIndex: 2,
+        drawerId: 'u3',
+        prompt: '강아지',
+        startedAt: Date.now(),
+      } satisfies Mode1RoundCurrent,
+    });
+    mockGetRoomState.mockResolvedValueOnce(state);
+    const game = makeNamespace();
+
+    await handlePlayerLeft(game as any, 'ABC123', 'u4');
+
+    expect(state.turnSchedule).toEqual(['u1', 'u2', 'u3', 'u1', 'u2', 'u3']);
+  });
+
   it('idempotent guard: 이미 퇴장 처리된 플레이어에 대한 중복 호출은 재처리/재emit하지 않는다', async () => {
     const state = makeFourPlayerRoomState({
       status: 'MODE1_ROUND_START',
@@ -541,5 +582,51 @@ describe('handlePlayerLeft 인원부족 종료 (OFFL-03)', () => {
     await handlePlayerLeft(game as any, 'ABC123', 'u3');
     expect(mockSaveRoomState).toHaveBeenCalledTimes(1);
     expect(game._broadcastEmit).toHaveBeenCalledTimes(1);
+  });
+});
+
+describe('endGame 벌칙 판정', () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+    mockGetRoomState.mockReset();
+    mockSaveRoomState.mockResolvedValue(undefined);
+  });
+
+  const penaltyConfig = {
+    roundCount: 1,
+    drawTimer: 40,
+    answerTimer: 10,
+    categories: ['ANIMAL' as const],
+    playerCountMax: 6,
+    penalty: { loserCount: 1 as const, text: '커피 쏘기' },
+  };
+
+  it('벌칙 방 정상 종료 시 game:end에 꼴찌를 담는다', async () => {
+    mockGetRoomState.mockResolvedValueOnce(
+      makeRoomState({
+        status: 'MODE1_ROUND_END',
+        config: penaltyConfig,
+        scoreboard: { u1: 800, u2: 300, u3: 500 },
+      }),
+    );
+    const game = makeNamespace();
+
+    await endGame(game as any, 'ABC123');
+
+    expect(game._broadcastEmit).toHaveBeenCalledWith(
+      'game:end',
+      expect.objectContaining({ penalty: { text: '커피 쏘기', loserIds: ['u2'] } }),
+    );
+  });
+
+  it('인원 부족 조기 종료면 벌칙 판정을 하지 않는다', async () => {
+    mockGetRoomState.mockResolvedValueOnce(
+      makeRoomState({ status: 'MODE1_ROUND_START', config: penaltyConfig, scoreboard: { u1: 800 } }),
+    );
+    const game = makeNamespace();
+
+    await endGame(game as any, 'ABC123', 'INSUFFICIENT_PLAYERS');
+
+    expect(game._broadcastEmit).toHaveBeenCalledWith('game:end', expect.objectContaining({ penalty: undefined }));
   });
 });

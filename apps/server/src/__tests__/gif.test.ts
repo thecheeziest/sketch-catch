@@ -1,14 +1,15 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import Fastify from 'fastify';
 import type { Stroke } from '@sketch-catch/shared';
+import { createCanvas, loadImage } from '@napi-rs/canvas';
 
-// ---- gif generation: sheetToGif 실제 렌더링 (napi-rs/canvas — mock 없음, 로컬 darwin 바이너리) ----
+// ---- gif generation: revealToGif 실제 렌더링 (napi-rs/canvas — mock 없음, 로컬 darwin 바이너리) ----
 
-const { sheetToGif } = await import('../services/gif.service.js');
+const { revealToGif } = await import('../services/gif.service.js');
 
 const sampleStroke: Stroke = {
   id: 'stroke-1',
-  authorId: 'u2',
+  authorId: 'u1',
   color: '#222222',
   width: 0.02,
   points: [
@@ -19,45 +20,84 @@ const sampleStroke: Stroke = {
   startTime: 0,
 };
 
+const players = [
+  { id: 'u1', nickname: '원조', characterId: 'cat' },
+  { id: 'u2', nickname: '추측', characterId: 'frog' },
+];
+
+// 360 기준 레이아웃: 스케치북은 (12, 122)에서 336×336
+const SKETCH = { x: 12, y: 122, size: 336 };
+
+async function decodeFirstFrame(buf: Buffer): Promise<ReturnType<ReturnType<typeof createCanvas>['getContext']>> {
+  const decoded = await loadImage(buf);
+  const ctx = createCanvas(decoded.width, decoded.height).getContext('2d');
+  ctx.drawImage(decoded, 0, 0);
+  return ctx;
+}
+
 describe('gif generation', () => {
-  it('sheetToGif가 GIF89a 매직 바이트로 시작하는 Buffer를 반환한다', async () => {
-    const buf = await sheetToGif({
+  it('GIF89a 매직 바이트로 시작하는 공개식 GIF를 만든다', async () => {
+    const buf = await revealToGif({
+      players,
       steps: [
         { kind: 'PROMPT', authorId: 'u1', text: '강아지' },
-        { kind: 'DRAW', authorId: 'u2', strokes: [sampleStroke] },
+        { kind: 'DRAW', authorId: 'u1', strokes: [sampleStroke] },
       ],
-      width: 480,
-      height: 480,
-      fps: 12,
     });
 
     expect(buf.length).toBeGreaterThan(0);
     expect(buf.subarray(0, 6).toString('ascii')).toBe('GIF89a');
+    const decoded = await loadImage(buf);
+    expect(decoded.width).toBe(360);
   }, 15_000);
 
-  it('텍스트 단계 2개 + 그림 단계 1개 조합 시 텍스트 프레임과 그림 프레임이 모두 포함된다', async () => {
-    const textOnly = await sheetToGif({
-      steps: [{ kind: 'PROMPT', authorId: 'u1', text: '강아지' }],
-      width: 480,
-      height: 480,
-      fps: 12,
+  it('첫 프레임은 원조자 앞말 단계라 스케치북이 비어 있다', async () => {
+    const buf = await revealToGif({
+      players,
+      steps: [
+        { kind: 'PROMPT', authorId: 'u1', text: '노랑' },
+        {
+          kind: 'DRAW',
+          authorId: 'u1',
+          strokes: [
+            {
+              id: 'fill',
+              authorId: 'u1',
+              color: '#FFD21F',
+              width: 0,
+              points: [],
+              startTime: 100,
+              paintSpans: [{ x: 0.25, y: 0.25, width: 0.5, height: 0.5 }],
+            },
+          ],
+        },
+      ],
     });
+    // GIF 디코딩은 첫 프레임만 돌려준다 — 그림 재생 전이므로 페인트 영역도 아직 비어 있어야 한다
+    const ctx = await decodeFirstFrame(buf);
+    const center = SKETCH.x + SKETCH.size / 2;
+    expect(Array.from(ctx.getImageData(center, SKETCH.y + SKETCH.size / 2, 1, 1).data)).toEqual([255, 255, 255, 255]);
+  }, 15_000);
 
-    const mixed = await sheetToGif({
+  it('맞히는 사람의 발표가 이어지면 프레임이 늘어난다', async () => {
+    const ownerOnly = await revealToGif({
+      players,
       steps: [
         { kind: 'PROMPT', authorId: 'u1', text: '강아지' },
-        { kind: 'ANSWER', authorId: 'u3', text: '멍멍이' },
-        { kind: 'DRAW', authorId: 'u2', strokes: [sampleStroke] },
+        { kind: 'DRAW', authorId: 'u1', strokes: [sampleStroke] },
       ],
-      width: 480,
-      height: 480,
-      fps: 12,
+    });
+    const withGuesser = await revealToGif({
+      players,
+      steps: [
+        { kind: 'PROMPT', authorId: 'u1', text: '강아지' },
+        { kind: 'DRAW', authorId: 'u1', strokes: [sampleStroke] },
+        { kind: 'ANSWER', authorId: 'u2', text: '멍멍이' },
+        { kind: 'DRAW', authorId: 'u2', strokes: [] },
+      ],
     });
 
-    expect(mixed.length).toBeGreaterThan(0);
-    // 그림 단계는 다수 프레임(D-14 배속 재생)으로 확장되고 텍스트 프레임도 2개 추가되므로
-    // 텍스트 1개짜리 GIF보다 훨씬 큰 바이트 크기를 갖는다 — 두 종류 프레임 모두 합성됐음을 검증
-    expect(mixed.length).toBeGreaterThan(textOnly.length);
+    expect(withGuesser.length).toBeGreaterThan(ownerOnly.length);
   }, 15_000);
 });
 

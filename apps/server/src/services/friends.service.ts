@@ -4,13 +4,27 @@ import { getRoomState, getRoomPassword } from './rooms.service.js';
 import type { RoomStatus } from '@sketch-catch/shared';
 
 // 커스텀 에러
-export class InvalidFormatError extends Error { code = 'INVALID_FORMAT' as const; }
-export class SelfRequestError extends Error { code = 'SELF_REQUEST' as const; }
-export class UserNotFoundError extends Error { code = 'USER_NOT_FOUND' as const; }
-export class AlreadyFriendsError extends Error { code = 'ALREADY_FRIENDS' as const; }
-export class DuplicateRequestError extends Error { code = 'REQUEST_ALREADY_SENT' as const; }
-export class RequestNotFoundError extends Error { code = 'REQUEST_NOT_FOUND' as const; }
-export class ForbiddenError extends Error { code = 'FORBIDDEN' as const; }
+export class InvalidFormatError extends Error {
+  code = 'INVALID_FORMAT' as const;
+}
+export class SelfRequestError extends Error {
+  code = 'SELF_REQUEST' as const;
+}
+export class UserNotFoundError extends Error {
+  code = 'USER_NOT_FOUND' as const;
+}
+export class AlreadyFriendsError extends Error {
+  code = 'ALREADY_FRIENDS' as const;
+}
+export class DuplicateRequestError extends Error {
+  code = 'REQUEST_ALREADY_SENT' as const;
+}
+export class RequestNotFoundError extends Error {
+  code = 'REQUEST_NOT_FOUND' as const;
+}
+export class ForbiddenError extends Error {
+  code = 'FORBIDDEN' as const;
+}
 
 // 닉네임#코드 파싱 — '#' 없거나 코드 길이 != 5면 null
 function parseTarget(target: string): { nickname: string; friendCode: string } | null {
@@ -27,10 +41,14 @@ function normalizeIds(a: string, b: string): { userAId: string; userBId: string 
   return a < b ? { userAId: a, userBId: b } : { userAId: b, userBId: a };
 }
 
-export async function sendFriendRequest(
-  senderId: string,
-  target: string
-): Promise<{ id: string; pushToken: string | null }> {
+export type SendFriendRequestResult = {
+  id: string;
+  pushToken: string | null;
+  // 상대가 이미 나에게 보낸 요청이 있어 바로 친구가 됐는지
+  autoAccepted: boolean;
+};
+
+export async function sendFriendRequest(senderId: string, target: string): Promise<SendFriendRequestResult> {
   const parsed = parseTarget(target);
   if (!parsed) throw new InvalidFormatError();
 
@@ -45,6 +63,19 @@ export async function sendFriendRequest(
   const existing = await prisma.friendship.findUnique({ where: { userAId_userBId: { userAId, userBId } } });
   if (existing) throw new AlreadyFriendsError();
 
+  // 상대가 먼저 보낸 요청이 대기 중이면 요청을 하나 더 만들지 않고 그 요청을 수락한다 (서로 신청 = 친구)
+  const reverse = await prisma.friendRequest.findFirst({
+    where: { senderId: receiver.id, receiverId: senderId, status: 'PENDING' },
+    select: { id: true },
+  });
+  if (reverse) {
+    await prisma.$transaction([
+      prisma.friendRequest.update({ where: { id: reverse.id }, data: { status: 'ACCEPTED' } }),
+      prisma.friendship.create({ data: { userAId, userBId } }),
+    ]);
+    return { id: receiver.id, pushToken: receiver.pushToken, autoAccepted: true };
+  }
+
   // 중복 요청 확인 (@@unique([senderId, receiverId]) 위반 시 throw)
   try {
     await prisma.friendRequest.create({
@@ -54,7 +85,7 @@ export async function sendFriendRequest(
     throw new DuplicateRequestError();
   }
 
-  return { id: receiver.id, pushToken: receiver.pushToken };
+  return { id: receiver.id, pushToken: receiver.pushToken, autoAccepted: false };
 }
 
 export type FriendRoom = {
@@ -115,7 +146,7 @@ function getRoomPresenceStatus(status: RoomStatus): PresenceStatus | null {
 // 응답 속도 차이로 인해 구독자마다 room 정보가 어긋나는 레이스가 생긴다(A 방 생성 시 일부 친구만 "같이하기" 노출).
 export async function getFriendRoomView(
   friendId: string,
-  fallbackStatus: PresenceStatus
+  fallbackStatus: PresenceStatus,
 ): Promise<{ presenceStatus: PresenceStatus; room?: FriendRoom }> {
   let presenceStatus = fallbackStatus;
   let room: FriendRoom | undefined;
@@ -123,14 +154,14 @@ export async function getFriendRoomView(
   const roomCode = await getUserRoom(friendId);
   if (roomCode) {
     const roomState = await getRoomState(roomCode);
-    const player = roomState?.players.find((p) => p.id === friendId);
-    if (roomState && player?.connected) {
-      presenceStatus = getRoomPresenceStatus(roomState.status) ?? presenceStatus;
+    const player = roomState?.players.find(p => p.id === friendId);
+    if (roomState && player?.connected && !player.left && fallbackStatus !== 'OFFLINE') {
+      presenceStatus = player.inAward ? 'IN_GAME' : (getRoomPresenceStatus(roomState.status) ?? presenceStatus);
 
       if (presenceStatus === 'IN_LOBBY') {
         const storedPw = await getRoomPassword(roomCode);
         const hasPassword = storedPw !== null;
-        const playerCount = roomState.players.length;
+        const playerCount = roomState.players.filter(p => !p.inAward && !p.left).length;
         const playerCountMax = roomState.config.playerCountMax;
         const locked = roomState.locked ?? false;
         room = {
@@ -146,17 +177,21 @@ export async function getFriendRoomView(
     }
   }
 
+  if (!room && (presenceStatus === 'IN_GAME' || presenceStatus === 'IN_LOBBY')) {
+    const state = roomCode ? await getRoomState(roomCode) : null;
+    if (!state?.players.some(p => p.id === friendId && p.connected && !p.left)) presenceStatus = 'ONLINE';
+  }
   return { presenceStatus, room };
 }
 
 export async function getFriends(userId: string): Promise<FriendEntry[]> {
-  const friendships = await prisma.friendship.findMany({
+  const friendships = (await prisma.friendship.findMany({
     where: { OR: [{ userAId: userId }, { userBId: userId }] },
     include: { userA: true, userB: true },
-  }) as FriendshipWithUsers[];
+  })) as FriendshipWithUsers[];
 
   return Promise.all(
-    friendships.map(async (f) => {
+    friendships.map(async f => {
       const friend = f.userAId === userId ? f.userB : f.userA;
       const baseStatus = await getPresence(friend.id);
       const { presenceStatus, room } = await getFriendRoomView(friend.id, baseStatus);
@@ -170,7 +205,7 @@ export async function getFriends(userId: string): Promise<FriendEntry[]> {
         presenceStatus,
         room,
       };
-    })
+    }),
   );
 }
 
@@ -181,12 +216,12 @@ export type RequestEntry = {
 };
 
 export async function getFriendRequests(userId: string): Promise<RequestEntry[]> {
-  const requests = await prisma.friendRequest.findMany({
+  const requests = (await prisma.friendRequest.findMany({
     where: { receiverId: userId, status: 'PENDING' },
     include: { sender: true },
     orderBy: { createdAt: 'desc' },
-  }) as ReceivedRequestWithSender[];
-  return requests.map((r) => ({
+  })) as ReceivedRequestWithSender[];
+  return requests.map(r => ({
     id: r.id,
     sender: {
       id: r.sender.id,
@@ -205,12 +240,12 @@ export type SentRequestEntry = {
 };
 
 export async function getSentFriendRequests(userId: string): Promise<SentRequestEntry[]> {
-  const requests = await prisma.friendRequest.findMany({
+  const requests = (await prisma.friendRequest.findMany({
     where: { senderId: userId, status: 'PENDING' },
     include: { receiver: true },
     orderBy: { createdAt: 'desc' },
-  }) as SentRequestWithReceiver[];
-  return requests.map((r) => ({
+  })) as SentRequestWithReceiver[];
+  return requests.map(r => ({
     id: r.id,
     receiver: {
       id: r.receiver.id,
@@ -225,7 +260,7 @@ export async function getSentFriendRequests(userId: string): Promise<SentRequest
 export async function respondToRequest(
   userId: string,
   requestId: string,
-  action: 'ACCEPT' | 'REJECT'
+  action: 'ACCEPT' | 'REJECT',
 ): Promise<{ id: string; pushToken: string | null } | null> {
   const req = await prisma.friendRequest.findUnique({ where: { id: requestId } });
   if (!req || req.status !== 'PENDING') throw new RequestNotFoundError();

@@ -1,18 +1,28 @@
+import { FeedbackPressable } from '@/shared/ui/FeedbackPressable';
 import { useFriendRequests, useFriends, useRespondRequest, useSentFriendRequests } from '@/features/friends/api';
 import { AddFriendModal, DeleteFriendModal, FriendPasswordModal } from '@/features/friends/ui';
 import { useJoinRoom } from '@/features/room/api';
 import { colors } from '@/shared/config';
-import { handleApiError } from '@/shared/lib';
+import { handleApiError, usePullToRefresh } from '@/shared/lib';
 import { usePresenceStore, useToastStore } from '@/shared/model';
 import type { FriendRoom } from '@/shared/model';
-import { FlatList, FriendItem, Icon, ProfileHeader, RequestItem, SegmentedTab } from '@/shared/ui';
+import {
+  FlatList,
+  FriendItem,
+  Icon,
+  ProfileHeader,
+  PullRefreshIndicator,
+  RequestItem,
+  SegmentedTab,
+  SketchbookLoadingSpinner,
+} from '@/shared/ui';
 import { useQueryClient } from '@tanstack/react-query';
 import mainBackground from '@assets/main-background.png';
 import { Text, View } from 'dripsy';
-import { BlurView } from 'expo-blur';
-import { useFocusEffect } from 'expo-router';
-import { useCallback, useEffect, useState } from 'react';
-import { ImageBackground, Pressable, StyleSheet } from 'react-native';
+import { BlurTargetView, BlurView, type BlurTargetViewProps } from 'expo-blur';
+import { useFocusEffect, useIsFocused } from 'expo-router';
+import { useCallback, useEffect, useRef, useState } from 'react';
+import { ImageBackground, StyleSheet } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 type DeleteTarget = {
@@ -24,6 +34,11 @@ type DeleteTarget = {
 type JoinTarget = {
   room: FriendRoom;
 };
+
+type BlurTargetRef = NonNullable<BlurTargetViewProps['ref']>['current'];
+
+// Android는 BlurTargetView로 감싼 대상만 블러 처리할 수 있다 (iOS는 기존처럼 뒤 화면을 블러)
+const ANDROID_BLUR_METHOD = 'dimezisBlurViewSdk31Plus' as const;
 
 export default function FriendsScreen() {
   const [activeTab, setActiveTab] = useState<0 | 1>(0);
@@ -38,9 +53,23 @@ export default function FriendsScreen() {
     }, [queryClient]),
   );
 
-  const { data: friends = [] } = useFriends();
-  const { data: requests = [] } = useFriendRequests();
-  const { data: sentRequests = [] } = useSentFriendRequests();
+  // 탭은 한 번 열면 계속 마운트되어 있으므로, 친구 탭이 보일 때만 폴링한다
+  const isFocused = useIsFocused();
+  const friendsQuery = useFriends({ subscribed: isFocused });
+  const requestsQuery = useFriendRequests({ subscribed: isFocused });
+  const sentRequestsQuery = useSentFriendRequests({ subscribed: isFocused });
+  const friends = friendsQuery.data ?? [];
+  const requests = requestsQuery.data ?? [];
+  const sentRequests = sentRequestsQuery.data ?? [];
+  const blurTargetRef = useRef<BlurTargetRef>(null);
+
+  const { refetch: refetchFriends } = friendsQuery;
+  const { refetch: refetchRequests } = requestsQuery;
+  const { refetch: refetchSentRequests } = sentRequestsQuery;
+  const friendsRefresh = usePullToRefresh(useCallback(() => refetchFriends(), [refetchFriends]));
+  const requestsRefresh = usePullToRefresh(
+    useCallback(() => Promise.all([refetchRequests(), refetchSentRequests()]), [refetchRequests, refetchSentRequests]),
+  );
 
   // 친구 목록이 갱신될 때마다 presence 구독 대상 동기화
   useEffect(() => {
@@ -72,12 +101,32 @@ export default function FriendsScreen() {
     }
   };
 
+  // 첫 로딩 중에는 빈 상태 문구 대신 스피너 — 로딩이 끝나고 0건일 때만 안내
+  const requestsHeader = (() => {
+    if (requestsQuery.isLoading) {
+      return (
+        <View sx={{ alignItems: 'center', paddingTop: 48 }}>
+          <SketchbookLoadingSpinner size={160} accessibilityLabel="친구 요청 불러오는 중" />
+        </View>
+      );
+    }
+    if (requests.length > 0) return null;
+    return (
+      <View sx={{ alignItems: 'center', paddingTop: 48, paddingBottom: sentRequests.length > 0 ? 24 : 0 }}>
+        <Text sx={{ color: colors.PRIMARY_100 }}>받은 친구 요청이 없어요</Text>
+      </View>
+    );
+  })();
+
   return (
-    <ImageBackground source={mainBackground} style={{ flex: 1 }} resizeMode="cover">
+    <View sx={{ flex: 1 }}>
+      <BlurTargetView ref={blurTargetRef} style={StyleSheet.absoluteFill}>
+        <ImageBackground source={mainBackground} style={StyleSheet.absoluteFill} resizeMode="cover" />
+      </BlurTargetView>
       <SafeAreaView style={{ flex: 1 }} edges={['left', 'right']}>
         <ProfileHeader
           rightSlot={
-            <Pressable
+            <FeedbackPressable
               onPress={() => setAddModalOpen(true)}
               style={({ pressed }) => [
                 { width: 40, height: 40, alignItems: 'center', justifyContent: 'center' },
@@ -85,7 +134,7 @@ export default function FriendsScreen() {
               ]}
             >
               <Icon name="ADD_FRIEND" size={30} />
-            </Pressable>
+            </FeedbackPressable>
           }
         />
 
@@ -98,11 +147,21 @@ export default function FriendsScreen() {
 
         {activeTab === 0 && (
           <View style={{ flex: 1 }}>
-            <BlurView intensity={50} tint="light" style={StyleSheet.absoluteFill} />
+            <BlurView
+              intensity={50}
+              tint="light"
+              blurTarget={blurTargetRef}
+              blurMethod={ANDROID_BLUR_METHOD}
+              style={StyleSheet.absoluteFill}
+            />
+            <PullRefreshIndicator refreshing={friendsRefresh.refreshing} pullProgress={friendsRefresh.pullProgress} />
             <FlatList
               data={friends}
               keyExtractor={item => item.friendshipId}
               contentContainerStyle={{ paddingBottom: 56 }}
+              refreshControl={friendsRefresh.refreshControl}
+              onScroll={friendsRefresh.onScroll}
+              scrollEventThrottle={16}
               renderItem={({ item, index }) => (
                 <FriendItem
                   friend={item}
@@ -119,11 +178,18 @@ export default function FriendsScreen() {
                 />
               )}
               ListEmptyComponent={
-                <View sx={{ flex: 1, alignItems: 'center', paddingTop: 48 }}>
-                  <Text sx={{ color: colors.PRIMARY_100, textAlign: 'center' }}>
-                    {'아직 친구가 없어요.\n우상단 버튼으로 친구를 추가해보세요!'}
-                  </Text>
-                </View>
+                // 첫 로딩 중에는 빈 상태 문구 대신 스피너 — 로딩이 끝나고 0명일 때만 안내
+                friendsQuery.isLoading ? (
+                  <View sx={{ alignItems: 'center', paddingTop: 48 }}>
+                    <SketchbookLoadingSpinner size={160} accessibilityLabel="친구 목록 불러오는 중" />
+                  </View>
+                ) : (
+                  <View sx={{ flex: 1, alignItems: 'center', paddingTop: 48 }}>
+                    <Text sx={{ color: colors.PRIMARY_100, textAlign: 'center' }}>
+                      {'아직 친구가 없어요.\n우상단 버튼으로 친구를 추가해보세요!'}
+                    </Text>
+                  </View>
+                )
               }
             />
           </View>
@@ -131,11 +197,21 @@ export default function FriendsScreen() {
 
         {activeTab === 1 && (
           <View style={{ flex: 1 }}>
-            <BlurView intensity={50} tint="light" style={StyleSheet.absoluteFill} />
+            <BlurView
+              intensity={50}
+              tint="light"
+              blurTarget={blurTargetRef}
+              blurMethod={ANDROID_BLUR_METHOD}
+              style={StyleSheet.absoluteFill}
+            />
+            <PullRefreshIndicator refreshing={requestsRefresh.refreshing} pullProgress={requestsRefresh.pullProgress} />
             <FlatList
               data={requests}
               keyExtractor={item => `recv-${item.id}`}
               contentContainerStyle={{ paddingBottom: 56 }}
+              refreshControl={requestsRefresh.refreshControl}
+              onScroll={requestsRefresh.onScroll}
+              scrollEventThrottle={16}
               renderItem={({ item, index }) => (
                 <RequestItem
                   request={item}
@@ -144,8 +220,8 @@ export default function FriendsScreen() {
                     respondRequest.mutate(
                       { requestId: item.id, action: 'ACCEPT' },
                       {
-                        onSuccess: () => useToastStore.getState().show(`${item.sender.nickname}님과 친구가 됐어요!`),
-                        onError: () => useToastStore.getState().show('연결에 실패했어요. 잠시 후 다시 시도해주세요.'),
+                        onSuccess: () => useToastStore.getState().show(`${item.sender.nickname}님과 친구가 됐어요!`, 'success'),
+                        onError: () => useToastStore.getState().show('연결에 실패했어요. 잠시 후 다시 시도해주세요.', 'error'),
                       },
                     )
                   }
@@ -154,20 +230,15 @@ export default function FriendsScreen() {
                       { requestId: item.id, action: 'REJECT' },
                       {
                         onSuccess: () => useToastStore.getState().show('요청을 거절했어요'),
-                        onError: () => useToastStore.getState().show('연결에 실패했어요. 잠시 후 다시 시도해주세요.'),
+                        onError: () => useToastStore.getState().show('연결에 실패했어요. 잠시 후 다시 시도해주세요.', 'error'),
                       },
                     )
                   }
-                  isLoading={respondRequest.isPending}
+                  isLoading={respondRequest.isPending && respondRequest.variables?.requestId === item.id}
+                  disabled={respondRequest.isPending}
                 />
               )}
-              ListHeaderComponent={
-                requests.length === 0 ? (
-                  <View sx={{ alignItems: 'center', paddingTop: 48, paddingBottom: sentRequests.length > 0 ? 24 : 0 }}>
-                    <Text sx={{ color: colors.PRIMARY_100 }}>받은 친구 요청이 없어요</Text>
-                  </View>
-                ) : null
-              }
+              ListHeaderComponent={requestsHeader}
               ListFooterComponent={
                 sentRequests.length > 0 ? (
                   <View sx={{ marginTop: 24 }}>
@@ -183,7 +254,7 @@ export default function FriendsScreen() {
                           gap: 12,
                         }}
                       >
-                        <Text variant="B4" sx={{ flex: 1, color: colors.DARK_100 }}>
+                        <Text variant="B4" sx={{ flex: 1, color: colors.PRIMARY_100 }}>
                           {item.receiver.nickname}#{item.receiver.friendCode}
                         </Text>
                         <Text sx={{ color: colors.LIGHT_500 }}>대기 중</Text>
@@ -198,19 +269,19 @@ export default function FriendsScreen() {
 
         <AddFriendModal visible={addModalOpen} onClose={() => setAddModalOpen(false)} />
 
-        {deleteTarget !== null && (
-          <DeleteFriendModal
-            visible={true}
-            onClose={() => setDeleteTarget(null)}
-            friendNickname={deleteTarget.nickname}
-            friendUserId={deleteTarget.userId}
-          />
-        )}
+        <DeleteFriendModal
+          visible={deleteTarget !== null}
+          onClose={() => setDeleteTarget(null)}
+          friendNickname={deleteTarget?.nickname ?? ''}
+          friendUserId={deleteTarget?.userId ?? ''}
+        />
 
-        {joinTarget !== null && (
-          <FriendPasswordModal visible={true} onClose={() => setJoinTarget(null)} roomCode={joinTarget.room.code} />
-        )}
+        <FriendPasswordModal
+          visible={joinTarget !== null}
+          onClose={() => setJoinTarget(null)}
+          roomCode={joinTarget?.room.code ?? ''}
+        />
       </SafeAreaView>
-    </ImageBackground>
+    </View>
   );
 }

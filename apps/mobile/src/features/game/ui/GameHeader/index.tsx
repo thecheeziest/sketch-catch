@@ -1,31 +1,34 @@
-import { type ReactNode, useEffect, useState } from 'react';
+import { type ReactNode } from 'react';
 import { Text, View } from 'dripsy';
 import { StyleSheet } from 'react-native';
 import { colors, fontFamily, spacing, textSizes } from '@/shared/config';
 import { Icon } from '@/shared/ui/Icon';
 import { gameSurface, gameText, legendSwatch } from '@/features/game/config';
+import { Collapse } from '../Collapse';
+import { WordBar } from '../WordBar';
 
 type Props = {
   roundIndex: number;
   totalTurns: number;
-  isDrawer: boolean;
+  timeLeft: number;
+  /** 없으면 참가자 그리드·상태 범례를 숨긴다 (모드 2) */
+  playerGrid?: ReactNode;
   word: string | null;
-  promptHint: string | null;
-  durationSec: number;
+  wordColor: string;
+  /** 키보드가 올라온 동안 라운드 바·참가자 리스트·범례를 접어 스케치북 영역을 확보한다 */
+  collapsed: boolean;
   playerCount: number;
   maxPlayers: number;
-  /** 정답 공개 — 라운드가 정답으로 종료되면 역할 무관하게 실제 제시어를 초록색으로 노출 */
-  revealedWord?: string | null;
   /** 범례 라인 오른쪽 끝 슬롯 (예: 정답 인정 버튼) */
   legendAction?: ReactNode;
+  /** 제시어 바의 남은 시간 오른쪽 슬롯 (예: 모드 2 제출 버튼) */
+  wordAction?: ReactNode;
+  wordActionWidth?: number;
   onBack: () => void;
 };
 
-function getWordColor(revealed: boolean, isDrawer: boolean): string {
-  if (revealed) return legendSwatch.SOLVED;
-  if (isDrawer) return gameText.WORD;
-  return gameText.PRIMARY;
-}
+// WordBar 기본 좌우 슬롯 폭 — 남은 시간 숫자 자리
+const TIMER_SLOT_WIDTH = 40;
 
 const LEGEND = [
   { color: legendSwatch.DRAWER, label: '출제자' },
@@ -36,71 +39,63 @@ const LEGEND = [
 export function GameHeader({
   roundIndex,
   totalTurns,
-  isDrawer,
+  timeLeft,
+  playerGrid,
   word,
-  promptHint,
-  durationSec,
+  wordColor,
+  collapsed,
   playerCount,
   maxPlayers,
-  revealedWord = null,
   legendAction,
+  wordAction,
+  wordActionWidth = 0,
   onBack,
 }: Props) {
-  const [timeLeft, setTimeLeft] = useState(durationSec);
-
-  useEffect(() => {
-    setTimeLeft(durationSec);
-    const id = setInterval(() => {
-      setTimeLeft((t) => Math.max(0, t - 1));
-    }, 1000);
-    return () => clearInterval(id);
-  }, [roundIndex, durationSec]);
-
-  const wordDisplay = revealedWord ?? (isDrawer ? word : promptHint);
-  const wordColor = getWordColor(revealedWord != null, isDrawer);
   const isUrgent = timeLeft <= 10;
 
   return (
     <View sx={{ backgroundColor: gameSurface.PANEL }}>
-      {/* ① 라운드 스트립 + 인원 카운터 */}
-      <View style={styles.roundStrip}>
-        <Icon name="BACK" size={18} color={gameText.PRIMARY} onPress={onBack} />
-        <Text sx={{ ...textSizes.B2, color: gameText.PRIMARY, fontFamily: fontFamily.BOLD, letterSpacing: 1 }}>
-          {`ROUND ${roundIndex + 1} (${roundIndex + 1}/${totalTurns})`}
-        </Text>
-        <Text sx={{ marginLeft: 'auto', ...textSizes.B3, color: gameText.MUTED, fontFamily: fontFamily.BOLD }}>
-          {`${playerCount}/${maxPlayers}`}
-        </Text>
-      </View>
+      <Collapse collapsed={collapsed}>
+        {/* ① 라운드 스트립 + 인원 카운터 */}
+        <View style={styles.roundStrip}>
+          <Icon name="BACK" size={18} color={gameText.PRIMARY} onPress={onBack} />
+          <Text sx={{ ...textSizes.B2, color: gameText.PRIMARY, fontFamily: fontFamily.BOLD, letterSpacing: 1 }}>
+            {`ROUND ${roundIndex + 1} (${roundIndex + 1}/${totalTurns})`}
+          </Text>
+          <Text sx={{ marginLeft: 'auto', ...textSizes.B3, color: gameText.MUTED, fontFamily: fontFamily.BOLD }}>
+            {`${playerCount}/${maxPlayers}`}
+          </Text>
+        </View>
+      </Collapse>
 
-      {/* ② 제시어 + 타이머 */}
-      <View style={styles.wordRow}>
-        <Text
-          sx={{
-            flex: 1,
-            fontFamily: fontFamily.REGULAR,
-            fontSize: 25,
-            lineHeight: 30,
-            color: wordColor,
-            letterSpacing: 2,
-          }}
-          numberOfLines={1}
-        >
-          {wordDisplay ?? ''}
-        </Text>
-        <Text style={[styles.timer, isUrgent && styles.timerUrgent]}>{timeLeft}</Text>
-      </View>
+      <WordBar
+        word={word}
+        color={wordColor}
+        sideWidth={TIMER_SLOT_WIDTH + wordActionWidth}
+        right={
+          <>
+            <Text style={[styles.timer, isUrgent && styles.timerUrgent]}>{timeLeft}</Text>
+            {wordAction}
+          </>
+        }
+      />
 
-      {/* ③ 상태 범례 (+ 오른쪽 끝 액션 슬롯) */}
-      <View style={styles.legendRow}>
-        {LEGEND.map((item) => (
-          <View key={item.label} style={styles.legendItem}>
-            <View style={[styles.legendSwatch, { backgroundColor: item.color }]} />
-            <Text sx={{ fontFamily: fontFamily.REGULAR, fontSize: 11, color: gameText.MUTED }}>{item.label}</Text>
+      {playerGrid != null && (
+        <Collapse collapsed={collapsed}>
+          {playerGrid}
+
+          {/* ③ 상태 범례 (+ 오른쪽 끝 액션 슬롯) */}
+          <View style={styles.legendRow}>
+            {LEGEND.map(item => (
+              <View key={item.label} style={styles.legendItem}>
+                <View style={[styles.legendSwatch, { backgroundColor: item.color }]} />
+                <Text sx={{ fontFamily: fontFamily.REGULAR, fontSize: 11, color: gameText.MUTED }}>{item.label}</Text>
+              </View>
+            ))}
+            {legendAction != null && <View sx={{ marginLeft: 'auto' }}>{legendAction}</View>}
           </View>
-        ))}
-        {legendAction != null && <View sx={{ marginLeft: 'auto' }}>{legendAction}</View>}
-      </View>
+        </Collapse>
+      )}
     </View>
   );
 }
@@ -113,19 +108,11 @@ const styles = StyleSheet.create({
     paddingHorizontal: spacing.MD,
     paddingVertical: 13,
   },
-  wordRow: {
-    flexDirection: 'row',
-    alignItems: 'baseline',
-    justifyContent: 'space-between',
-    paddingHorizontal: spacing.MD,
-    paddingVertical: spacing.SM,
-  },
   timer: {
     fontFamily: fontFamily.BOLD,
     fontSize: 23,
     lineHeight: 30,
     color: gameText.PRIMARY,
-    minWidth: 36,
     textAlign: 'right',
   },
   timerUrgent: {

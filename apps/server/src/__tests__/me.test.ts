@@ -33,6 +33,7 @@ describe('assertNicknameCooldown', () => {
 vi.mock('../db/prisma.js', () => ({
   prisma: {
     user: { findUnique: vi.fn(), findFirst: vi.fn().mockResolvedValue(null), update: vi.fn(), delete: vi.fn().mockResolvedValue({}) },
+    userItem: { findUnique: vi.fn() },
     friendRequest: { deleteMany: vi.fn().mockResolvedValue({ count: 0 }) },
     friendship: { deleteMany: vi.fn().mockResolvedValue({ count: 0 }) },
     gameReplay: { deleteMany: vi.fn().mockResolvedValue({ count: 0 }) },
@@ -73,6 +74,11 @@ const sampleUser = {
   pushToken: null,
   createdAt: new Date('2026-01-01T00:00:00Z'),
   nicknameChangedAt: null,
+  coins: 0,
+  frameId: null,
+  backgroundId: null,
+  chatColorId: null,
+  items: [{ itemId: 'dog' }],
 };
 
 describe('GET /me', () => {
@@ -138,6 +144,7 @@ describe('PATCH /me', () => {
     const { accessToken } = await signTokens('u1');
     vi.mocked(redis.get).mockResolvedValue(accessToken);
     vi.mocked(prisma.user.findUnique).mockResolvedValue(sampleUser as any);
+    vi.mocked(prisma.userItem.findUnique).mockResolvedValue({ userId: 'u1', itemId: 'cat' } as any);
     vi.mocked(prisma.user.update).mockResolvedValue({ ...sampleUser, characterId: 'cat' } as any);
 
     const app = await buildApp();
@@ -149,6 +156,24 @@ describe('PATCH /me', () => {
     });
     expect(res.statusCode).toBe(200);
     expect(res.json().characterId).toBe('cat');
+  });
+
+  it('rejects a character the user does not own with 403', async () => {
+    const { accessToken } = await signTokens('u1');
+    vi.mocked(redis.get).mockResolvedValue(accessToken);
+    vi.mocked(prisma.user.findUnique).mockResolvedValue(sampleUser as any);
+    vi.mocked(prisma.userItem.findUnique).mockResolvedValue(null);
+
+    const app = await buildApp();
+    const res = await app.inject({
+      method: 'PATCH',
+      url: '/me',
+      headers: { authorization: `Bearer ${accessToken}` },
+      payload: { characterId: 'fox' },
+    });
+    expect(res.statusCode).toBe(403);
+    expect(res.json().error).toBe('ITEM_NOT_OWNED');
+    expect(prisma.user.update).not.toHaveBeenCalled();
   });
 });
 
@@ -191,6 +216,63 @@ describe('POST /me/onboard', () => {
     });
     expect(res.statusCode).toBe(409);
     expect(res.json().error).toBe('NICKNAME_CODE_CONFLICT');
+  });
+});
+
+describe('POST /me/push-diagnostic', () => {
+  beforeEach(() => vi.clearAllMocks());
+
+  it('유효한 진단 payload면 200', async () => {
+    const { accessToken } = await signTokens('u1');
+    vi.mocked(redis.get).mockResolvedValue(accessToken);
+
+    const app = await buildApp();
+    const res = await app.inject({
+      method: 'POST',
+      url: '/me/push-diagnostic',
+      headers: { authorization: `Bearer ${accessToken}` },
+      payload: { result: 'error', permission: 'granted', message: 'no valid aps-environment' },
+    });
+    expect(res.statusCode).toBe(200);
+  });
+
+  it('result가 허용값이 아니면 400', async () => {
+    const { accessToken } = await signTokens('u1');
+    vi.mocked(redis.get).mockResolvedValue(accessToken);
+
+    const app = await buildApp();
+    const res = await app.inject({
+      method: 'POST',
+      url: '/me/push-diagnostic',
+      headers: { authorization: `Bearer ${accessToken}` },
+      payload: { result: 'weird' },
+    });
+    expect(res.statusCode).toBe(400);
+  });
+});
+
+describe('DELETE /me/push-token', () => {
+  beforeEach(() => vi.clearAllMocks());
+
+  it('pushToken을 null로 비운다', async () => {
+    const { accessToken } = await signTokens('u1');
+    vi.mocked(redis.get).mockResolvedValue(accessToken);
+    vi.mocked(prisma.user.update).mockResolvedValue({ ...sampleUser, pushToken: null } as never);
+
+    const app = await buildApp();
+    const res = await app.inject({
+      method: 'DELETE',
+      url: '/me/push-token',
+      headers: { authorization: `Bearer ${accessToken}` },
+    });
+    expect(res.statusCode).toBe(200);
+    expect(prisma.user.update).toHaveBeenCalledWith({ where: { id: 'u1' }, data: { pushToken: null } });
+  });
+
+  it('인증 헤더가 없으면 401', async () => {
+    const app = await buildApp();
+    const res = await app.inject({ method: 'DELETE', url: '/me/push-token' });
+    expect(res.statusCode).toBe(401);
   });
 });
 

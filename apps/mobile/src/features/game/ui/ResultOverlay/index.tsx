@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState, type ReactNode } from 'react';
 import { Image, Text, View } from 'dripsy';
-import { AccessibilityInfo, Pressable, StyleSheet } from 'react-native';
+import { AccessibilityInfo, StyleSheet } from 'react-native';
 import Animated, {
   useSharedValue,
   useAnimatedStyle,
@@ -13,45 +13,57 @@ import Animated, {
   Extrapolation,
 } from 'react-native-reanimated';
 import { fontFamily, getCharacterImageSource } from '@/shared/config';
+import { makeStepEasing } from '@/shared/lib/stepEasing';
 import { PixelFrame } from '@/shared/ui/PixelFrame';
+import { PixelLoadingSpinner } from '@/shared/ui/PixelLoadingSpinner';
 import { chatStream, resultOverlay } from '@/features/game/config';
 import type { GameResultOverlayData } from '@/features/game/model/resultOverlay';
 
 type Props = {
   data: GameResultOverlayData;
-  onDismiss: () => void;
+  onDismiss?: () => void;
 };
 
-// 노출 예산 = fade in 0.2s + hold 1.5s + fade out 0.3s = 정확히 2.0s
+// 노출 예산 = fade in 0.2s + hold 4.5s + fade out 0.3s = 정확히 5.0s
 const FADE_IN_MS = 200;
-const HOLD_MS = 1500;
+const HOLD_MS = 4500;
 const FADE_OUT_MS = 300;
 const TOTAL_MS = FADE_IN_MS + HOLD_MS + FADE_OUT_MS;
 
-const TITLE: Record<GameResultOverlayData['kind'], string> = {
+const TITLE: Record<Exclude<GameResultOverlayData['kind'], 'cue'>, string> = {
+  waiting: '제시어 입력 중..',
   correct: '정답입니다!',
   wrong: '오답입니다!',
   gameover: 'GAME OVER',
 };
 
 const TOKENS = {
+  waiting: {
+    ...resultOverlay.CORRECT,
+    ACCENT: resultOverlay.GOLD.BG,
+    ACCENT_DARK: resultOverlay.GOLD.ACCENT_DARK,
+    ON_ACCENT: resultOverlay.GOLD.FG,
+    CHIP_BG: resultOverlay.GOLD.ACCENT_DARK,
+    CHIP_FG: '#FFF4D6',
+  },
   correct: resultOverlay.CORRECT,
+  cue: resultOverlay.CORRECT,
   wrong: resultOverlay.WRONG,
   gameover: resultOverlay.GAMEOVER,
 };
 
+function getTitle(data: GameResultOverlayData): string {
+  if (data.kind === 'cue') return data.word;
+  if (data.kind === 'waiting') return data.title ?? TITLE.waiting;
+  return TITLE[data.kind];
+}
+
 function getMetaText(data: GameResultOverlayData): string {
+  if (data.kind === 'waiting') return data.message ?? '출제자가 제시어를 입력하고 있어요';
+  if (data.kind === 'cue') return data.message;
   if (data.kind === 'correct') return `${data.winnerName} · ${data.solveSeconds}초`;
   if (data.kind === 'wrong') return `${data.guesserName} · ${data.guess}`;
   return '아무도 못 맞혔어요';
-}
-
-/** RN에 CSS steps() 이징이 없어 진행값 자체를 n단으로 양자화해 흉내낸다 (픽셀 룩 유지). */
-function makeStepEasing(steps: number) {
-  return (t: number) => {
-    'worklet';
-    return Math.floor(t * steps) / steps;
-  };
 }
 
 function useReducedMotionPref(): boolean {
@@ -59,7 +71,7 @@ function useReducedMotionPref(): boolean {
   useEffect(() => {
     let mounted = true;
     AccessibilityInfo.isReduceMotionEnabled()
-      .then((v) => mounted && setReduced(v))
+      .then(v => mounted && setReduced(v))
       .catch(() => {});
     const sub = AccessibilityInfo.addEventListener('reduceMotionChanged', setReduced);
     return () => {
@@ -129,7 +141,7 @@ function PetGlyph({
   reduced,
 }: {
   characterId: string;
-  kind: GameResultOverlayData['kind'];
+  kind: Exclude<GameResultOverlayData['kind'], 'waiting'>;
   reduced: boolean;
 }) {
   const translateX = useSharedValue(0);
@@ -137,7 +149,7 @@ function PetGlyph({
 
   useEffect(() => {
     if (reduced) return undefined;
-    if (kind === 'correct') {
+    if (kind === 'correct' || kind === 'cue') {
       // hop .9s ease-in-out infinite
       translateY.value = withRepeat(
         withSequence(withTiming(-7, { duration: 360 }), withTiming(0, { duration: 540 })),
@@ -192,7 +204,13 @@ function pieceSize(baseSize: number, index: number, isX: boolean): number {
   return isEvery3rd ? baseSize + 4 : baseSize;
 }
 
-function makeConfetti(count: number, radius: number, colors: readonly string[], baseSize: number, isX: boolean): ConfettiPieceData[] {
+function makeConfetti(
+  count: number,
+  radius: number,
+  colors: readonly string[],
+  baseSize: number,
+  isX: boolean,
+): ConfettiPieceData[] {
   return Array.from({ length: count }, (_, k) => {
     const angle = (k / count) * Math.PI * 2;
     const size = pieceSize(baseSize, k, isX);
@@ -209,6 +227,8 @@ function makeConfetti(count: number, radius: number, colors: readonly string[], 
 }
 
 const CONFETTI_BY_KIND: Record<GameResultOverlayData['kind'], () => ConfettiPieceData[]> = {
+  waiting: () => [],
+  cue: () => [],
   correct: () => makeConfetti(12, 118, resultOverlay.CONFETTI_CORRECT, 8, false),
   wrong: () => makeConfetti(10, 112, resultOverlay.CONFETTI_WRONG, 8, true),
   gameover: () => makeConfetti(12, 116, resultOverlay.CONFETTI_GAMEOVER, 8, true),
@@ -243,13 +263,23 @@ function ConfettiParticle({ piece }: { piece: ConfettiPieceData }) {
         <View
           style={[
             styles.xBar,
-            { width: piece.size * 0.3, left: piece.size * 0.35, backgroundColor: piece.color, transform: [{ rotate: '45deg' }] },
+            {
+              width: piece.size * 0.3,
+              left: piece.size * 0.35,
+              backgroundColor: piece.color,
+              transform: [{ rotate: '45deg' }],
+            },
           ]}
         />
         <View
           style={[
             styles.xBar,
-            { width: piece.size * 0.3, left: piece.size * 0.35, backgroundColor: piece.color, transform: [{ rotate: '-45deg' }] },
+            {
+              width: piece.size * 0.3,
+              left: piece.size * 0.35,
+              backgroundColor: piece.color,
+              transform: [{ rotate: '-45deg' }],
+            },
           ]}
         />
       </Animated.View>
@@ -267,9 +297,10 @@ function ConfettiParticle({ piece }: { piece: ConfettiPieceData }) {
 /**
  * 출제 화면 위에 얹히는 결과 레이어 — 정답 / 오답 / 게임오버 (확정안 8b).
  * 캔버스 영역(position: relative) 안에 절대 배치해 헤더·그리드·툴바는 계속 보이게 한다.
- * 정확히 2.0s 후 자동으로 사라지며, 탭하면 조기 종료된다. 연속 결과는 새 인스턴스로 교체(key)해 타이머를 리셋한다.
+ * 결과는 5초 유지되며 탭으로 종료되지 않는다. 제시어 대기는 입력 완료까지 유지된다.
  */
 export function ResultOverlay({ data, onDismiss }: Props) {
+  const isWaiting = data.kind === 'waiting';
   const reduced = useReducedMotionPref();
   const opacity = useSharedValue(0);
   const scale = useSharedValue(reduced ? 1 : 0.7);
@@ -280,22 +311,35 @@ export function ResultOverlay({ data, onDismiss }: Props) {
   }, [onDismiss]);
 
   useEffect(() => {
+    if (isWaiting) {
+      opacity.value = withTiming(1, { duration: FADE_IN_MS });
+      scale.value = withTiming(1, { duration: FADE_IN_MS });
+      return () => {
+        cancelAnimation(opacity);
+        cancelAnimation(scale);
+      };
+    }
+    const holdMs = data.kind === 'cue' ? Math.max(0, data.durationMs - FADE_IN_MS - FADE_OUT_MS) : HOLD_MS;
     opacity.value = withSequence(
       withTiming(1, { duration: FADE_IN_MS }),
-      withDelay(HOLD_MS, withTiming(0, { duration: FADE_OUT_MS })),
+      withDelay(holdMs, withTiming(0, { duration: FADE_OUT_MS })),
     );
     if (!reduced) {
       scale.value = withSequence(
         withTiming(1.06, { duration: FADE_IN_MS }),
         withTiming(1, { duration: 90 }),
-        withDelay(HOLD_MS - 90, withTiming(0.94, { duration: FADE_OUT_MS })),
+        withDelay(Math.max(0, holdMs - 90), withTiming(0.94, { duration: FADE_OUT_MS })),
       );
     }
 
-    const timer = setTimeout(() => onDismissRef.current(), TOTAL_MS);
-    return () => clearTimeout(timer);
+    const timer = setTimeout(() => onDismissRef.current?.(), FADE_IN_MS + holdMs + FADE_OUT_MS);
+    return () => {
+      clearTimeout(timer);
+      cancelAnimation(opacity);
+      cancelAnimation(scale);
+    };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+  }, [isWaiting]);
 
   const scrimStyle = useAnimatedStyle(() => ({ opacity: opacity.value }));
   const stackStyle = useAnimatedStyle(() => ({
@@ -307,44 +351,63 @@ export function ResultOverlay({ data, onDismiss }: Props) {
   const confetti = reduced ? [] : CONFETTI_BY_KIND[data.kind]();
 
   return (
-    <Pressable
+    <View
       style={StyleSheet.absoluteFill}
-      onPress={onDismiss}
-      accessibilityRole="button"
-      accessibilityLabel="결과 오버레이 닫기"
+      pointerEvents={isWaiting ? 'none' : 'auto'}
+      accessibilityLabel={getTitle(data)}
+      accessibilityLiveRegion={isWaiting ? 'polite' : 'none'}
     >
-      <Animated.View pointerEvents="none" style={[StyleSheet.absoluteFill, { backgroundColor: tokens.SCRIM }, scrimStyle]} />
+      <Animated.View
+        pointerEvents="none"
+        style={[StyleSheet.absoluteFill, { backgroundColor: tokens.SCRIM }, scrimStyle]}
+      />
 
       <View pointerEvents="none" style={styles.confettiOrigin}>
-        {confetti.map((piece) => (
+        {confetti.map(piece => (
           <ConfettiParticle key={piece.key} piece={piece} />
         ))}
       </View>
 
       <Animated.View pointerEvents="none" style={[styles.centerStack, stackStyle]}>
         <PixelSlab bg={tokens.ACCENT} footColor={tokens.ACCENT_DARK} footHeight={6} paddingH={18} paddingV={11}>
-          <Text style={{ fontFamily: fontFamily.BOLD, fontSize: 21, color: tokens.ON_ACCENT }}>{TITLE[data.kind]}</Text>
+          <Text style={{ fontFamily: fontFamily.BOLD, fontSize: 21, color: tokens.ON_ACCENT }}>{getTitle(data)}</Text>
         </PixelSlab>
 
         {data.kind === 'correct' && (
           <PixelChip bg={resultOverlay.GOLD.BG} paddingH={12} paddingV={6}>
-            <Text style={{ fontFamily: fontFamily.BOLD, fontSize: 16, color: resultOverlay.GOLD.FG }}>{`+${data.score} POINT`}</Text>
+            <Text
+              style={{ fontFamily: fontFamily.BOLD, fontSize: 16, color: resultOverlay.GOLD.FG }}
+            >{`+${data.score} POINT`}</Text>
           </PixelChip>
         )}
 
         <PixelChip bg={tokens.CHIP_BG} paddingH={10} paddingV={5}>
-          <Text style={{ fontFamily: fontFamily.REGULAR, fontSize: 12, color: tokens.CHIP_FG }}>{getMetaText(data)}</Text>
+          <Text style={{ fontFamily: fontFamily.REGULAR, fontSize: 12, color: tokens.CHIP_FG }}>
+            {getMetaText(data)}
+          </Text>
         </PixelChip>
 
         {data.kind === 'gameover' && (
-          <PixelSlab bg={resultOverlay.GOLD.BG} footColor={resultOverlay.GOLD.ACCENT_DARK} footHeight={5} paddingH={14} paddingV={8}>
-            <Text style={{ fontFamily: fontFamily.BOLD, fontSize: 16, color: resultOverlay.GOLD.FG }}>{`정답은 ${data.answer}!`}</Text>
+          <PixelSlab
+            bg={resultOverlay.GOLD.BG}
+            footColor={resultOverlay.GOLD.ACCENT_DARK}
+            footHeight={5}
+            paddingH={14}
+            paddingV={8}
+          >
+            <Text
+              style={{ fontFamily: fontFamily.BOLD, fontSize: 16, color: resultOverlay.GOLD.FG }}
+            >{`정답은 ${data.answer}!`}</Text>
           </PixelSlab>
         )}
 
-        <PetGlyph characterId={data.characterId} kind={data.kind} reduced={reduced} />
+        {data.kind === 'waiting' ? (
+          <PixelLoadingSpinner size={40} accessibilityLabel="제시어 입력 대기 중" />
+        ) : (
+          <PetGlyph characterId={data.characterId} kind={data.kind} reduced={reduced} />
+        )}
       </Animated.View>
-    </Pressable>
+    </View>
   );
 }
 

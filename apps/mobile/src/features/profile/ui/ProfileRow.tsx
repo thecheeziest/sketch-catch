@@ -1,5 +1,6 @@
+import { FeedbackPressable } from '@/shared/ui/FeedbackPressable';
 import { Text, View } from 'dripsy'
-import { Pressable, StyleSheet } from 'react-native'
+import { StyleSheet } from 'react-native';
 import { colors, spacing } from '@/shared/config'
 import { Icon } from '@/shared/ui/Icon'
 
@@ -12,7 +13,7 @@ type Props = {
 
 export function ProfileRow({ label, value, onPress, disabled = false }: Props) {
   return (
-    <Pressable
+    <FeedbackPressable
       disabled={disabled}
       onPress={disabled ? undefined : onPress}
       style={({ pressed }) => [
@@ -26,7 +27,7 @@ export function ProfileRow({ label, value, onPress, disabled = false }: Props) {
         <Text variant="B4" sx={{ color: colors.GRAY }}>{value}</Text>
         {!disabled && <Icon name="CHEVRON_RIGHT" size={16} />}
       </View>
-    </Pressable>
+    </FeedbackPressable>
   )
 }
 

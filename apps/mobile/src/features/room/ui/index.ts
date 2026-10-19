@@ -6,3 +6,7 @@ export * from './MatchingStatus';
 export * from './RoomEditModal';
 export * from './SlotCard';
 export * from './StepperField';
+export * from './PlayerProfileDialog';
+export * from './LobbyChatLog';
+export * from './RoomListCard';
+export * from './PenaltyField';

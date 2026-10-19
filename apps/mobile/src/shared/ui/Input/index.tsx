@@ -1,6 +1,7 @@
 import { Text, TextInput, View } from 'dripsy'
 import { colors, fontFamily, spacing, textSizes } from '@/shared/config';
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
+import { playFeedback } from '@/shared/lib/feedback';
 import type { StyleProp, TextInputProps, TextStyle } from 'react-native';
 import { PixelFrame } from '../PixelFrame';
 
@@ -37,6 +38,7 @@ const BORDER_COLORS: Record<InputColor, { default: string; focus: string }> = {
 
 export function AppInput(props: Props) {
   const [focused, setFocused] = useState(false);
+  useEffect(() => { if (props.error) playFeedback('warning'); }, [props.error]);
 
   const colorScheme = BORDER_COLORS[props.color ?? 'SECONDARY'];
   const borderColor = props.error

@@ -12,16 +12,22 @@
       "supportsTablet": false,
       "bundleIdentifier": "com.sketchcatch.app",
       "usesAppleSignIn": true,
+      "entitlements": {
+        "com.apple.developer.applesignin": ["Default"]
+      },
+      "buildNumber": "5",
       "infoPlist": {
         "ITSAppUsesNonExemptEncryption": false
-      }
+      },
+      "appleTeamId": "8RB2KMFLF7"
     },
     "android": {
       "adaptiveIcon": {
         "foregroundImage": "./assets/app-icons/symbol-adaptive-foreground.png",
         "backgroundColor": "#1E1C2C"
       },
-      "package": "com.sketchcatch.app"
+      "package": "com.sketchcatch.app",
+      "versionCode": 4
     },
     "web": {
       "favicon": "./assets/app-icons/04-shooting-star-symbol.png"
@@ -56,7 +62,7 @@
         {
           "image": "./assets/logo-splash-v2.png",
           "resizeMode": "contain",
-          "backgroundColor": "#FAFAF0",
+          "backgroundColor": "#1E1C2C",
           "imageWidth": 280,
           "ios": {
             "enableFullScreenImage_legacy": true
@@ -66,9 +72,25 @@
       "expo-image",
       "expo-status-bar",
       [
+        "./plugins/withAppDisplayName.cjs",
+        {
+          "displayName": "스케치캐치",
+          "alternateNames": ["SketchCatch", "Sketch Catch"]
+        }
+      ],
+      [
         "./plugins/withStoreIcon.cjs",
         {
           "storeIcon": "./assets/app-icons/01-deep-space.png"
+        }
+      ],
+      [
+        "expo-audio",
+        {
+          "microphonePermission": false,
+          "recordAudioAndroid": false,
+          "enableBackgroundRecording": false,
+          "enableBackgroundPlayback": false
         }
       ]
     ],
@@ -86,6 +108,16 @@
         "projectId": "f6970800-ce5d-414d-880e-dc6bbda29d67"
       }
     },
-    "owner": "zoazoa"
+    "owner": "zoazoa",
+    "runtimeVersion": {
+      "policy": "fingerprint"
+    },
+    "updates": {
+      "url": "https://u.expo.dev/f6970800-ce5d-414d-880e-dc6bbda29d67",
+      "enabled": true,
+      "requestHeaders": {
+        "expo-channel-name": "test"
+      }
+    }
   }
 }

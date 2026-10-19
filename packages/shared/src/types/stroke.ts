@@ -1,3 +1,4 @@
+import type { PaintSpan } from '../drawing/paint.js';
 // DEVELOPER.md §8.1 — Stroke 자료구조
 // x, y는 0~1 정규화 좌표, t는 ms 단위 타임스탬프
 export type Point = {
@@ -11,6 +12,7 @@ export type Stroke = {
   authorId: string;
   color: string;
   width: number; // 정규화 width = width / canvasWidth (0~1)
+  paintSpans?: PaintSpan[];
   points: Point[];
   startTime: number; // 라운드 시작 기준 ms
 };
@@ -20,6 +22,7 @@ export type StrokeEvent = {
   authorId: string;
   color?: string;
   width?: number;
+  paintSpans?: PaintSpan[];
   points?: Point[];
   ended?: boolean;
 };

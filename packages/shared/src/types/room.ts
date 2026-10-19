@@ -1,9 +1,9 @@
 // DEVELOPER.md §7 — 게임 상태 머신 + RoomState
-import type { UserPublic } from './user.js';
+import type { Cosmetics, UserPublic } from './user.js';
 
 export type GameMode = 1 | 2;
 
-export type Category = 'ANIMAL' | 'FOOD' | 'OBJECT' | 'NATURE' | 'PLACE' | 'ACTION' | 'JOB' | 'CUSTOM';
+export type Category = 'ANIMAL' | 'FOOD' | 'OBJECT' | 'NATURE' | 'PLACE' | 'ACTION' | 'JOB' | 'PROVERB' | 'IDIOM' | 'MOVIE' | 'DRAMA' | 'MEME' | 'CUSTOM';
 
 export type RoomStatus =
   | 'LOBBY'
@@ -16,12 +16,21 @@ export type RoomStatus =
   | 'AWARD'
   | 'END';
 
-export type Player = UserPublic & {
+export type Player = UserPublic &
+  Partial<Cosmetics> & {
   slot: number;
   isHost: boolean;
   isReady: boolean;
   connected: boolean;
   left?: boolean; // 게임 중 자발적 퇴장
+  // 시상식(AWARD)에 아직 머무는 중 — [한번 더!]를 누르면 false, true인 유저는 다음 게임 참가 명단에서 제외
+  inAward?: boolean;
+};
+
+// 벌칙 설정 — 필드가 없으면 벌칙 없는 방. 모드 1에서만 허용
+export type RoomPenalty = {
+  loserCount: 1 | 2; // 벌칙에 걸리는 꼴찌 인원 (동점이면 더 늘어날 수 있다)
+  text: string; // 무엇을 걸지
 };
 
 export type RoomConfig = {
@@ -30,6 +39,24 @@ export type RoomConfig = {
   answerTimer: number; // seconds (mode 2)
   categories: Category[];
   playerCountMax: number; // mode1=3~12, mode2=4~12
+  penalty?: RoomPenalty;
+};
+
+// 방 찾기 목록 항목 — GET /rooms 응답. 대기실(LOBBY)만 WAITING, 그 외(게임·시상식)는 PLAYING
+export type RoomListStatus = 'WAITING' | 'PLAYING';
+
+export type RoomListItem = {
+  code: string;
+  title: string;
+  status: RoomListStatus;
+  mode: GameMode;
+  playerCount: number; // 퇴장(left)·시상식 잔류(inAward) 제외
+  playerCountMax: number;
+  hasPassword: boolean;
+  // 잠금은 켰지만 비밀번호가 없는 방 — 초대로만 입장 가능
+  inviteOnly: boolean;
+  categories: Category[];
+  penalty?: RoomPenalty;
 };
 
 export type RoomState = {
@@ -48,4 +75,30 @@ export type RoomState = {
   allReady?: boolean;
   // 모드1: 게임 시작 시 계산된 출제자 순서 (userId[])
   turnSchedule?: string[];
+  // 이번 게임에서 이미 출제한 제시어 — 한 게임 안에서 같은 제시어가 다시 나오지 않게 한다
+  usedWords?: string[];
+  // 게임 1판의 식별자 — 시작마다 새로 발급, 대기실 복귀 시 제거. 지난 게임의 타이머·이벤트를 걸러내는 기준
+  gameId?: string;
+  // 새 게임이 시작될 때 시상식에 남아 있던 유저 - 게임 명단에서는 빠지지만 서로 채팅할 수 있다.
+  // 다음 시상식이 시작되면 다시 명단(inAward)으로 합쳐진다.
+  awardViewers?: Player[];
+  // 이전 서버가 저장한 시상식 종료 시각 — 새 시상식 시작 시 제거 (자동 퇴장 없음)
+  awardEndsAt?: number;
+  // 코인 정산용 판 중 집계 — 게임 시작 시 초기화, 정산은 서버만 한다
+  coinStats?: CoinStats;
+};
+
+export type CoinStats = {
+  correct: Record<string, number>; // 모드1: 맞힌 라운드 수
+  solved: Record<string, number>; // 모드1: 내 그림을 누군가 맞힌 라운드 수 (출제자)
+  idleDrawers: string[]; // 모드1: 그리기 차례에 아무것도 그리지 않은 출제자 — 순위 보너스 제외
+  submits: Record<string, number>; // 모드2: 시간 초과가 아닌 직접 제출 수
+};
+
+// 초대 수락 전 확인용 방 요약 — 초대받은 사람은 비밀번호 없이 들어오므로 잠금 여부와 무관하게 내려준다
+export type RoomPreview = {
+  code: string;
+  title: string;
+  status: RoomStatus;
+  full: boolean;
 };

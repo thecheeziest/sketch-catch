@@ -1,14 +1,16 @@
+import { FeedbackPressable } from '@/shared/ui/FeedbackPressable';
 import { Image, Text, View } from 'dripsy'
 import { useMe } from '@/features/auth/api';
-import { CharacterModal, FriendCodeModal, NicknameModal } from '@/features/profile/ui';
+import { FriendCodeModal, NicknameModal } from '@/features/profile/ui';
 import { colors, getCharacterImageSource, spacing } from '@/shared/config';
 import { copyToClipboard, useNavGuard } from '@/shared/lib';
 import { useAuthStore } from '@/shared/model';
 import { BlurView } from 'expo-blur';
 import { useRouter } from 'expo-router';
 import { ReactNode, useState } from 'react';
-import { Pressable, StyleSheet } from 'react-native';
+import { StyleSheet } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { CoinChip } from '../CoinChip';
 import { Icon } from '../Icon';
 
 type Props = {
@@ -21,7 +23,6 @@ export function ProfileHeader({ rightSlot }: Props) {
   const guardNav = useNavGuard();
   const { data: user } = useMe();
   const clearAuth = useAuthStore((s) => s.clearAuth);
-  const [characterOpen, setCharacterOpen] = useState(false);
   const [nicknameOpen, setNicknameOpen] = useState(false);
   const [friendCodeOpen, setFriendCodeOpen] = useState(false);
 
@@ -31,7 +32,7 @@ export function ProfileHeader({ rightSlot }: Props) {
     return (
       <BlurView intensity={20} tint="light" style={containerStyle}>
         <View style={[StyleSheet.absoluteFill, { backgroundColor: 'rgba(10, 10, 16, 0.82)' }]} />
-        <Pressable
+        <FeedbackPressable
           onPress={async () => {
             await clearAuth();
             router.replace('/(auth)/login');
@@ -40,15 +41,15 @@ export function ProfileHeader({ rightSlot }: Props) {
           hitSlop={4}
         >
           <Text sx={{ color: colors.SECONDARY_200 }}>로그인 후 이용해 주세요!</Text>
-        </Pressable>
+        </FeedbackPressable>
         <View sx={{ flexDirection: 'row', alignItems: 'center', gap: spacing.XS }}>
           {rightSlot}
-          <Pressable
+          <FeedbackPressable
             onPress={() => guardNav(() => router.push('/settings'))}
             style={({ pressed }) => [styles.iconBtn, pressed && { opacity: 0.7 }]}
           >
             <Icon name="SETTINGS" size={22} />
-          </Pressable>
+          </FeedbackPressable>
         </View>
       </BlurView>
     );
@@ -56,7 +57,8 @@ export function ProfileHeader({ rightSlot }: Props) {
 
   const characterSource = getCharacterImageSource(user.characterId);
 
-  const handleCopy = (): Promise<void> => copyToClipboard(`${user.nickname}#${user.friendCode}`, '복사됐어요');
+  const handleCopy = (): Promise<void> => copyToClipboard(`${user.nickname}#${user.friendCode}`);
+  const openShop = (): void => guardNav(() => router.push('/shop'));
 
   return (
     <>
@@ -65,17 +67,19 @@ export function ProfileHeader({ rightSlot }: Props) {
           style={[StyleSheet.absoluteFill, { backgroundColor: 'rgba(10, 10, 16, 0.82)' }]}
         />
         <View sx={sxStyles.left}>
-          <Pressable
-            onPress={() => setCharacterOpen(true)}
+          <FeedbackPressable
+            onPress={openShop}
+            accessibilityRole="button"
+            accessibilityLabel="꾸미기 상점 열기"
             style={({ pressed }) => [styles.characterBtn, pressed && { opacity: 0.7 }]}
             hitSlop={4}
           >
             {characterSource && (
               <Image source={characterSource} sx={{ width: 45, height: 45 }} resizeMode="contain" />
             )}
-          </Pressable>
+          </FeedbackPressable>
           <View sx={{ flexDirection: 'row', alignItems: 'center', gap: 4 }}>
-            <Pressable
+            <FeedbackPressable
               onPress={() => setNicknameOpen(true)}
               onLongPress={handleCopy}
               delayLongPress={500}
@@ -84,8 +88,8 @@ export function ProfileHeader({ rightSlot }: Props) {
               <Text variants={['bold', 'T1']} sx={{ color: colors.LIGHT_100 }}>
                 {user.nickname}
               </Text>
-            </Pressable>
-            <Pressable
+            </FeedbackPressable>
+            <FeedbackPressable
               onPress={() => setFriendCodeOpen(true)}
               onLongPress={handleCopy}
               delayLongPress={500}
@@ -94,25 +98,21 @@ export function ProfileHeader({ rightSlot }: Props) {
               <Text sx={{ color: colors.SECONDARY_200 }}>
                 #{user.friendCode}
               </Text>
-            </Pressable>
+            </FeedbackPressable>
           </View>
         </View>
         <View sx={{ flexDirection: 'row', alignItems: 'center', gap: spacing.XS }}>
+          <CoinChip label={String(user.coins)} onPress={openShop} accessibilityLabel={`보유 코인 ${user.coins}개, 상점 열기`} />
           {rightSlot}
-          <Pressable
+          <FeedbackPressable
             onPress={() => guardNav(() => router.push('/settings'))}
             style={({ pressed }) => [styles.iconBtn, pressed && { opacity: 0.7 }]}
           >
             <Icon name="SETTINGS" size={22} />
-          </Pressable>
+          </FeedbackPressable>
         </View>
       </BlurView>
 
-      <CharacterModal
-        visible={characterOpen}
-        onClose={() => setCharacterOpen(false)}
-        currentCharacterId={user.characterId}
-      />
       <NicknameModal
         visible={nicknameOpen}
         onClose={() => setNicknameOpen(false)}

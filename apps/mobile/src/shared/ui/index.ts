@@ -1,5 +1,4 @@
 export * from './Badge';
-export * from './GifPreviewPlayer';
 export * from './Icon';
 export * from './Button';
 export * from './Input';
@@ -15,3 +14,10 @@ export * from './RequestItem';
 export * from './SegmentedTab';
 export * from './SocialButton';
 export * from './Toast';
+export * from './PixelLoadingSpinner';
+export * from './PullRefreshIndicator';
+export * from './SketchbookLoadingSpinner';
+export * from './PixelSprite';
+export * from './CoinChip';
+export * from './CosmeticBackground';
+export * from './CosmeticAvatar';

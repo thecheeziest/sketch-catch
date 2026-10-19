@@ -4,3 +4,4 @@ export * from './useInvite';
 export * from './useJoinRoom';
 export * from './useStartMatch';
 export * from './useUpdateRoom';
+export * from './useRoomList';

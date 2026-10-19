@@ -1,7 +1,7 @@
 import { Redirect } from 'expo-router';
-import { useAuthStore } from '@/shared/model';
+import { useIsSignedIn } from '@/features/auth/lib';
 
 export default function IndexRoute() {
-  const isAuthenticated = useAuthStore((s) => s.isAuthenticated);
-  return <Redirect href={isAuthenticated ? '/(tabs)' : '/(auth)/login'} />;
+  const isSignedIn = useIsSignedIn();
+  return <Redirect href={isSignedIn ? '/(tabs)' : '/(auth)/login'} />;
 }

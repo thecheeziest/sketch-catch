@@ -14,6 +14,7 @@ vi.mock('../db/redis.js', () => ({
       redisStore.delete(key);
       return 1;
     }),
+    zadd: vi.fn(async () => 1),
   },
   setPresence: vi.fn(async (userId: string, status = 'ONLINE') => {
     redisStore.set(`user:presence:${userId}`, status);
@@ -108,7 +109,7 @@ describe('presence flow', () => {
         mode: 1,
         playerCountMax: 6,
         roundCount: 5,
-        drawTimer: 30,
+        drawTimer: 40,
         categories: ['CUSTOM'],
         locked: false,
       },
@@ -136,5 +137,24 @@ describe('presence flow', () => {
         }),
       }),
     ]);
+  });
+
+  it('남아 있는 게임 상태와 삭제된 방을 재접속·친구 조회에서 온라인으로 복구한다', async () => {
+    const app = await buildApp();
+    const { accessToken } = await signTokens('uB');
+    await redis.set('session:uB', accessToken);
+    redisStore.set('user:presence:uA', 'IN_GAME');
+    redisStore.set('user:room:uA', 'OLD111');
+    redisStore.set('user:presence:uB', 'IN_GAME');
+    redisStore.set('user:room:uB', 'OLD222');
+    const response = await app.inject({
+      method: 'GET',
+      url: '/friends',
+      headers: { authorization: `Bearer ${accessToken}` },
+    });
+    expect(response.statusCode).toBe(200);
+    expect(response.json()).toEqual([expect.objectContaining({ userId: 'uA', presenceStatus: 'ONLINE' })]);
+    expect(redisStore.get('user:presence:uB')).toBe('ONLINE');
+    expect(redisStore.has('user:room:uB')).toBe(false);
   });
 });

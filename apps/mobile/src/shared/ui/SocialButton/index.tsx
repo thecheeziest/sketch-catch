@@ -1,5 +1,6 @@
+import { FeedbackPressable } from '@/shared/ui/FeedbackPressable';
 import { Text, View } from 'dripsy'
-import { Pressable, StyleSheet } from 'react-native'
+import { StyleSheet } from 'react-native';
 import { spacing } from '@/shared/config'
 
 type Provider = 'kakao' | 'apple'
@@ -18,7 +19,8 @@ const LABEL: Record<Provider, string> = {
 
 export function SocialButton({ provider, onPress, disabled }: Props) {
   return (
-    <Pressable
+    <FeedbackPressable
+      feedback="tap"
       disabled={disabled}
       onPress={onPress}
       style={({ pressed }) => [
@@ -32,7 +34,7 @@ export function SocialButton({ provider, onPress, disabled }: Props) {
       <Text sx={{ color: FG[provider] }}>
         {LABEL[provider]}
       </Text>
-    </Pressable>
+    </FeedbackPressable>
   )
 }
 

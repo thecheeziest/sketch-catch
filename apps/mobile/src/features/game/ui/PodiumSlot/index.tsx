@@ -1,8 +1,10 @@
 import { useEffect } from 'react';
 import { Text, View } from 'dripsy';
 import { StyleSheet } from 'react-native';
+import { Blur, Canvas, RoundedRect } from '@shopify/react-native-skia';
 import Animated, {
   Easing,
+  cancelAnimation,
   useAnimatedStyle,
   useSharedValue,
   withDelay,
@@ -15,6 +17,8 @@ import { SlotCard } from '@/features/room/ui/SlotCard';
 import { Icon } from '@/shared/ui/Icon';
 import { colors, spacing, textSizes, fontFamily } from '@/shared/config';
 import type { Player } from '@sketch-catch/shared';
+import { useGameStore } from '@/features/game/model/useGameStore';
+import { playFeedback } from '@/shared/lib/feedback';
 
 type PodiumPlayer = {
   userId: string;
@@ -22,6 +26,7 @@ type PodiumPlayer = {
   characterId: string;
   score: number;
   left?: boolean;
+  waiting?: boolean;
 };
 
 type Props = {
@@ -59,6 +64,7 @@ function WinnerSparkle({ angle, delay, radius }: SparkleProps) {
       delay,
       withRepeat(withSequence(withTiming(1, { duration: 260 }), withTiming(0, { duration: 900 })), -1, false),
     );
+    return () => cancelAnimation(opacity);
   }, [opacity, delay]);
 
   const style = useAnimatedStyle(() => ({ opacity: opacity.value }));
@@ -100,6 +106,10 @@ function WinnerGlow({ cardWidth }: { cardWidth: number }) {
         false,
       ),
     );
+    return () => {
+      cancelAnimation(pulse);
+      cancelAnimation(bounce);
+    };
   }, [pulse, bounce]);
 
   const glowStyle = useAnimatedStyle(() => ({
@@ -108,7 +118,8 @@ function WinnerGlow({ cardWidth }: { cardWidth: number }) {
   }));
   const trophyStyle = useAnimatedStyle(() => ({ transform: [{ translateY: bounce.value }] }));
 
-  const glowSize = Math.round(cardWidth * 1.6);
+  const glowSize = Math.round(cardWidth + 96);
+  const cardHeight = Math.round(cardWidth / 0.85);
   const sparkleRadius = Math.round(cardWidth * 0.85);
   const trophySize = Math.round(cardWidth * 0.26);
   const trophyOffset = Math.round(cardWidth * 0.22);
@@ -121,15 +132,41 @@ function WinnerGlow({ cardWidth }: { cardWidth: number }) {
           glowStyle,
           {
             width: glowSize,
-            height: glowSize,
-            borderRadius: glowSize / 2,
+            height: cardHeight + 96,
             marginLeft: -glowSize / 2,
-            marginTop: -glowSize / 2,
+            marginTop: -(cardHeight + 96) / 2,
           },
         ]}
         pointerEvents="none"
-      />
-      {SPARKLES.map((s) => (
+      >
+        <Canvas style={StyleSheet.absoluteFill}>
+          <RoundedRect
+            x={48}
+            y={48}
+            width={cardWidth}
+            height={cardHeight}
+            r={4}
+            style="stroke"
+            strokeWidth={8}
+            color={colors.WARNING_300}
+          >
+            <Blur blur={16} />
+          </RoundedRect>
+          <RoundedRect
+            x={48}
+            y={48}
+            width={cardWidth}
+            height={cardHeight}
+            r={4}
+            style="stroke"
+            strokeWidth={4}
+            color={colors.WARNING_200}
+          >
+            <Blur blur={4} />
+          </RoundedRect>
+        </Canvas>
+      </Animated.View>
+      {SPARKLES.map(s => (
         <WinnerSparkle key={s.angle} angle={s.angle} delay={s.delay} radius={sparkleRadius} />
       ))}
       <Animated.View
@@ -144,6 +181,13 @@ function WinnerGlow({ cardWidth }: { cardWidth: number }) {
 
 export function PodiumSlot({ rank, player, baseCardWidth }: Props) {
   const cardWidth = Math.round(baseCardWidth * SCALE[rank]);
+  const gameId = useGameStore(s => s.result?.gameId);
+  useEffect(() => {
+    if (!gameId) return;
+    const delay = rank === 1 ? 150 : 1750 + (rank - 1) * 350;
+    const timer = setTimeout(() => playFeedback(rank === 1 ? 'podiumWinner' : 'podiumOther', { key: `${gameId}:podium:${rank}` }), delay);
+    return () => clearTimeout(timer);
+  }, [gameId, rank]);
 
   // 1위는 등장 시 통통 튀어 오르며 나타난다
   const entrance = useSharedValue(rank === 1 ? 0 : 1);
@@ -170,16 +214,16 @@ export function PodiumSlot({ rank, player, baseCardWidth }: Props) {
     <View sx={{ alignItems: 'center' }}>
       <Animated.View style={[{ width: cardWidth, alignItems: 'center' }, entranceStyle]}>
         {rank === 1 && player.left !== true && <WinnerGlow cardWidth={cardWidth} />}
-        <SlotCard player={slotPlayer} isMe={false} cardWidth={cardWidth} isLeft={player.left === true} />
+        <SlotCard
+          player={slotPlayer}
+          isMe={false}
+          cardWidth={cardWidth}
+          isLeft={player.left === true}
+          isWaiting={player.waiting === true}
+          statusLabel={`${player.score}점`}
+        />
       </Animated.View>
-      <Text
-        style={[
-          styles.rankLabel,
-          { color: RANK_LABEL_COLOR[rank] },
-        ]}
-      >
-        {rank}위
-      </Text>
+      <Text style={[styles.rankLabel, { color: RANK_LABEL_COLOR[rank] }]}>{rank}위</Text>
     </View>
   );
 }
@@ -194,7 +238,6 @@ const styles = StyleSheet.create({
     position: 'absolute',
     top: '50%',
     left: '50%',
-    backgroundColor: colors.WARNING_300,
   },
   sparkle: {
     position: 'absolute',

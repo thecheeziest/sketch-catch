@@ -1,7 +1,8 @@
 import { useMutation } from '@tanstack/react-query';
 import { useRouter } from 'expo-router';
 import { apiPost } from '@/shared/api';
-import type { Category } from '@sketch-catch/shared';
+import type { Category, RoomPenalty } from '@sketch-catch/shared';
+import { playFeedback } from '@/shared/lib/feedback';
 
 // D-04: 기본값 — 인원 6, 라운드 3, 타이머 30
 type CreateRoomInput = {
@@ -13,6 +14,7 @@ type CreateRoomInput = {
   title?: string;
   locked?: boolean;
   password?: string;
+  penalty?: RoomPenalty;
 };
 
 export function useCreateRoom() {
@@ -21,7 +23,9 @@ export function useCreateRoom() {
   const mutation = useMutation({
     mutationFn: (input: CreateRoomInput) => apiPost<{ code: string }>('/rooms', input),
     onSuccess: ({ code }) => {
-      router.push(`/room/${code}`);
+      playFeedback('confirm');
+      // 방 만들기·입장 화면이 대기실 아래 스택에 남지 않도록 교체한다 (대기실 뒤로가기 → 홈)
+      router.replace(`/room/${code}`);
     },
   });
 
