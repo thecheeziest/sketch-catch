@@ -24,6 +24,10 @@ export const ERROR_HANDLERS: Record<string, ErrorAction> = {
   INVITE_COOLDOWN: { type: 'toast', message: '방금 초대했어요! 잠시 후 다시 보낼 수 있어요' },
   NOT_FRIENDS: { type: 'toast', message: '친구에게만 초대를 보낼 수 있어요!' },
   NOT_IN_ROOM: { type: 'toast', message: '방에 들어와 있을 때만 초대할 수 있어요!' },
+  INSUFFICIENT_COINS: { type: 'toast', message: '코인이 부족해요! 게임하고 모아 볼까요?' },
+  ALREADY_OWNED: { type: 'toast', message: '이미 가지고 있는 아이템이에요!' },
+  ITEM_NOT_OWNED: { type: 'toast', message: '아직 가지고 있지 않은 아이템이에요!' },
+  ITEM_NOT_FOUND: { type: 'toast', message: '지금은 살 수 없는 아이템이에요!' },
 };
 
 type HandleApiErrorOptions = {

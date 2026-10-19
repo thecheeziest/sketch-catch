@@ -3,6 +3,7 @@ import type { ClientEvents, ServerEvents, RoomState } from '@sketch-catch/shared
 import { randomUUID } from 'node:crypto';
 import { isGameInProgressStatus, MODE2_PLAYER_MIN, ROOM_PLAYER_MIN, SERVER_EVENT } from '@sketch-catch/shared';
 import { getRoomState, saveRoomState, withRoomLock } from '../../services/rooms.service.js';
+import { PLAYER_PROFILE_SELECT } from '../../lib/playerProfile.js';
 import { computeAllReady, ensureHost } from '../../services/roomRules.js';
 import { setPresence, setUserRoom, clearUserRoom, getUserRoom } from '../../db/redis.js';
 import { broadcastPresenceUpdate } from '../presence.namespace.js';
@@ -12,6 +13,7 @@ import { startMode2, handleMode2PlayerLeft, isMode2Active, resendCurrentStep } f
 import { resendReview } from './mode2-review.js';
 import { destroyRoom, finishAward } from './award.js';
 import { cancelGraceLeave, scheduleGraceLeave } from '../../services/disconnectGrace.js';
+import { createCoinStats } from '../../services/coin.service.js';
 
 type GameNamespace = Namespace<ClientEvents, ServerEvents>;
 type GameSocket = Socket<ClientEvents, ServerEvents, Record<string, never>, { userId: string }>;
@@ -76,7 +78,7 @@ export async function handleRoomJoin(game: GameNamespace, socket: GameSocket, co
 
       const userRecord = await prisma.user.findUnique({
         where: { id: userId },
-        select: { nickname: true, characterId: true, friendCode: true },
+        select: PLAYER_PROFILE_SELECT,
       });
 
       state.players.push({
@@ -84,6 +86,9 @@ export async function handleRoomJoin(game: GameNamespace, socket: GameSocket, co
         nickname: userRecord?.nickname ?? '',
         friendCode: userRecord?.friendCode ?? '',
         characterId: userRecord?.characterId ?? '',
+        frameId: userRecord?.frameId ?? null,
+        backgroundId: userRecord?.backgroundId ?? null,
+        chatColorId: userRecord?.chatColorId ?? null,
         slot,
         isHost: userId === state.hostId,
         isReady: false,
@@ -201,6 +206,7 @@ export async function handleRoomStart(game: GameNamespace, socket: GameSocket): 
   state.gameId = randomUUID();
   state.startedAt = Date.now();
   state.scoreboard = {};
+  state.coinStats = createCoinStats();
   state.usedWords = [];
   state.allReady = false;
   const activePlayers = state.players.filter(p => p.connected && !p.inAward);

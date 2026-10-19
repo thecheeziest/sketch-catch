@@ -24,6 +24,7 @@ import {
 import { getRoomState, saveRoomState } from '../../services/rooms.service.js';
 import { pickRoundWord } from '../../services/word.service.js';
 import { clearRoomTimer, setRoomTimer } from '../../services/roomTimers.js';
+import { recordMode2Submit } from '../../services/coin.service.js';
 import { startMode2Review } from './mode2-review.js';
 import { endGame } from './game.js';
 
@@ -284,6 +285,7 @@ export async function handleMode2Prompt(
   const text = sanitizeText(payload.text);
   if (!text) return;
   ctx.sheet.steps.push({ kind: 'PROMPT', authorId: socket.data.userId, text });
+  recordMode2Submit(ctx.state, socket.data.userId);
   ctx.current.submitted.push(payload.sheetId);
   await saveRoomState(ctx.state);
   await checkAllSubmitted(game, code, ctx.current);
@@ -302,6 +304,7 @@ export async function handleMode2Answer(
   const text = sanitizeText(payload.text);
   if (!text) return;
   ctx.sheet.steps.push({ kind: 'ANSWER', authorId: socket.data.userId, text });
+  recordMode2Submit(ctx.state, socket.data.userId);
   ctx.current.submitted.push(payload.sheetId);
   await saveRoomState(ctx.state);
   await checkAllSubmitted(game, code, ctx.current);
@@ -325,6 +328,7 @@ export async function handleMode2DrawDone(
     authorId: socket.data.userId,
     strokes,
   });
+  recordMode2Submit(ctx.state, socket.data.userId);
   ctx.current.submitted.push(payload.sheetId);
   await saveRoomState(ctx.state);
   await checkAllSubmitted(game, code, ctx.current);

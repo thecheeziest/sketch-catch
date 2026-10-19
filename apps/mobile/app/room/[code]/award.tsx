@@ -11,9 +11,10 @@ import { useRoomChatStore } from '@/features/room/model/useRoomChatStore';
 import { PodiumSlot, ChatStream, ChatInputBar } from '@/features/game/ui';
 import { AudienceCheer } from '@/features/game/ui/AudienceCheer';
 import { useAwardSession } from '@/features/room/lib';
+import { CoinRewardChip, useCoinRewardStore } from '@/features/shop';
 import { Button } from '@/shared/ui/Button';
 import { Dialog } from '@/shared/ui/Dialog';
-import { colors, spacing, textSizes, fontFamily } from '@/shared/config';
+import { colors, getChatTextColor, spacing, textSizes, fontFamily } from '@/shared/config';
 
 export default function AwardScreen() {
   const { code } = useLocalSearchParams<{ code: string }>();
@@ -25,6 +26,7 @@ export default function AwardScreen() {
   const [roomState] = useState(() => useRoomStore.getState().roomState);
   const { sendChat } = useChatSender();
   const incomingResult = useGameStore(s => s.result);
+  const coinReward = useCoinRewardStore(s => s.reward);
   useEffect(() => {
     if (incomingResult?.gameId === roomState?.gameId) setResult(incomingResult);
   }, [incomingResult, roomState?.gameId]);
@@ -82,6 +84,7 @@ export default function AwardScreen() {
         nickname: m.nickname,
         text: m.text,
         characterId: characterMap[m.userId] ?? '',
+        textColor: getChatTextColor(players.find(p => p.id === m.userId)?.chatColorId),
         isCorrect: false,
         createdAt: m.createdAt,
       })),
@@ -104,9 +107,12 @@ export default function AwardScreen() {
           paddingTop: spacing.MD,
         }}
       >
-        <Text style={styles.title} sx={{ color: colors.LIGHT_100 }}>
-          게임 종료
-        </Text>
+        <View sx={{ flex: 1, flexDirection: 'row', alignItems: 'center', gap: spacing.SM }}>
+          <Text style={styles.title} sx={{ color: colors.LIGHT_100 }}>
+            게임 종료
+          </Text>
+          {coinReward && coinReward.gameId === result?.gameId && <CoinRewardChip reward={coinReward} />}
+        </View>
         <View sx={{ flexDirection: 'row', gap: spacing.XS }}>
           <Button
             label="한번 더!"

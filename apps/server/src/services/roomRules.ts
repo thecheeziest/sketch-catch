@@ -40,6 +40,7 @@ export function resetToLobby(state: RoomState): void {
   delete state.startedAt;
   delete state.gameId;
   delete state.awardEndsAt;
+  delete state.coinStats;
   for (const p of state.players) {
     p.isReady = false;
     delete p.inAward;

@@ -1,5 +1,6 @@
-import type { Provider, User } from '@prisma/client';
+import type { Provider } from '@prisma/client';
 import { prisma } from '../db/prisma.js';
+import { USER_WITH_ITEMS, type UserWithItems } from '../lib/userPrivate.js';
 import { CHARACTER_IDS } from '@sketch-catch/shared';
 
 export class NicknameCodeConflictError extends Error {
@@ -37,9 +38,10 @@ async function generateUniqueNicknameCode(): Promise<{ nickname: string; friendC
 export async function upsertUserByProvider(input: {
   provider: Provider;
   providerId: string;
-}): Promise<{ user: User; isNew: boolean }> {
+}): Promise<{ user: UserWithItems; isNew: boolean }> {
   const existing = await prisma.user.findUnique({
     where: { provider_providerId: { provider: input.provider, providerId: input.providerId } },
+    include: USER_WITH_ITEMS,
   });
   if (existing) return { user: existing, isNew: false };
 
@@ -52,6 +54,7 @@ export async function upsertUserByProvider(input: {
       friendCode,
       characterId: CHARACTER_IDS[0]!, // 기본값 'dog' — 온보딩에서 변경
     },
+    include: USER_WITH_ITEMS,
   });
   return { user: created, isNew: true };
 }

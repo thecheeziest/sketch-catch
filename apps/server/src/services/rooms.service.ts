@@ -1,6 +1,7 @@
 import { redis } from '../db/redis.js';
 import type { RoomState, RoomConfig, Player } from '@sketch-catch/shared';
 import crypto from 'node:crypto';
+import { EMPTY_PROFILE, type PlayerProfile } from '../lib/playerProfile.js';
 
 export class RoomNotFoundError extends Error { code = 'ROOM_NOT_FOUND' as const; }
 export class RoomFullError extends Error { code = 'ROOM_FULL' as const; }
@@ -31,17 +32,14 @@ export async function createRoom(opts: {
   locked: boolean;
   password?: string;
   mode: 1 | 2;
-  userMeta: Record<string, { nickname: string; characterId: string; friendCode: string }>;
+  userMeta: Record<string, PlayerProfile>;
 }): Promise<RoomState> {
   const code = generateRoomCode();
 
   const players: Player[] = opts.userIds.map((id, i) => {
-    const meta = opts.userMeta[id] ?? { nickname: '', characterId: '', friendCode: '' };
     return {
       id,
-      nickname: meta.nickname,
-      friendCode: meta.friendCode,
-      characterId: meta.characterId,
+      ...(opts.userMeta[id] ?? EMPTY_PROFILE),
       slot: i,
       isHost: id === opts.hostId,
       isReady: false,

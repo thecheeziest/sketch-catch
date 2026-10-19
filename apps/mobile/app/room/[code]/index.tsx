@@ -3,7 +3,7 @@ import { useChatSender } from '@/features/game/api/useChatSender';
 import { ChatInputBar } from '@/features/game/ui';
 import { useRoomChatStore } from '@/features/room/model/useRoomChatStore';
 import { InviteModal, LobbyChatLog, PlayerProfileDialog, RoomEditModal, SlotCard } from '@/features/room/ui';
-import { colors, spacing, textSizes } from '@/shared/config';
+import { colors, getChatTextColor, spacing, textSizes } from '@/shared/config';
 import { useAuthStore, useRoomStore, useToastStore } from '@/shared/model';
 import { copyToClipboard, useHardwareBack } from '@/shared/lib';
 import { Button, FlatList, Icon, SketchbookLoadingSpinner } from '@/shared/ui';
@@ -118,6 +118,8 @@ export default function LobbyScreen() {
   // 방장이 아직 시상식에 있으면 대기실에서는 시작할 수 없다 (방장이 한번 더를 누르거나 나가면 해소)
   const isHostInAward = roomState?.players.some(p => p.id === roomState.hostId && p.inAward === true) ?? false;
   const characterIdOf = (userId: string): string => roomState?.players.find(p => p.id === userId)?.characterId ?? '';
+  const chatColorOf = (userId: string): string | null =>
+    getChatTextColor(roomState?.players.find(p => p.id === userId)?.chatColorId);
 
   const handleNudge = (): void => {
     socket?.emit(CLIENT_EVENT.ROOM_NUDGE);
@@ -206,7 +208,7 @@ export default function LobbyScreen() {
           style={styles.slotList}
         />
 
-        <LobbyChatLog messages={lobbyMessages} characterIdOf={characterIdOf} />
+        <LobbyChatLog messages={lobbyMessages} characterIdOf={characterIdOf} chatColorOf={chatColorOf} />
 
         <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
           {isHostInAward && !isHost && (

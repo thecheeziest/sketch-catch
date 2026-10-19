@@ -13,6 +13,7 @@ import { clearRoomChat } from '../../services/chatStore.js';
 import { logger } from '../../lib/logger.js';
 import { phaseForStep, sortedPlayers, type Mode2Current } from './mode2.js';
 import { beginAward } from './award.js';
+import { settleMode2Rewards } from './coinReward.js';
 
 type GameNamespace = Namespace<ClientEvents, ServerEvents>;
 
@@ -167,4 +168,5 @@ async function finishReveal(game: GameNamespace, state: RoomState, reveal: Mode2
   await saveRoomState(state);
   emitReview(game, state, reveal);
   game.to(roomName(state.code)).emit(SERVER_EVENT.ROOM_STATE, state);
+  void settleMode2Rewards(game, state);
 }

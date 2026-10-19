@@ -5,6 +5,7 @@ import { useGameStore } from '@/features/game/model/useGameStore';
 import { useRoomChatStore } from '@/features/room/model/useRoomChatStore';
 import { useRoomBackgroundGuard } from '@/features/room/lib';
 import { useMode2Store } from '@/features/mode2/model/useMode2Store';
+import { useCoinRewardStore } from '@/features/shop';
 
 export default function RoomCodeLayout() {
   const { code } = useLocalSearchParams<{ code: string }>();
@@ -19,6 +20,7 @@ export default function RoomCodeLayout() {
     const offGame = useGameStore.getState().registerGameListeners();
     const offMode2 = useMode2Store.getState().registerMode2Listeners();
     const offRoomChat = useRoomChatStore.getState().registerRoomChatListeners();
+    const offCoinReward = useCoinRewardStore.getState().registerCoinRewardListeners();
     // 시상식에 남은 방장에게 대기실 인원의 재촉이 도착하면 상단 토스트로 알린다
     const socket = useRoomStore.getState().socket;
     const handleNudged = (): void =>
@@ -29,6 +31,7 @@ export default function RoomCodeLayout() {
       offGame();
       offMode2();
       offRoomChat();
+      offCoinReward();
       disconnect(code);
     };
   }, [code]);

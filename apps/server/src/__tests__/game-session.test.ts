@@ -44,6 +44,10 @@ vi.mock('../db/prisma.js', () => ({
 }));
 vi.mock('../socket/presence.namespace.js', () => ({ broadcastPresenceUpdate: vi.fn() }));
 vi.mock('../services/replay.service.js', () => ({ generateSheetGifs: vi.fn().mockResolvedValue(undefined) }));
+vi.mock('../socket/handlers/coinReward.js', () => ({
+  settleMode1Rewards: vi.fn().mockResolvedValue(undefined),
+  settleMode2Rewards: vi.fn().mockResolvedValue(undefined),
+}));
 
 const { pickRoundWord } = await import('../services/word.service.js');
 const { runInRoom } = await import('../services/roomQueue.js');

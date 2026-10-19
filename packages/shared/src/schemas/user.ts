@@ -42,3 +42,19 @@ export const updateMeSchema = z
     { message: '변경할 항목을 1개 이상 포함해주세요' }
   );
 export type UpdateMeInput = z.infer<typeof updateMeSchema>;
+
+// POST /shop/purchase — 가격은 서버 카탈로그 기준, itemId만 받는다
+export const purchaseSchema = z.object({
+  itemId: z.string().min(1).max(40),
+  equip: z.boolean().default(true),
+});
+export type PurchaseInput = z.infer<typeof purchaseSchema>;
+
+// PATCH /me/equip — itemId null은 기본 모습으로 되돌림 (캐릭터는 null 불가)
+export const equipSchema = z.discriminatedUnion('category', [
+  z.object({ category: z.literal('CHARACTER'), itemId: characterIdSchema }),
+  z.object({ category: z.literal('FRAME'), itemId: z.string().min(1).max(40).nullable() }),
+  z.object({ category: z.literal('BACKGROUND'), itemId: z.string().min(1).max(40).nullable() }),
+  z.object({ category: z.literal('CHAT_COLOR'), itemId: z.string().min(1).max(40).nullable() }),
+]);
+export type EquipInput = z.infer<typeof equipSchema>;

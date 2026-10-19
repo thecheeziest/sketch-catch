@@ -212,6 +212,7 @@ export default function RootLayout() {
                   <Stack.Protected guard={isSignedIn}>
                     <Stack.Screen name="(tabs)" />
                     <Stack.Screen name="settings" />
+                    <Stack.Screen name="shop" />
                     {/* 방(대기실·게임·시상식)은 스와이프로 나가지 않는다 — 각 화면의 나가기 확인을 거친다 */}
                     <Stack.Screen name="room" options={{ gestureEnabled: false }} />
                   </Stack.Protected>

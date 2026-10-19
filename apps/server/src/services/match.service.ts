@@ -1,5 +1,6 @@
 import { redis, setPresence, setUserRoom } from '../db/redis.js';
 import { createRoom } from './rooms.service.js';
+import { toPlayerProfile } from '../lib/playerProfile.js';
 import { prisma } from '../db/prisma.js';
 import { broadcastPresenceUpdate, emitToPresenceUser } from '../socket/presence.namespace.js';
 import {
@@ -159,7 +160,7 @@ async function finalizeMatch(mode: GameMode): Promise<void> {
 
   const users = await prisma.user.findMany({ where: { id: { in: userIds } } });
   const userMeta = Object.fromEntries(
-    users.map((u) => [u.id, { nickname: u.nickname, characterId: u.characterId, friendCode: u.friendCode }])
+    users.map((u) => [u.id, toPlayerProfile(u)])
   );
 
   const state = await createRoom({

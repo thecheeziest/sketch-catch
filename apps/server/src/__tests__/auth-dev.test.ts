@@ -30,6 +30,11 @@ const devUser = {
   pushToken: null,
   createdAt: new Date('2026-01-01T00:00:00Z'),
   nicknameChangedAt: null,
+  coins: 0,
+  frameId: null,
+  backgroundId: null,
+  chatColorId: null,
+  items: [{ itemId: 'dog' }],
 };
 
 async function buildApp() {

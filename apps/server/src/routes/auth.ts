@@ -5,6 +5,7 @@ import { verifyKakaoToken } from '../auth/kakao.js';
 import { verifyAppleToken } from '../auth/apple.js';
 import { signTokens, verifyRefreshToken, verifyAccessToken } from '../auth/jwt.js';
 import { upsertUserByProvider } from '../services/user.service.js';
+import { toUserPrivate } from '../lib/userPrivate.js';
 import { redis } from '../db/redis.js';
 import { logger } from '../lib/logger.js';
 import { env } from '../lib/env.js';
@@ -14,26 +15,6 @@ const DEV_TEST_ACCOUNT_COUNT = 4;
 const devLoginSchema = z.object({ slot: z.number().int().min(1).max(DEV_TEST_ACCOUNT_COUNT) });
 // 카카오 providerId는 숫자 문자열이라 접두사 'dev:'와 겹치지 않는다
 const DEV_PROVIDER_ID_PREFIX = 'dev:';
-
-function userToPrivate(u: {
-  id: string;
-  nickname: string;
-  friendCode: string;
-  characterId: string;
-  provider: 'KAKAO' | 'APPLE';
-  createdAt: Date;
-  nicknameChangedAt: Date | null;
-}) {
-  return {
-    id: u.id,
-    nickname: u.nickname,
-    friendCode: u.friendCode,
-    characterId: u.characterId,
-    provider: u.provider,
-    createdAt: u.createdAt.toISOString(),
-    nicknameChangedAt: u.nicknameChangedAt ? u.nicknameChangedAt.toISOString() : null,
-  };
-}
 
 export const authRoutes: FastifyPluginAsync = async (app) => {
   app.post('/auth/kakao', async (request, reply) => {
@@ -49,7 +30,7 @@ export const authRoutes: FastifyPluginAsync = async (app) => {
         accessToken: tokens.accessToken,
         refreshToken: tokens.refreshToken,
         needsOnboarding: isNew,
-        user: userToPrivate(user),
+        user: toUserPrivate(user),
       });
     } catch (err) {
       logger.warn({ err }, 'kakao token verify failed');
@@ -69,7 +50,7 @@ export const authRoutes: FastifyPluginAsync = async (app) => {
         accessToken: tokens.accessToken,
         refreshToken: tokens.refreshToken,
         needsOnboarding: isNew,
-        user: userToPrivate(user),
+        user: toUserPrivate(user),
       });
     } catch (err) {
       logger.warn({ err }, 'apple token verify failed');
@@ -93,7 +74,7 @@ export const authRoutes: FastifyPluginAsync = async (app) => {
         accessToken: tokens.accessToken,
         refreshToken: tokens.refreshToken,
         needsOnboarding: isNew,
-        user: userToPrivate(user),
+        user: toUserPrivate(user),
       });
     });
   }

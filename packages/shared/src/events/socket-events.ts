@@ -1,7 +1,15 @@
 import type { PaintSpan } from '../drawing/paint.js';
 import type { Point, Stroke } from '../types/stroke.js';
 import type { RoomState, Player } from '../types/room.js';
-import type { RoundStart, RoundEnd, GameResult, ChatMessage, Mode2Step, Mode2ReviewState } from '../types/game.js';
+import type {
+  RoundStart,
+  RoundEnd,
+  GameResult,
+  ChatMessage,
+  Mode2Step,
+  Mode2ReviewState,
+  CoinReward,
+} from '../types/game.js';
 import type { StrokeEvent } from '../types/stroke.js';
 
 // 클라이언트 → 서버 (Socket.io EventsMap: 각 이벤트를 함수 시그니처로 정의)
@@ -44,6 +52,7 @@ export type ServerEvents = {
   // 남은 시간 10초 — 맞히는 사람에게 제시어 글자 수 공개
   'game:hint': (payload: { gameId: string; roundIndex: number; promptHint: string }) => void;
   'game:end': (payload: GameResult) => void;
+  'coin:reward': (payload: CoinReward) => void;
   'stroke:remote': (payload: StrokeEvent) => void;
   // 재접속한 소켓에만 — 끊겨 있던 동안 그려진 현재 라운드 그림 전체 (받으면 관전 캔버스를 이 값으로 교체)
   'stroke:sync': (payload: { gameId: string; roundIndex: number; strokes: StrokeEvent[] }) => void;
@@ -99,6 +108,7 @@ export const SERVER_EVENT = {
   GAME_ROUND_END: 'game:round:end',
   GAME_HINT: 'game:hint',
   GAME_END: 'game:end',
+  COIN_REWARD: 'coin:reward',
   STROKE_REMOTE: 'stroke:remote',
   STROKE_SYNC: 'stroke:sync',
   CHAT_MESSAGE: 'chat:message',

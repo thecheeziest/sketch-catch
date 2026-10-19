@@ -1,6 +1,7 @@
-import type { User } from '@prisma/client';
 import { prisma } from '../db/prisma.js';
+import { USER_WITH_ITEMS, type UserWithItems } from '../lib/userPrivate.js';
 import { ensureUniqueNicknameCode } from './user.service.js';
+import { assertOwned } from './coin.service.js';
 import type { UpdateMeInput, OnboardingInput } from '@sketch-catch/shared';
 
 const NICKNAME_COOLDOWN_MS = 30 * 24 * 60 * 60 * 1000; // 30일
@@ -25,7 +26,7 @@ export function assertNicknameCooldown(lastChange: Date | null, now: Date = new 
   }
 }
 
-export async function updateMe(userId: string, input: UpdateMeInput): Promise<User> {
+export async function updateMe(userId: string, input: UpdateMeInput): Promise<UserWithItems> {
   const current = await prisma.user.findUnique({ where: { id: userId } });
   if (!current) throw new UserNotFoundError();
 
@@ -41,6 +42,11 @@ export async function updateMe(userId: string, input: UpdateMeInput): Promise<Us
     await ensureUniqueNicknameCode(nextNickname, nextFriendCode, userId);
   }
 
+  // 캐릭터는 보유한 것만 고를 수 있다 (꾸미기 상점에서 구매)
+  if (input.characterId !== undefined && input.characterId !== current.characterId) {
+    await assertOwned(userId, input.characterId);
+  }
+
   // 부분 업데이트
   const updated = await prisma.user.update({
     where: { id: userId },
@@ -49,12 +55,14 @@ export async function updateMe(userId: string, input: UpdateMeInput): Promise<Us
       ...(input.friendCode !== undefined ? { friendCode: input.friendCode } : {}),
       ...(input.characterId !== undefined ? { characterId: input.characterId } : {}),
     },
+    include: USER_WITH_ITEMS,
   });
   return updated;
 }
 
 // 온보딩 최초 설정 — nicknameChangedAt을 세팅하지 않아 프로필 변경 쿨다운 기산점이 되지 않음
-export async function onboard(userId: string, input: OnboardingInput): Promise<User> {
+// 온보딩에서 고른 첫 캐릭터만 무료로 보유한다
+export async function onboard(userId: string, input: OnboardingInput): Promise<UserWithItems> {
   const current = await prisma.user.findUnique({ where: { id: userId } });
   if (!current) throw new UserNotFoundError();
 
@@ -66,7 +74,14 @@ export async function onboard(userId: string, input: OnboardingInput): Promise<U
       nickname: input.nickname,
       friendCode: input.friendCode,
       characterId: input.characterId,
+      items: {
+        connectOrCreate: {
+          where: { userId_itemId: { userId, itemId: input.characterId } },
+          create: { itemId: input.characterId },
+        },
+      },
     },
+    include: USER_WITH_ITEMS,
   });
 }
 

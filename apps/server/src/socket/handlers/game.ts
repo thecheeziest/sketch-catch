@@ -12,9 +12,11 @@ import { getRoomState, saveRoomState } from '../../services/rooms.service.js';
 import { pickRoundWord } from '../../services/word.service.js';
 import { clearRoomTimer, clearRoomTimers, setRoomTimer } from '../../services/roomTimers.js';
 import { clearRoomChat, listMessages } from '../../services/chatStore.js';
-import { clearRoomStrokes, getRoundStrokes, strokeRoundKey } from '../../services/strokeStore.js';
+import { clearRoomStrokes, getRoundStrokes, hasRoundDrawing, strokeRoundKey } from '../../services/strokeStore.js';
 import { resetToLobby } from '../../services/roomRules.js';
+import { recordMode1Round } from '../../services/coin.service.js';
 import { beginAward } from './award.js';
+import { settleMode1Rewards } from './coinReward.js';
 
 // 선택된 카테고리 중 이번 라운드에 사용할 카테고리 1개를 균등 랜덤 선택 (CUSTOM도 동일 확률의 후보)
 function pickRoundCategory(categories: Category[]): Category {
@@ -336,6 +338,12 @@ export async function endRound(
     answerTimestamps.get(code)!.set(correctUserId, elapsed);
   }
 
+  recordMode1Round(state, {
+    drawerId: current.drawerId,
+    correctUserId,
+    drewSomething: hasRoundDrawing(code, strokeRoundKey(state.gameId, roundIndex)),
+  });
+
   state.status = 'MODE1_ROUND_END';
   await saveRoomState(state);
 
@@ -443,4 +451,6 @@ export async function endGame(game: GameNamespace, code: string, reason?: 'INSUF
     ranking: ranked,
     endReason: reason,
   });
+
+  void settleMode1Rewards(game, state, ranked);
 }

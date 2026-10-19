@@ -5,7 +5,7 @@ import { Text, View } from 'dripsy';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { CLIENT_EVENT } from '@sketch-catch/shared';
-import { colors } from '@/shared/config';
+import { colors, getChatTextColor } from '@/shared/config';
 import { useHardwareBack } from '@/shared/lib';
 import { useAuthStore, useRoomStore } from '@/shared/model';
 import { gameSurface, gameText, legendSwatch, playerDot, resultOverlay, toolbar } from '@/features/game/config';
@@ -244,6 +244,7 @@ export default function GameScreen() {
         nickname: m.nickname,
         text: m.text,
         characterId: players.find(p => p.id === m.userId)?.characterId ?? '',
+        textColor: getChatTextColor(players.find(p => p.id === m.userId)?.chatColorId),
         isCorrect: m.id === correct?.messageId,
         createdAt: m.createdAt,
         score: m.id === correct?.messageId ? roundResult?.scoreDelta[m.userId] : undefined,

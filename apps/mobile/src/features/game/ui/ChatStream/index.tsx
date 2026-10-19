@@ -15,6 +15,8 @@ export type ChatStreamItem = {
   createdAt: number;
   /** 정답 시 획득 점수 — 도착 전(찰나)에는 배지를 "정답"으로 대체 표시 */
   score?: number;
+  /** 상점에서 산 채팅 글자색 — null이면 기본색 */
+  textColor?: string | null;
 };
 
 type Props = {
@@ -51,8 +53,17 @@ export function ChatStream({ items }: Props) {
     <View pointerEvents="none" style={styles.container}>
       {visible.map((item, index) => {
         const ageBg = AGE_STEPS[AGE_STEPS.length - visible.length + index] ?? AGE_STEPS[AGE_STEPS.length - 1];
-        const bg = item.isCorrect ? chatStream.CORRECT_BG : ageBg;
-        const fg = item.isCorrect ? chatStream.CORRECT_FG : chatStream.TEXT_FG;
+        // 글자색을 산 메시지는 대비를 지키려고 가장 어두운 단계 배경에 얹는다
+        const hasTextColor = !item.isCorrect && !!item.textColor;
+        const bg = (() => {
+          if (item.isCorrect) return chatStream.CORRECT_BG;
+          if (hasTextColor) return AGE_STEPS[AGE_STEPS.length - 1];
+          return ageBg;
+        })();
+        const fg = (() => {
+          if (item.isCorrect) return chatStream.CORRECT_FG;
+          return item.textColor ?? chatStream.TEXT_FG;
+        })();
         const nameFg = item.isCorrect ? chatStream.CORRECT_FG : chatStream.NAME_FG;
         const imageSource = getCharacterImageSource(item.characterId);
 

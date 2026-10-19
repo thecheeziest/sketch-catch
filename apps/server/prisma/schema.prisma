@@ -17,14 +17,54 @@ model User {
   pushToken         String?
   createdAt         DateTime  @default(now())
   nicknameChangedAt DateTime?
+  coins             Int       @default(0)
+  // 장착한 꾸미기 — null은 기본 모습. 값은 packages/shared SHOP_ITEMS id
+  frameId           String?
+  backgroundId      String?
+  chatColorId       String?
 
   friendsA     Friendship[]    @relation("FriendshipA")
   friendsB     Friendship[]    @relation("FriendshipB")
   sentRequests FriendRequest[] @relation("Sender")
   recvRequests FriendRequest[] @relation("Receiver")
+  items        UserItem[]
+  coinLedger   CoinLedger[]
 
   @@unique([provider, providerId])
   @@unique([nickname, friendCode])
+}
+
+// 보유 아이템 (캐릭터 포함) — 카탈로그는 packages/shared SHOP_ITEMS
+model UserItem {
+  userId    String
+  itemId    String
+  createdAt DateTime @default(now())
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@id([userId, itemId])
+}
+
+// 코인 원장 — refId(gameId·itemId)와 사유가 같은 행은 한 번만 생겨 중복 지급·차감을 막는다
+model CoinLedger {
+  id        String     @id @default(uuid())
+  userId    String
+  amount    Int // 지급 +, 차감 -
+  reason    CoinReason
+  refId     String
+  createdAt DateTime   @default(now())
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, reason, refId])
+  @@index([userId, createdAt])
+}
+
+enum CoinReason {
+  GAME
+  FIRST_GAME_BONUS
+  WELCOME
+  PURCHASE
 }
 
 enum Provider {

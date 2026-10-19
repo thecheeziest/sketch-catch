@@ -18,3 +18,6 @@ export * from './PixelLoadingSpinner';
 export * from './PullRefreshIndicator';
 export * from './SketchbookLoadingSpinner';
 export * from './PixelSprite';
+export * from './CoinChip';
+export * from './CosmeticBackground';
+export * from './CosmeticAvatar';

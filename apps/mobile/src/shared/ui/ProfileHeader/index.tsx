@@ -1,7 +1,7 @@
 import { FeedbackPressable } from '@/shared/ui/FeedbackPressable';
 import { Image, Text, View } from 'dripsy'
 import { useMe } from '@/features/auth/api';
-import { CharacterModal, FriendCodeModal, NicknameModal } from '@/features/profile/ui';
+import { FriendCodeModal, NicknameModal } from '@/features/profile/ui';
 import { colors, getCharacterImageSource, spacing } from '@/shared/config';
 import { copyToClipboard, useNavGuard } from '@/shared/lib';
 import { useAuthStore } from '@/shared/model';
@@ -10,6 +10,7 @@ import { useRouter } from 'expo-router';
 import { ReactNode, useState } from 'react';
 import { StyleSheet } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { CoinChip } from '../CoinChip';
 import { Icon } from '../Icon';
 
 type Props = {
@@ -22,7 +23,6 @@ export function ProfileHeader({ rightSlot }: Props) {
   const guardNav = useNavGuard();
   const { data: user } = useMe();
   const clearAuth = useAuthStore((s) => s.clearAuth);
-  const [characterOpen, setCharacterOpen] = useState(false);
   const [nicknameOpen, setNicknameOpen] = useState(false);
   const [friendCodeOpen, setFriendCodeOpen] = useState(false);
 
@@ -58,6 +58,7 @@ export function ProfileHeader({ rightSlot }: Props) {
   const characterSource = getCharacterImageSource(user.characterId);
 
   const handleCopy = (): Promise<void> => copyToClipboard(`${user.nickname}#${user.friendCode}`);
+  const openShop = (): void => guardNav(() => router.push('/shop'));
 
   return (
     <>
@@ -67,7 +68,9 @@ export function ProfileHeader({ rightSlot }: Props) {
         />
         <View sx={sxStyles.left}>
           <FeedbackPressable
-            onPress={() => setCharacterOpen(true)}
+            onPress={openShop}
+            accessibilityRole="button"
+            accessibilityLabel="꾸미기 상점 열기"
             style={({ pressed }) => [styles.characterBtn, pressed && { opacity: 0.7 }]}
             hitSlop={4}
           >
@@ -99,6 +102,7 @@ export function ProfileHeader({ rightSlot }: Props) {
           </View>
         </View>
         <View sx={{ flexDirection: 'row', alignItems: 'center', gap: spacing.XS }}>
+          <CoinChip label={String(user.coins)} onPress={openShop} accessibilityLabel={`보유 코인 ${user.coins}개, 상점 열기`} />
           {rightSlot}
           <FeedbackPressable
             onPress={() => guardNav(() => router.push('/settings'))}
@@ -109,11 +113,6 @@ export function ProfileHeader({ rightSlot }: Props) {
         </View>
       </BlurView>
 
-      <CharacterModal
-        visible={characterOpen}
-        onClose={() => setCharacterOpen(false)}
-        currentCharacterId={user.characterId}
-      />
       <NicknameModal
         visible={nicknameOpen}
         onClose={() => setNicknameOpen(false)}

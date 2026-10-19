@@ -1,11 +1,12 @@
 import { FeedbackPressable } from '@/shared/ui/FeedbackPressable';
 import { colors, getCharacterImageSource, spacing, textSizes } from '@/shared/config';
 import { Badge } from '@/shared/ui/Badge';
+import { CosmeticAvatar } from '@/shared/ui/CosmeticAvatar';
 import { Button } from '@/shared/ui/Button';
 import { Icon } from '@/shared/ui/Icon';
 import { PixelFrame } from '@/shared/ui/PixelFrame';
 import type { Player } from '@sketch-catch/shared';
-import { Image, Text, View } from 'dripsy';
+import { Text, View } from 'dripsy';
 import { useEffect } from 'react';
 import { StyleSheet } from 'react-native';
 import Animated, {
@@ -108,11 +109,12 @@ export function SlotCard({ player, isMe, cardWidth, isLeft = false, isWaiting = 
         )}
         <View sx={{ flex: 1, alignItems: 'center', justifyContent: 'center', paddingTop: spacing.XS }}>
           {imageSource !== null ? (
-            <Image
-              source={imageSource}
-              sx={{ width: charSize, height: charSize }}
-              resizeMode="contain"
-              style={isLeft || isWaiting ? styles.dimmedImage : undefined}
+            <CosmeticAvatar
+              characterId={player.characterId}
+              frameId={player.frameId}
+              backgroundId={player.backgroundId}
+              size={Math.round(charSize / 0.8)}
+              dimmed={isLeft || isWaiting}
             />
           ) : (
             <View

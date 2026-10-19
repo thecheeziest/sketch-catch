@@ -1,5 +1,5 @@
 // DEVELOPER.md §7 — 게임 상태 머신 + RoomState
-import type { UserPublic } from './user.js';
+import type { Cosmetics, UserPublic } from './user.js';
 
 export type GameMode = 1 | 2;
 
@@ -16,7 +16,8 @@ export type RoomStatus =
   | 'AWARD'
   | 'END';
 
-export type Player = UserPublic & {
+export type Player = UserPublic &
+  Partial<Cosmetics> & {
   slot: number;
   isHost: boolean;
   isReady: boolean;
@@ -59,4 +60,13 @@ export type RoomState = {
   awardViewers?: Player[];
   // 이전 서버가 저장한 시상식 종료 시각 — 새 시상식 시작 시 제거 (자동 퇴장 없음)
   awardEndsAt?: number;
+  // 코인 정산용 판 중 집계 — 게임 시작 시 초기화, 정산은 서버만 한다
+  coinStats?: CoinStats;
+};
+
+export type CoinStats = {
+  correct: Record<string, number>; // 모드1: 맞힌 라운드 수
+  solved: Record<string, number>; // 모드1: 내 그림을 누군가 맞힌 라운드 수 (출제자)
+  idleDrawers: string[]; // 모드1: 그리기 차례에 아무것도 그리지 않은 출제자 — 순위 보너스 제외
+  submits: Record<string, number>; // 모드2: 시간 초과가 아닌 직접 제출 수
 };

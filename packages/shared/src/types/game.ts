@@ -39,6 +39,27 @@ export type GameResult = {
   endReason?: 'NORMAL' | 'INSUFFICIENT_PLAYERS';
 };
 
+// 게임 종료 코인 정산 — 플레이어 본인 소켓(user:{id})에만 전달
+export type CoinRewardReason = 'COMPLETE' | 'FIRST_GAME' | 'CORRECT' | 'DRAWING_SOLVED' | 'RANK' | 'SUBMIT';
+
+export type CoinRewardLine = {
+  reason: CoinRewardReason;
+  amount: number;
+  count?: number; // 정답·그림·제출 횟수
+  rank?: number; // RANK일 때 순위
+};
+
+export type CoinReward = {
+  gameId: string;
+  mode: 1 | 2;
+  lines: CoinRewardLine[];
+  total: number; // 실제 지급액 (하루 상한 반영)
+  balance: number; // 지급 후 보유 코인
+  todayEarned: number; // 오늘 게임으로 얻은 코인 (첫 완주 보너스 제외)
+  dailyCap: number;
+  capped: boolean; // 상한에 걸려 일부 또는 전부 지급되지 않음
+};
+
 export type ChatMessage = {
   id: string;
   userId: string;

@@ -1,22 +1,14 @@
 import { create } from 'zustand';
 import { immer } from 'zustand/middleware/immer';
 import * as SecureStore from 'expo-secure-store';
+import type { UserPrivate } from '@sketch-catch/shared';
 
 export const SECURE_STORE_KEYS = {
   ACCESS: 'sketch_catch_access',
   REFRESH: 'sketch_catch_refresh',
 } as const;
 
-// RN 측 import 단순화를 위해 명시 타입 정의 (packages/shared z.infer 대신)
-export type UserPrivate = {
-  id: string;
-  nickname: string;
-  friendCode: string;
-  characterId: string;
-  provider: 'KAKAO' | 'APPLE';
-  createdAt: string;
-  nicknameChangedAt: string | null;
-};
+export type { UserPrivate };
 
 type AuthState = {
   isLoaded: boolean;

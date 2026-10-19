@@ -10,6 +10,7 @@ import {
   RoomLockedError,
   WrongPasswordError,
 } from '../services/rooms.service.js';
+import { toPlayerProfile } from '../lib/playerProfile.js';
 import { setPresence, setUserRoom } from '../db/redis.js';
 import { runInRoom } from '../services/roomQueue.js';
 import { broadcastPresenceUpdate } from '../socket/presence.namespace.js';
@@ -39,7 +40,7 @@ export const roomsRoutes: FastifyPluginAsync = async (app) => {
         password,
         mode,
         userMeta: {
-          [req.userId!]: { nickname: user.nickname, characterId: user.characterId, friendCode: user.friendCode },
+          [req.userId!]: toPlayerProfile(user),
         },
       });
 

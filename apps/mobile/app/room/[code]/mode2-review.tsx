@@ -3,7 +3,7 @@ import { Alert, Keyboard, KeyboardAvoidingView, Linking, Pressable, StyleSheet }
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Text, View } from 'dripsy';
 import { useLocalSearchParams } from 'expo-router';
-import { colors, fontFamily, spacing, textSizes } from '@/shared/config';
+import { colors, fontFamily, getChatTextColor, spacing, textSizes } from '@/shared/config';
 import { useAuthStore, useRoomStore, useToastStore } from '@/shared/model';
 import { Button } from '@/shared/ui/Button';
 import { Dialog } from '@/shared/ui/Dialog';
@@ -12,6 +12,7 @@ import { useChatSender } from '@/features/game/api/useChatSender';
 import { CanvasStage, ChatInputBar, ChatStream } from '@/features/game/ui';
 import { useRoomChatStore } from '@/features/room/model/useRoomChatStore';
 import { useAwardSession } from '@/features/room/lib';
+import { CoinRewardChip, useCoinRewardStore } from '@/features/shop';
 import { ReferenceCanvas, useGifDownload, useMode2Store } from '@/features/mode2';
 import { useRevealPlayback } from '@/features/mode2/lib/useRevealPlayback';
 import { PixelSpeechBubble } from '@/features/mode2/ui/PixelSpeechBubble';
@@ -34,6 +35,7 @@ export default function Mode2ReviewScreen() {
   const reviewEntryStartAt = useMode2Store(s => s.reviewEntryStartAt);
   const gifs = useMode2Store(s => s.gifs);
   const chatMessages = useRoomChatStore(s => s.awardMessages);
+  const coinReward = useCoinRewardStore(s => s.reward);
   const { sendChat } = useChatSender();
   const { saveGif } = useGifDownload();
   const { rematch, exit, rematching, rematchError } = useAwardSession(code ?? '');
@@ -106,6 +108,7 @@ export default function Mode2ReviewScreen() {
         nickname: m.nickname,
         text: m.text,
         characterId: players.find(p => p.id === m.userId)?.characterId ?? '',
+        textColor: getChatTextColor(players.find(p => p.id === m.userId)?.chatColorId),
         isCorrect: false,
         createdAt: m.createdAt,
       })),
@@ -116,9 +119,12 @@ export default function Mode2ReviewScreen() {
     <SafeAreaView style={styles.container} edges={['top', 'bottom']}>
       {/* 타이틀 + 한번 더 / 나가기 — 모드 1 시상식과 동일 */}
       <View sx={sxStyles.titleRow}>
-        <Text style={styles.title} sx={{ color: colors.LIGHT_100 }}>
-          정답 공개
-        </Text>
+        <View sx={{ flex: 1, flexDirection: 'row', alignItems: 'center', gap: spacing.SM }}>
+          <Text style={styles.title} sx={{ color: colors.LIGHT_100 }}>
+            정답 공개
+          </Text>
+          {coinReward && coinReward.gameId === roomSnapshot?.gameId && <CoinRewardChip reward={coinReward} />}
+        </View>
         <View sx={{ flexDirection: 'row', gap: spacing.XS }}>
           <Button
             label="한번 더!"
