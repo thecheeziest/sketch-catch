@@ -32,9 +32,10 @@ vi.mock('../services/rooms.service.js', () => ({
   getRoomState: vi.fn(),
   saveRoomState: vi.fn(),
   withRoomLock: vi.fn((_code: string, fn: () => unknown) => fn()),
+  removeRoomFromIndex: vi.fn(),
 }));
 
-import { getRoomState, saveRoomState } from '../services/rooms.service.js';
+import { getRoomState, removeRoomFromIndex, saveRoomState } from '../services/rooms.service.js';
 import { setPresence, redis, clearUserRoom, getUserRoom } from '../db/redis.js';
 import { handlePlayerLeft, startRound } from '../socket/handlers/game.js';
 import { handleMode2PlayerLeft } from '../socket/handlers/mode2.js';
@@ -349,6 +350,7 @@ describe('socket room handlers', () => {
       await handleRoomLeave(game as any, socket as any);
 
       expect(mockRedisDel).toHaveBeenCalledWith('room:ABC123:state', 'room:ABC123:password');
+      expect(removeRoomFromIndex).toHaveBeenCalledWith('ABC123');
       // 빈 방에는 saveRoomState 호출 안 함
       expect(mockSaveRoomState).not.toHaveBeenCalled();
     });

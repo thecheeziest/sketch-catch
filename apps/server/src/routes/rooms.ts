@@ -6,6 +6,7 @@ import {
   getRoomState,
   saveRoomState,
   assertJoinable,
+  listRooms,
   RoomFullError,
   RoomLockedError,
   WrongPasswordError,
@@ -88,6 +89,15 @@ export const roomsRoutes: FastifyPluginAsync = async (app) => {
 
       return reply.send(state);
     });
+  });
+
+  app.get('/rooms', { preHandler: authenticate }, async (_req, reply) => {
+    try {
+      return reply.send(await listRooms());
+    } catch (err) {
+      logger.error({ err }, 'GET /rooms failed');
+      return reply.status(500).send({ error: 'INTERNAL' });
+    }
   });
 
   app.get('/rooms/:code', { preHandler: authenticate }, async (req, reply) => {
