@@ -39,9 +39,9 @@ async function bootstrap(): Promise<void> {
   await app.register(socketioPlugin, { cors: { origin: true } });
 
   // 최소 빌드 미달 앱의 요청은 전부 거부 — 서버와 버전이 어긋난 클라이언트로 게임에 들어오지 못하게 한다.
-  // 버전 확인(/app/version)·헬스체크는 예외.
+  // 버전 확인(/app/version)·헬스체크(/health, /ping)는 예외.
   app.addHook('onRequest', async (req, reply) => {
-    if (req.url.startsWith('/app/version') || req.url.startsWith('/health')) return;
+    if (req.url.startsWith('/app/version') || req.url.startsWith('/health') || req.url.startsWith('/ping')) return;
     if (isOutdatedClient(req.headers[APP_CLIENT_HEADER.PLATFORM], req.headers[APP_CLIENT_HEADER.BUILD])) {
       return reply.status(426).send({ error: UPDATE_REQUIRED_CODE });
     }

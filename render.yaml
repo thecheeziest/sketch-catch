@@ -1,0 +1,53 @@
+# Render Blueprint — 무료 플랜만 사용한다 (카드 등록 불필요).
+# - 웹 서버: Free (512MB / 0.1 CPU). 15분 무요청 시 잠들므로 .github/workflows/keep-alive.yml이 /ping으로 깨워 둔다.
+# - Key Value: Free (25MB, 메모리 전용 — 재시작 시 세션·방 상태 초기화).
+# - Postgres: Render 무료 DB는 30일 뒤 삭제되므로 Neon Free를 쓴다 (DATABASE_URL·DIRECT_URL을 대시보드에서 입력).
+services:
+  - type: web
+    name: sketch-catch-server
+    runtime: docker
+    plan: free
+    region: singapore
+    dockerfilePath: ./apps/server/Dockerfile
+    dockerContext: .
+    # DB를 건드리지 않는 헬스체크 — Neon 무료 컴퓨트가 유휴 시 정지할 수 있게 한다
+    healthCheckPath: /ping
+    autoDeployTrigger: commit
+    # 무료 빌드 시간(월 500분)을 아끼기 위해 서버에 영향 있는 변경만 배포한다
+    buildFilter:
+      paths:
+        - apps/server/**
+        - packages/shared/**
+        - patches/**
+        - pnpm-lock.yaml
+        - package.json
+        - render.yaml
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: LOG_LEVEL
+        value: info
+      - key: REDIS_URL
+        fromService:
+          type: keyvalue
+          name: sketch-catch-redis
+          property: connectionString
+      - key: JWT_SECRET
+        generateValue: true
+      # Neon 풀링 주소 (호스트에 -pooler 포함, 끝에 ?sslmode=require&pgbouncer=true)
+      - key: DATABASE_URL
+        sync: false
+      # Neon 직접 주소 (-pooler 없음, ?sslmode=require) — 마이그레이션 전용
+      - key: DIRECT_URL
+        sync: false
+      - key: KAKAO_REST_KEY
+        sync: false
+
+  - type: keyvalue
+    name: sketch-catch-redis
+    plan: free
+    region: singapore
+    # 만료 시간이 있는 키(presence 등)부터 비운다
+    maxmemoryPolicy: volatile-lru
+    # 외부 접속 차단 — 같은 Render 내부 서비스만 접근
+    ipAllowList: []

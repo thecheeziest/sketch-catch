@@ -23,7 +23,7 @@ RUN pnpm --filter @sketch-catch/server build
 # build 스테이지(소스 + devDependencies 포함)를 그대로 사용해 tsx로 TS 스크립트를 직접 실행한다.
 # 사용: docker build -f apps/server/Dockerfile --target gif-font-smoke -t sketch-gif-smoke . && docker run --rm sketch-gif-smoke
 # NOTE: runner보다 반드시 앞에 위치해야 함 — --target 미지정 시 Docker는 마지막 스테이지를 기본 빌드 대상으로 삼음
-# (Railway railway.json도 target 미지정 → 프로덕션 배포가 runner를 빌드하도록 runner를 항상 마지막 스테이지로 유지)
+# (Render render.yaml도 target 미지정 → 프로덕션 배포가 runner를 빌드하도록 runner를 항상 마지막 스테이지로 유지)
 FROM build AS gif-font-smoke
 WORKDIR /app/apps/server
 CMD ["pnpm", "exec", "tsx", "scripts/gif-font-smoke.ts"]
@@ -39,7 +39,6 @@ COPY --from=build /app/apps/server/node_modules ./apps/server/node_modules
 COPY --from=build /app/apps/server/package.json ./apps/server/package.json
 COPY --from=build /app/apps/server/prisma ./apps/server/prisma
 COPY --from=build /app/apps/server/assets ./apps/server/assets
-# 제시어 적재 크론(words:import)이 같은 이미지로 실행된다
-COPY --from=build /app/apps/server/scripts ./apps/server/scripts
 EXPOSE 3000
-CMD ["sh", "-c", "cd apps/server && pnpm prisma migrate deploy && node dist/main.js"]
+# Neon처럼 런타임은 커넥션 풀 주소를 쓰는 경우, 마이그레이션은 풀을 거치지 않는 DIRECT_URL로 실행한다 (없으면 DATABASE_URL)
+CMD ["sh", "-c", "cd apps/server && DATABASE_URL=\"${DIRECT_URL:-$DATABASE_URL}\" pnpm prisma migrate deploy && node dist/main.js"]
