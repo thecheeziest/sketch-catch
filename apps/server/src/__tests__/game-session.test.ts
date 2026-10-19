@@ -16,6 +16,7 @@ vi.mock('../services/rooms.service.js', () => ({
     store.set(state.code, JSON.stringify(state));
   }),
   withRoomLock: vi.fn((_code: string, fn: () => unknown) => fn()),
+  removeRoomFromIndex: vi.fn(),
 }));
 vi.mock('../services/word.service.js', () => ({
   pickRoundWord: vi.fn(),

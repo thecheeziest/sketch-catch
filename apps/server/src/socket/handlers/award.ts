@@ -1,7 +1,7 @@
 import type { Namespace } from 'socket.io';
 import type { ClientEvents, ServerEvents, RoomState } from '@sketch-catch/shared';
 import { SERVER_EVENT } from '@sketch-catch/shared';
-import { getRoomState, saveRoomState } from '../../services/rooms.service.js';
+import { getRoomState, removeRoomFromIndex, saveRoomState } from '../../services/rooms.service.js';
 import { clearRoomTimers } from '../../services/roomTimers.js';
 import { clearRoomChat } from '../../services/chatStore.js';
 import { clearRoomStrokes } from '../../services/strokeStore.js';
@@ -17,6 +17,7 @@ export async function destroyRoom(code: string): Promise<void> {
   clearRoomChat(code);
   clearRoomStrokes(code);
   await redis.del(`room:${code}:state`, `room:${code}:password`);
+  await removeRoomFromIndex(code);
 }
 
 /**

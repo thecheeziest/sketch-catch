@@ -19,7 +19,7 @@ export const ALL_CATEGORIES: Category[] = [
   'ACTION',
 ];
 
-const CATEGORY_LABEL: Record<Category, string> = {
+export const CATEGORY_LABEL: Record<Category, string> = {
   ANIMAL: '동물', OBJECT: '사물', FOOD: '음식', NATURE: '자연', PLACE: '장소', JOB: '직업', ACTION: '행동',
   PROVERB: '속담', IDIOM: '사자성어', MOVIE: '영화', DRAMA: '드라마', MEME: '밈', CUSTOM: '커스텀',
 };

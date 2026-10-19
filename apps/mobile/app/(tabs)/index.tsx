@@ -63,6 +63,11 @@ export default function HomeScreen() {
                   color="primary"
                   onPress={() => guardNav(() => router.push('/room/create'))}
                 />
+                <Button
+                  label="방 찾기"
+                  color="primary"
+                  onPress={() => guardNav(() => router.push('/room/browse'))}
+                />
                 <Button label="랜덤 매칭" color="secondary" onPress={() => setSheetVisible(true)} />
                 <Button
                   label="코드로 입장"

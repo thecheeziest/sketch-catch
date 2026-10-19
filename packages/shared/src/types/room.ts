@@ -35,6 +35,22 @@ export type RoomConfig = {
   playerCountMax: number; // mode1=3~12, mode2=4~12
 };
 
+// 방 찾기 목록 항목 — GET /rooms 응답. 대기실(LOBBY)만 WAITING, 그 외(게임·시상식)는 PLAYING
+export type RoomListStatus = 'WAITING' | 'PLAYING';
+
+export type RoomListItem = {
+  code: string;
+  title: string;
+  status: RoomListStatus;
+  mode: GameMode;
+  playerCount: number; // 퇴장(left)·시상식 잔류(inAward) 제외
+  playerCountMax: number;
+  hasPassword: boolean;
+  // 잠금은 켰지만 비밀번호가 없는 방 — 초대로만 입장 가능
+  inviteOnly: boolean;
+  categories: Category[];
+};
+
 export type RoomState = {
   code: string;
   hostId: string;

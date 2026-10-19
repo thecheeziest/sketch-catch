@@ -14,6 +14,7 @@ vi.mock('../db/redis.js', () => ({
       redisStore.delete(key);
       return 1;
     }),
+    zadd: vi.fn(async () => 1),
   },
   setPresence: vi.fn(async (userId: string, status = 'ONLINE') => {
     redisStore.set(`user:presence:${userId}`, status);

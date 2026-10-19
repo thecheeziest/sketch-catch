@@ -4,9 +4,10 @@ import type { RoomState } from '@sketch-catch/shared';
 const mockRedisSet = vi.fn().mockResolvedValue('OK');
 const mockRedisGet = vi.fn();
 const mockRedisDel = vi.fn();
+const mockRedisZadd = vi.fn().mockResolvedValue(1);
 
 vi.mock('../db/redis.js', () => ({
-  redis: { set: mockRedisSet, get: mockRedisGet, del: mockRedisDel },
+  redis: { set: mockRedisSet, get: mockRedisGet, del: mockRedisDel, zadd: mockRedisZadd },
   setPresence: vi.fn(),
   getPresence: vi.fn(),
 }));
@@ -49,6 +50,7 @@ describe('rooms.service', () => {
       'EX',
       7200
     );
+    expect(mockRedisZadd).toHaveBeenCalledWith('rooms:index', expect.any(Number), state.code);
   });
 
   it('ROOM-01: createRoom이 title/locked/config를 RoomState에 반영한다', async () => {
