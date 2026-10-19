@@ -1,6 +1,7 @@
 import { useAppVersionGate } from '@/features/appUpdate/lib/useAppVersionGate';
 import { ForceUpdateScreen } from '@/features/appUpdate/ui/ForceUpdateScreen';
 import { useMe } from '@/features/auth/api';
+import { useIsSignedIn } from '@/features/auth/lib';
 import { useNotificationListeners } from '@/features/push/lib/useNotificationListeners';
 import { usePushRegistration } from '@/features/push/lib/usePushRegistration';
 import { hydratePushPreference, usePushPreferenceStore } from '@/features/push/model/usePushPreferenceStore';
@@ -161,7 +162,7 @@ export default function RootLayout() {
   const isAuthenticated = useAuthStore(s => s.isAuthenticated);
   const needsOnboarding = useAuthStore(s => s.needsOnboarding);
   const [splashDone, setSplashDone] = useState(false);
-  const isSignedIn = isAuthenticated && !needsOnboarding;
+  const isSignedIn = useIsSignedIn();
   const updateStatus = useAppUpdateStore(s => s.status);
   useGameFeedback();
   useBackgroundMusic(splashDone && updateStatus !== 'required');
