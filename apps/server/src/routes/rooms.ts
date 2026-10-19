@@ -1,6 +1,15 @@
 import type { FastifyPluginAsync } from 'fastify';
 import { authenticate } from '../middleware/authenticate.js';
-import { createRoomSchema, roomCategoriesSchema, roomCodeSchema, SOCKET_NAMESPACE, SERVER_EVENT } from '@sketch-catch/shared';
+import {
+  createRoomSchema,
+  isPenaltyLoserCountValid,
+  roomCategoriesSchema,
+  roomCodeSchema,
+  roomPenaltySchema,
+  SOCKET_NAMESPACE,
+  SERVER_EVENT,
+} from '@sketch-catch/shared';
+import { isPenaltyTextClean } from '../services/penalty.js';
 import {
   createRoom,
   getRoomState,
@@ -21,7 +30,8 @@ export const roomsRoutes: FastifyPluginAsync = async (app) => {
     const parsed = createRoomSchema.safeParse(req.body);
     if (!parsed.success) return reply.status(400).send({ error: 'INVALID_INPUT' });
 
-    const { mode, playerCountMax, roundCount, drawTimer, answerTimer, categories, title, locked } = parsed.data;
+    const { mode, playerCountMax, roundCount, drawTimer, answerTimer, categories, title, locked, penalty } = parsed.data;
+    if (penalty && !isPenaltyTextClean(penalty.text)) return reply.status(400).send({ error: 'PROFANE_PENALTY' });
 
     try {
       const user = await prisma.user.findUnique({ where: { id: req.userId! } });
@@ -33,7 +43,7 @@ export const roomsRoutes: FastifyPluginAsync = async (app) => {
       const state = await createRoom({
         hostId: req.userId!,
         userIds: [req.userId!],
-        config: { roundCount, drawTimer, answerTimer: answerTimer ?? 10, categories, playerCountMax },
+        config: { roundCount, drawTimer, answerTimer: answerTimer ?? 10, categories, playerCountMax, penalty },
         title: defaultTitle,
         locked,
         password,
@@ -74,12 +84,32 @@ export const roomsRoutes: FastifyPluginAsync = async (app) => {
       // 카테고리를 전부 빼면 제시어를 뽑을 수 없다 — 1개 이상, 정의된 값만 허용
       const categories = body.categories === undefined ? undefined : roomCategoriesSchema.safeParse(body.categories);
       if (categories && !categories.success) return reply.status(400).send({ error: 'INVALID_INPUT' });
+      // 벌칙: 객체 = 켜기/수정, null = 끄기, 미전달 = 유지
+      const penalty = body.penalty == null ? undefined : roomPenaltySchema.safeParse(body.penalty);
+      if (penalty && !penalty.success) return reply.status(400).send({ error: 'INVALID_INPUT' });
+      if (penalty?.success && state.mode !== 1) return reply.status(400).send({ error: 'INVALID_INPUT' });
+      if (penalty?.success && !isPenaltyTextClean(penalty.data.text)) {
+        return reply.status(400).send({ error: 'PROFANE_PENALTY' });
+      }
+      const nextPenalty = (() => {
+        if (body.penalty === null) return undefined;
+        if (penalty?.success) return penalty.data;
+        return state.config.penalty;
+      })();
+      const nextPlayerCountMax =
+        typeof body.playerCountMax === 'number' ? body.playerCountMax : state.config.playerCountMax;
+      if (nextPenalty && !isPenaltyLoserCountValid(nextPenalty.loserCount, nextPlayerCountMax)) {
+        return reply.status(400).send({ error: 'INVALID_INPUT' });
+      }
+
       if (typeof body.title === 'string') state.title = body.title.trim() || state.title;
       if (typeof body.locked === 'boolean') state.locked = body.locked;
       if (typeof body.playerCountMax === 'number') state.config.playerCountMax = body.playerCountMax;
       if (typeof body.roundCount === 'number') state.config.roundCount = body.roundCount;
       if (typeof body.drawTimer === 'number') state.config.drawTimer = body.drawTimer;
       if (categories?.success) state.config.categories = categories.data;
+      if (nextPenalty) state.config.penalty = nextPenalty;
+      else delete state.config.penalty;
 
       await saveRoomState(state);
 

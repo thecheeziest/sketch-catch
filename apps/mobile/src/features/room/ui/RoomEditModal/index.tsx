@@ -7,6 +7,8 @@ import { useRoomStore, useToastStore } from '@/shared/model'
 import { Dialog, Button, AppInput, Icon } from '@/shared/ui'
 import { StepperField } from '@/features/room/ui/StepperField'
 import { CategorySelector, ALL_CATEGORIES } from '@/features/room/ui/CategorySelector'
+import { PenaltyField } from '@/features/room/ui/PenaltyField'
+import { getRoomSaveErrorMessage, usePenaltyForm } from '@/features/room/lib/usePenaltyForm'
 import { useUpdateRoom } from '@/features/room/api'
 import { colors, spacing } from '@/shared/config'
 
@@ -27,6 +29,8 @@ export function RoomEditModal({ visible, onClose, roomCode }: Props) {
   const [categories, setCategories] = useState<Category[]>(['CUSTOM', ...ALL_CATEGORIES])
   const [locked, setLocked] = useState(false)
   const playerMin = roomState?.mode === 2 ? MODE2_PLAYER_MIN : ROOM_PLAYER_MIN
+  const penaltyForm = usePenaltyForm({ playerCountMax, roundCount, drawTimer, setRoundCount, setDrawTimer })
+  const { reset: resetPenalty } = penaltyForm
 
   useEffect(() => {
     if (visible && roomState) {
@@ -36,15 +40,20 @@ export function RoomEditModal({ visible, onClose, roomCode }: Props) {
       setDrawTimer(roomState.config.drawTimer)
       setCategories((roomState.config.categories as Category[]) ?? [...ALL_CATEGORIES])
       setLocked(roomState.locked ?? false)
+      resetPenalty(roomState.config.penalty)
     }
+    // resetPenalty는 렌더마다 새로 만들어지지만 모달을 열 때·방 상태가 바뀔 때만 다시 맞추면 된다
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [visible, roomState])
 
   const handleSave = (): void => {
     mutate(
-      { title: title.trim() || undefined, locked, playerCountMax, roundCount, drawTimer, categories },
+      { title: title.trim() || undefined, locked, playerCountMax, roundCount, drawTimer, categories, penalty: penaltyForm.penalty },
       {
         onSuccess: () => { onClose() },
-        onError: () => { useToastStore.getState().show('방 설정을 바꾸지 못했어요!', 'error') },
+        onError: (err) => {
+          useToastStore.getState().show(getRoomSaveErrorMessage(err, '방 설정을 바꾸지 못했어요!'), 'error')
+        },
       }
     )
   }
@@ -65,7 +74,8 @@ export function RoomEditModal({ visible, onClose, roomCode }: Props) {
           <Icon name={locked ? 'LOCK' : 'LOCK_OPEN'} size={20} />
           <Switch value={locked} onValueChange={value => { playFeedback('select'); setLocked(value); }} trackColor={{ false: colors.DARK_100, true: colors.PRIMARY_400 }} />
         </View>
-        <Button label="저장" color="primary" disabled={isPending} onPress={handleSave} />
+        <PenaltyField form={penaltyForm} unavailable={roomState?.mode === 2} labelColor={colors.DARK_100} />
+        <Button label="저장" color="primary" disabled={isPending || !penaltyForm.isValid} onPress={handleSave} />
       </ScrollView>
     </Dialog>
   )

@@ -14,6 +14,7 @@ import { clearRoomTimer, clearRoomTimers, setRoomTimer } from '../../services/ro
 import { clearRoomChat, listMessages } from '../../services/chatStore.js';
 import { clearRoomStrokes, getRoundStrokes, strokeRoundKey } from '../../services/strokeStore.js';
 import { resetToLobby } from '../../services/roomRules.js';
+import { judgePenaltyLosers } from '../../services/penalty.js';
 import { beginAward } from './award.js';
 
 // 선택된 카테고리 중 이번 라운드에 사용할 카테고리 1개를 균등 랜덤 선택 (CUSTOM도 동일 확률의 후보)
@@ -425,6 +426,13 @@ export async function endGame(game: GameNamespace, code: string, reason?: 'INSUF
 
   answerTimestamps.delete(code);
 
+  // 벌칙은 모드 1 정상 종료일 때만 — 인원 부족 조기 종료는 일반 시상식으로 끝낸다
+  const penaltyConfig = state.mode === 1 && reason === undefined ? state.config.penalty : undefined;
+  const penalty = penaltyConfig && {
+    text: penaltyConfig.text,
+    loserIds: judgePenaltyLosers(ranked, penaltyConfig, new Set(state.players.filter(p => p.left).map(p => p.id))),
+  };
+
   // 시상식 시작 — inAward 표시 + 선택 전까지 결과 유지
   await beginAward(game, state);
 
@@ -435,5 +443,6 @@ export async function endGame(game: GameNamespace, code: string, reason?: 'INSUF
     finalScoreboard: state.scoreboard,
     ranking: ranked,
     endReason: reason,
+    penalty,
   });
 }

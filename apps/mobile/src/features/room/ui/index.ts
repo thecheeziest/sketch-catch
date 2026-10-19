@@ -8,3 +8,4 @@ export * from './SlotCard';
 export * from './StepperField';
 export * from './PlayerProfileDialog';
 export * from './LobbyChatLog';
+export * from './PenaltyField';

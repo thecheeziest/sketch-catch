@@ -12,6 +12,7 @@ export { ResultOverlay } from './ResultOverlay';
 export { AnswerApprovalButton } from './AnswerApprovalButton';
 export { CustomPromptModal } from './CustomPromptModal';
 export { PodiumSlot } from './PodiumSlot';
+export { PenaltyAward } from './PenaltyAward';
 export { CanvasStage } from './CanvasStage';
 export { WordBar } from './WordBar';
 export { Collapse } from './Collapse';

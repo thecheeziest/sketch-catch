@@ -6,7 +6,7 @@ import { InviteModal, LobbyChatLog, PlayerProfileDialog, RoomEditModal, SlotCard
 import { colors, spacing, textSizes } from '@/shared/config';
 import { useAuthStore, useRoomStore, useToastStore } from '@/shared/model';
 import { copyToClipboard, useHardwareBack } from '@/shared/lib';
-import { Button, FlatList, Icon, SketchbookLoadingSpinner } from '@/shared/ui';
+import { Button, FlatList, Icon, PixelFrame, SketchbookLoadingSpinner } from '@/shared/ui';
 import type { Player } from '@sketch-catch/shared';
 import { CLIENT_EVENT, MODE2_PLAYER_MIN, ROOM_PLAYER_MIN } from '@sketch-catch/shared';
 import { Text, View } from 'dripsy';
@@ -93,6 +93,7 @@ export default function LobbyScreen() {
 
   const { width: screenWidth } = useWindowDimensions();
   const maxPlayers = roomState?.config.playerCountMax ?? 6;
+  const penalty = roomState?.config.penalty;
   const numColumns = getNumColumns(maxPlayers);
   const cardWidth = Math.floor(
     (screenWidth - spacing.MD * 2 - spacing.XS * 2 * numColumns - spacing.SM * (numColumns - 1)) / numColumns,
@@ -193,6 +194,21 @@ export default function LobbyScreen() {
               marginBottom: spacing.MD,
             }}
           />
+          {penalty && (
+            <View sx={{ marginBottom: spacing.MD }}>
+              <PixelFrame borderColor={colors.WARNING_300} borderWidth={2} style={StyleSheet.absoluteFill}>
+                <View style={[StyleSheet.absoluteFill, { backgroundColor: colors.BLACK }]} />
+              </PixelFrame>
+              <View sx={{ flexDirection: 'row', alignItems: 'center', gap: spacing.SM, padding: spacing.SM }}>
+                <Text variants={['bold', 'B3']} sx={{ color: colors.WARNING_300 }}>
+                  벌칙 · 꼴찌 {penalty.loserCount}명
+                </Text>
+                <Text sx={{ ...textSizes.B3, color: colors.LIGHT_100, flex: 1 }} numberOfLines={1}>
+                  {penalty.text}
+                </Text>
+              </View>
+            </View>
+          )}
         </View>
 
         <FlatList
