@@ -6,7 +6,7 @@ import { RoomListCard } from '@/features/room/ui';
 import { colors, spacing } from '@/shared/config';
 import { handleApiError, usePullToRefresh } from '@/shared/lib';
 import { useToastStore } from '@/shared/model';
-import { Button, FlatList, Icon, PullRefreshIndicator, SketchbookLoadingSpinner } from '@/shared/ui';
+import { Badge, Button, FlatList, Icon, PullRefreshIndicator, SketchbookLoadingSpinner } from '@/shared/ui';
 import { Text, View } from 'dripsy';
 import { useRouter } from 'expo-router';
 import { useCallback, useState } from 'react';
@@ -95,7 +95,13 @@ export default function RoomBrowseScreen() {
         <FlatList
           data={rooms}
           keyExtractor={item => item.code}
-          renderItem={({ item }) => <RoomListCard room={item} onPress={() => handlePress(item)} />}
+          renderItem={({ item }) => (
+            <RoomListCard
+              room={item}
+              onPress={() => handlePress(item)}
+              extraChips={item.penalty && <Badge label="벌칙" color={colors.WARNING_300} />}
+            />
+          )}
           contentContainerStyle={styles.listContent}
           refreshControl={refresh.refreshControl}
           onScroll={refresh.onScroll}

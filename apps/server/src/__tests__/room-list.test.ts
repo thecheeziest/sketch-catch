@@ -102,6 +102,28 @@ describe('방 찾기 목록', () => {
     ]);
   });
 
+  it('모드 1 벌칙 설정을 목록에 포함하고 해제하면 제거한다', async () => {
+    const room = await makeRoom({ at: BASE });
+    const penalty = { loserCount: 2 as const, text: '간식 사기' };
+    await saveRoomState({ ...room, config: { ...room.config, penalty } });
+
+    expect((await listRooms())[0]?.penalty).toEqual(penalty);
+
+    await saveRoomState(room);
+    expect((await listRooms())[0]?.penalty).toBeUndefined();
+  });
+
+  it('모드 2에서는 저장된 벌칙 설정이 있어도 목록에 포함하지 않는다', async () => {
+    const room = await makeRoom({ at: BASE });
+    await saveRoomState({
+      ...room,
+      mode: 2,
+      config: { ...room.config, penalty: { loserCount: 1, text: '간식 사기' } },
+    });
+
+    expect((await listRooms())[0]?.penalty).toBeUndefined();
+  });
+
   it('destroyRoom이 인덱스에서도 방을 지운다', async () => {
     const room = await makeRoom({ at: BASE });
     await destroyRoom(room.code);

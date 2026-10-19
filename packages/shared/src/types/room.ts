@@ -56,6 +56,7 @@ export type RoomListItem = {
   // 잠금은 켰지만 비밀번호가 없는 방 — 초대로만 입장 가능
   inviteOnly: boolean;
   categories: Category[];
+  penalty?: RoomPenalty;
 };
 
 export type RoomState = {

@@ -94,6 +94,7 @@ function toRoomListItem(state: RoomState, hasPassword: boolean): RoomListItem {
     hasPassword: locked && hasPassword,
     inviteOnly: locked && !hasPassword,
     categories: state.config.categories,
+    penalty: state.mode === 1 ? state.config.penalty : undefined,
   };
 }
 
