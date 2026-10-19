@@ -4,7 +4,7 @@ import { randomUUID } from 'node:crypto';
 import { isGameInProgressStatus, MODE2_PLAYER_MIN, ROOM_PLAYER_MIN, SERVER_EVENT } from '@sketch-catch/shared';
 import { getRoomState, saveRoomState, withRoomLock } from '../../services/rooms.service.js';
 import { PLAYER_PROFILE_SELECT } from '../../lib/playerProfile.js';
-import { computeAllReady, ensureHost } from '../../services/roomRules.js';
+import { computeAllReady, ensureHost, transferHost } from '../../services/roomRules.js';
 import { setPresence, setUserRoom, clearUserRoom, getUserRoom } from '../../db/redis.js';
 import { broadcastPresenceUpdate } from '../presence.namespace.js';
 import { prisma } from '../../db/prisma.js';
@@ -371,4 +371,37 @@ export async function handleRoomNudge(game: GameNamespace, socket: GameSocket): 
   }
   lastNudgeAt.set(code, now);
   game.to(`user:${host.id}`).emit(SERVER_EVENT.ROOM_NUDGED);
+}
+
+// 대기실에서 방장이 다른 참가자에게 방장을 넘긴다 — 권한·상태·대상은 서버가 검증한다
+export async function handleRoomHostTransfer(
+  game: GameNamespace,
+  socket: GameSocket,
+  targetId: unknown,
+): Promise<void> {
+  const roomName = Array.from(socket.rooms).find(r => r.startsWith('room:'));
+  if (!roomName) return;
+  const code = roomName.replace('room:', '');
+
+  const state = await getRoomState(code);
+  if (!state) return;
+
+  if (state.hostId !== socket.data.userId) {
+    socket.emit(SERVER_EVENT.ERROR, { code: 'FORBIDDEN', message: '방장만 넘길 수 있어요!' });
+    return;
+  }
+  // 게임 중에는 방장이 출제 순서·진행 판정과 얽혀 있으므로 대기실에서만 허용
+  if (state.status !== 'LOBBY') {
+    socket.emit(SERVER_EVENT.ERROR, { code: 'GAME_IN_PROGRESS', message: '대기실에서만 방장을 넘길 수 있어요!' });
+    return;
+  }
+  if (typeof targetId !== 'string' || !transferHost(state, targetId)) {
+    socket.emit(SERVER_EVENT.ERROR, { code: 'INVALID_TARGET', message: '방장을 넘길 수 없는 참가자예요!' });
+    return;
+  }
+
+  // 방장은 준비 대상에서 빠지므로 allReady를 다시 계산한다
+  state.allReady = computeAllReady(state);
+  await saveRoomState(state);
+  game.to(roomName).emit(SERVER_EVENT.ROOM_STATE, state);
 }

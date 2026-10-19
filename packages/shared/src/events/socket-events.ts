@@ -24,6 +24,8 @@ export type ClientEvents = {
   'room:rematch': (payload: { code: string }) => void;
   // 대기실 인원이 시상식에 남은 방장에게 돌아오라고 재촉
   'room:nudge': () => void;
+  // 대기실에서 방장이 다른 참가자에게 방장을 넘긴다
+  'room:host:transfer': (payload: { targetId: string }) => void;
   'stroke:start': (payload: { strokeId: string; color: string; width: number }) => void;
   'stroke:append': (payload: { strokeId: string; points: Point[] }) => void;
   'stroke:end': (payload: { strokeId: string }) => void;
@@ -85,6 +87,7 @@ export const CLIENT_EVENT = {
   ROOM_START: 'room:start',
   ROOM_REMATCH: 'room:rematch',
   ROOM_NUDGE: 'room:nudge',
+  ROOM_HOST_TRANSFER: 'room:host:transfer',
   STROKE_START: 'stroke:start',
   STROKE_APPEND: 'stroke:append',
   STROKE_END: 'stroke:end',

@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest';
 import type { Player, RoomState } from '@sketch-catch/shared';
-import { ensureHost } from '../services/roomRules.js';
+import { ensureHost, transferHost } from '../services/roomRules.js';
 
 function player(id: string, nickname: string, slot: number, isHost = false): Player {
   return { id, nickname, friendCode: 'CODE0', characterId: 'cat', slot, isHost, isReady: false, connected: true };
@@ -46,5 +46,40 @@ describe('ensureHost — 방장 승계', () => {
     const { state, departed } = stateAfterHostLeft('금요일 그림 모임');
     ensureHost(state, departed);
     expect(state.title).toBe('금요일 그림 모임');
+  });
+});
+
+describe('transferHost — 방장 넘기기', () => {
+  function lobby(title: string): RoomState {
+    return {
+      ...stateAfterHostLeft(title).state,
+      players: [player('u1', '감자', 0, true), player('u2', '고구마', 1), { ...player('u3', '당근', 2), left: true }],
+    };
+  }
+
+  it('대상이 방장이 되고 이전 방장은 방장이 아니게 된다', () => {
+    const state = lobby('아무 방');
+    expect(transferHost(state, 'u2')).toBe(true);
+    expect(state.hostId).toBe('u2');
+    expect(state.players.filter((p) => p.isHost).map((p) => p.id)).toEqual(['u2']);
+    expect(state.title).toBe('아무 방');
+  });
+
+  it.each([
+    ['감자님의 방', '고구마님의 방'],
+    ['감자의 방', '고구마의 방'],
+  ])('기본 제목 "%s"는 "%s"로 바뀐다', (title, expected) => {
+    const state = lobby(title);
+    transferHost(state, 'u2');
+    expect(state.title).toBe(expected);
+  });
+
+  it('자기 자신·나간 참가자·없는 유저에게는 넘기지 않는다', () => {
+    for (const target of ['u1', 'u3', 'nobody']) {
+      const state = lobby('감자님의 방');
+      expect(transferHost(state, target)).toBe(false);
+      expect(state.hostId).toBe('u1');
+      expect(state.title).toBe('감자님의 방');
+    }
   });
 });

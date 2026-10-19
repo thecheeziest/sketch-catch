@@ -70,3 +70,11 @@ export type CoinStats = {
   idleDrawers: string[]; // 모드1: 그리기 차례에 아무것도 그리지 않은 출제자 — 순위 보너스 제외
   submits: Record<string, number>; // 모드2: 시간 초과가 아닌 직접 제출 수
 };
+
+// 초대 수락 전 확인용 방 요약 — 초대받은 사람은 비밀번호 없이 들어오므로 잠금 여부와 무관하게 내려준다
+export type RoomPreview = {
+  code: string;
+  title: string;
+  status: RoomStatus;
+  full: boolean;
+};

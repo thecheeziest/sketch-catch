@@ -84,11 +84,14 @@ export default function LobbyScreen() {
   }, [roomState, isMember, socket, code]);
 
   useEffect(() => {
-    const isHost = roomState?.hostId === myId;
+    const hostId = roomState?.hostId;
+    if (!hostId) return;
+    const isHost = hostId === myId;
     if (isHost && !wasHostRef.current) {
       useToastStore.getState().show('방장이 되었습니다');
-      wasHostRef.current = true;
     }
+    // 방장을 넘긴 뒤 다시 돌려받을 때도 안내되도록 현재 상태를 그대로 기억한다
+    wasHostRef.current = isHost;
   }, [roomState?.hostId, myId]);
 
   const { width: screenWidth } = useWindowDimensions();
@@ -123,6 +126,11 @@ export default function LobbyScreen() {
 
   const handleNudge = (): void => {
     socket?.emit(CLIENT_EVENT.ROOM_NUDGE);
+  };
+
+  const canTransferHost = isHost && roomState?.status === 'LOBBY';
+  const handleTransferHost = (player: Player): void => {
+    socket?.emit(CLIENT_EVENT.ROOM_HOST_TRANSFER, { targetId: player.id });
   };
 
   const handleCopyCode = (): Promise<void> => copyToClipboard(code ?? '', '코드가 복사되었습니다');
@@ -253,7 +261,11 @@ export default function LobbyScreen() {
 
         <InviteModal visible={inviteOpen} onClose={() => setInviteOpen(false)} code={code ?? ''} />
 
-        <PlayerProfileDialog player={profileTarget} onClose={() => setProfileTarget(null)} />
+        <PlayerProfileDialog
+          player={profileTarget}
+          onClose={() => setProfileTarget(null)}
+          onTransferHost={canTransferHost ? handleTransferHost : undefined}
+        />
       </SafeAreaView>
     </ImageBackground>
   );

@@ -217,7 +217,7 @@ export default function RootLayout() {
                     <Stack.Screen name="room" options={{ gestureEnabled: false }} />
                   </Stack.Protected>
                 </Stack>
-                <NotificationGate />
+                <NotificationGate ready={splashDone && isSignedIn} />
               </>
             )}
             <ToastHost />

@@ -11,6 +11,7 @@ import {
   handleRoomJoin,
   handleRoomLeave,
   handleRoomNudge,
+  handleRoomHostTransfer,
   handleRoomReady,
   handleRoomStart,
 } from './handlers/room.js';
@@ -81,6 +82,9 @@ export function registerGameNamespace(io: Server<ClientEvents, ServerEvents>): v
     socket.on('room:ready', ({ ready }) => inRoom('room:ready', () => handleRoomReady(game, socket, ready)));
     socket.on('room:nudge', () => inRoom('room:nudge', () => handleRoomNudge(game, socket)));
     socket.on('room:start', () => inRoom('room:start', () => handleRoomStart(game, socket)));
+    socket.on('room:host:transfer', payload =>
+      inRoom('room:host:transfer', () => handleRoomHostTransfer(game, socket, payload?.targetId)),
+    );
     socket.on('room:rematch', payload => {
       const code = typeof payload?.code === 'string' ? payload.code : undefined;
       const codes = code ? [code] : roomCodesOf(socket);
