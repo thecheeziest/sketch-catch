@@ -15,11 +15,11 @@
       "entitlements": {
         "com.apple.developer.applesignin": ["Default"]
       },
-      "buildNumber": "4",
+      "buildNumber": "5",
       "infoPlist": {
         "ITSAppUsesNonExemptEncryption": false
       },
-      "appleTeamId": "2Q3P3NXTZJ"
+      "appleTeamId": "8RB2KMFLF7"
     },
     "android": {
       "adaptiveIcon": {
@@ -27,7 +27,7 @@
         "backgroundColor": "#1E1C2C"
       },
       "package": "com.sketchcatch.app",
-      "versionCode": 3
+      "versionCode": 4
     },
     "web": {
       "favicon": "./assets/app-icons/04-shooting-star-symbol.png"
