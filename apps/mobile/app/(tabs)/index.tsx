@@ -12,6 +12,9 @@ import { ImageBackground } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { ROOM_PLAYER_MIN } from '@sketch-catch/shared';
 
+// 랜덤 매칭은 기능 정리(유지/제거 검토) 전까지 임시로 숨긴다 — 매칭 로직은 그대로 둔다
+const SHOW_RANDOM_MATCH = false;
+
 export default function HomeScreen() {
   const router = useRouter();
   const [codeModalVisible, setCodeModalVisible] = useState(false);
@@ -65,10 +68,12 @@ export default function HomeScreen() {
                 />
                 <Button
                   label="방 찾기"
-                  color="primary"
+                  color="secondary"
                   onPress={() => guardNav(() => router.push('/room/browse'))}
                 />
-                <Button label="랜덤 매칭" color="secondary" onPress={() => setSheetVisible(true)} />
+                {SHOW_RANDOM_MATCH && (
+                  <Button label="랜덤 매칭" color="secondary" onPress={() => setSheetVisible(true)} />
+                )}
                 <Button
                   label="코드로 입장"
                   color="light"
