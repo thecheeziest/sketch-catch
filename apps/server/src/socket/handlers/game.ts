@@ -15,6 +15,7 @@ import { clearRoomChat, listMessages } from '../../services/chatStore.js';
 import { clearRoomStrokes, getRoundStrokes, hasRoundDrawing, strokeRoundKey } from '../../services/strokeStore.js';
 import { resetToLobby } from '../../services/roomRules.js';
 import { recordMode1Round } from '../../services/coin.service.js';
+import { judgePenaltyLosers } from '../../services/penalty.js';
 import { beginAward } from './award.js';
 import { settleMode1Rewards } from './coinReward.js';
 
@@ -440,6 +441,13 @@ export async function endGame(game: GameNamespace, code: string, reason?: 'INSUF
 
   answerTimestamps.delete(code);
 
+  // 벌칙은 모드 1 정상 종료일 때만 — 인원 부족 조기 종료는 일반 시상식으로 끝낸다
+  const penaltyConfig = state.mode === 1 && reason === undefined ? state.config.penalty : undefined;
+  const penalty = penaltyConfig && {
+    text: penaltyConfig.text,
+    loserIds: judgePenaltyLosers(ranked, penaltyConfig, new Set(state.players.filter(p => p.left).map(p => p.id))),
+  };
+
   // 시상식 시작 — inAward 표시 + 선택 전까지 결과 유지
   await beginAward(game, state);
 
@@ -450,6 +458,7 @@ export async function endGame(game: GameNamespace, code: string, reason?: 'INSUF
     finalScoreboard: state.scoreboard,
     ranking: ranked,
     endReason: reason,
+    penalty,
   });
 
   void settleMode1Rewards(game, state, ranked);

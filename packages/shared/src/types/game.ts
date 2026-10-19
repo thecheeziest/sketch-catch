@@ -37,6 +37,8 @@ export type GameResult = {
   finalScoreboard: Record<string, number>;
   ranking: Array<{ userId: string; rank: number; score: number; answeredAt: number | null }>;
   endReason?: 'NORMAL' | 'INSUFFICIENT_PLAYERS';
+  // 벌칙 방에서 정상 종료된 경우에만 — 걸린 사람(꼴찌, 동점 포함)
+  penalty?: { text: string; loserIds: string[] };
 };
 
 // 게임 종료 코인 정산 — 플레이어 본인 소켓(user:{id})에만 전달

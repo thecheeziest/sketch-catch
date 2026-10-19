@@ -21,7 +21,7 @@ vi.mock('../socket/presence.namespace.js', () => ({ broadcastPresenceUpdate: vi.
 
 import { getRoomState, saveRoomState } from '../services/rooms.service.js';
 import { pickRoundWord } from '../services/word.service.js';
-import { startRound, endRound, calcScore, handlePlayerLeft } from '../socket/handlers/game.js';
+import { startRound, endRound, endGame, calcScore, handlePlayerLeft } from '../socket/handlers/game.js';
 import { handleStrokeStart, handleStrokeClear } from '../socket/handlers/stroke.js';
 import { handleChatSend, handleAnswerAccept } from '../socket/handlers/chat.js';
 
@@ -582,5 +582,51 @@ describe('handlePlayerLeft 인원부족 종료 (OFFL-03)', () => {
     await handlePlayerLeft(game as any, 'ABC123', 'u3');
     expect(mockSaveRoomState).toHaveBeenCalledTimes(1);
     expect(game._broadcastEmit).toHaveBeenCalledTimes(1);
+  });
+});
+
+describe('endGame 벌칙 판정', () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+    mockGetRoomState.mockReset();
+    mockSaveRoomState.mockResolvedValue(undefined);
+  });
+
+  const penaltyConfig = {
+    roundCount: 1,
+    drawTimer: 40,
+    answerTimer: 10,
+    categories: ['ANIMAL' as const],
+    playerCountMax: 6,
+    penalty: { loserCount: 1 as const, text: '커피 쏘기' },
+  };
+
+  it('벌칙 방 정상 종료 시 game:end에 꼴찌를 담는다', async () => {
+    mockGetRoomState.mockResolvedValueOnce(
+      makeRoomState({
+        status: 'MODE1_ROUND_END',
+        config: penaltyConfig,
+        scoreboard: { u1: 800, u2: 300, u3: 500 },
+      }),
+    );
+    const game = makeNamespace();
+
+    await endGame(game as any, 'ABC123');
+
+    expect(game._broadcastEmit).toHaveBeenCalledWith(
+      'game:end',
+      expect.objectContaining({ penalty: { text: '커피 쏘기', loserIds: ['u2'] } }),
+    );
+  });
+
+  it('인원 부족 조기 종료면 벌칙 판정을 하지 않는다', async () => {
+    mockGetRoomState.mockResolvedValueOnce(
+      makeRoomState({ status: 'MODE1_ROUND_START', config: penaltyConfig, scoreboard: { u1: 800 } }),
+    );
+    const game = makeNamespace();
+
+    await endGame(game as any, 'ABC123', 'INSUFFICIENT_PLAYERS');
+
+    expect(game._broadcastEmit).toHaveBeenCalledWith('game:end', expect.objectContaining({ penalty: undefined }));
   });
 });

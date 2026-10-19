@@ -1,7 +1,7 @@
 import { useMutation } from '@tanstack/react-query';
 import { useRouter } from 'expo-router';
 import { apiPost } from '@/shared/api';
-import type { Category } from '@sketch-catch/shared';
+import type { Category, RoomPenalty } from '@sketch-catch/shared';
 import { playFeedback } from '@/shared/lib/feedback';
 
 // D-04: 기본값 — 인원 6, 라운드 3, 타이머 30
@@ -14,6 +14,7 @@ type CreateRoomInput = {
   title?: string;
   locked?: boolean;
   password?: string;
+  penalty?: RoomPenalty;
 };
 
 export function useCreateRoom() {

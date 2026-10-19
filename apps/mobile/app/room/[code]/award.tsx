@@ -8,7 +8,7 @@ import { useChatSender } from '@/features/game/api/useChatSender';
 import { useAuthStore } from '@/shared/model/auth';
 import { useRoomStore } from '@/shared/model/room';
 import { useRoomChatStore } from '@/features/room/model/useRoomChatStore';
-import { PodiumSlot, ChatStream, ChatInputBar } from '@/features/game/ui';
+import { PodiumSlot, PenaltyAward, ChatStream, ChatInputBar } from '@/features/game/ui';
 import { AudienceCheer } from '@/features/game/ui/AudienceCheer';
 import { useAwardSession } from '@/features/room/lib';
 import { CoinRewardChip, useCoinRewardStore } from '@/features/shop';
@@ -76,6 +76,12 @@ export default function AwardScreen() {
     [restRanking, players],
   );
 
+  // 벌칙 방 — 걸린 사람은 무대 밖, 나머지(중도 퇴장자 포함)는 한 단상에 모인다
+  const penalty = result?.penalty && result.penalty.loserIds.length > 0 ? result.penalty : null;
+  const penaltyLoserIds = new Set(penalty?.loserIds ?? []);
+  const penaltySafePlayers = ranking.filter(r => !penaltyLoserIds.has(r.userId)).map(toPodiumPlayer);
+  const penaltyLosers = ranking.filter(r => penaltyLoserIds.has(r.userId)).map(toPodiumPlayer);
+
   // 채팅 스트림 — 게임 진행 중과 동일하게 우상단에 말풍선으로 표시 (정답 판정 없는 자유 채팅)
   const streamItems = useMemo(
     () =>
@@ -135,33 +141,39 @@ export default function AwardScreen() {
 
       {/* 시상대 + 방청석 + 채팅 말풍선 */}
       <Pressable style={styles.stage} onPress={Keyboard.dismiss} accessible={false}>
+        {penalty !== null && (
+          <PenaltyAward text={penalty.text} safePlayers={penaltySafePlayers} losers={penaltyLosers} />
+        )}
+
         {/* 시상대 — 2위(왼쪽 하단), 1위(가운데 상단), 3위(오른쪽 최하단) */}
-        <View
-          sx={{
-            flex: 1,
-            flexDirection: 'row',
-            alignItems: 'flex-end',
-            justifyContent: 'center',
-            paddingHorizontal: spacing.MD,
-            paddingBottom: spacing.MD,
-            gap: spacing.XS,
-          }}
-        >
-          {rank2 != null ? (
-            <PodiumSlot rank={2} player={toPodiumPlayer(rank2)} baseCardWidth={baseCardWidth} />
-          ) : (
-            <View sx={{ width: Math.round(baseCardWidth * 1.1) }} />
-          )}
-          {rank1 != null && <PodiumSlot rank={1} player={toPodiumPlayer(rank1)} baseCardWidth={baseCardWidth} />}
-          {rank3 != null ? (
-            <PodiumSlot rank={3} player={toPodiumPlayer(rank3)} baseCardWidth={baseCardWidth} />
-          ) : (
-            <View sx={{ width: Math.round(baseCardWidth * 0.9) }} />
-          )}
-        </View>
+        {penalty === null && (
+          <View
+            sx={{
+              flex: 1,
+              flexDirection: 'row',
+              alignItems: 'flex-end',
+              justifyContent: 'center',
+              paddingHorizontal: spacing.MD,
+              paddingBottom: spacing.MD,
+              gap: spacing.XS,
+            }}
+          >
+            {rank2 != null ? (
+              <PodiumSlot rank={2} player={toPodiumPlayer(rank2)} baseCardWidth={baseCardWidth} />
+            ) : (
+              <View sx={{ width: Math.round(baseCardWidth * 1.1) }} />
+            )}
+            {rank1 != null && <PodiumSlot rank={1} player={toPodiumPlayer(rank1)} baseCardWidth={baseCardWidth} />}
+            {rank3 != null ? (
+              <PodiumSlot rank={3} player={toPodiumPlayer(rank3)} baseCardWidth={baseCardWidth} />
+            ) : (
+              <View sx={{ width: Math.round(baseCardWidth * 0.9) }} />
+            )}
+          </View>
+        )}
 
         {/* 4위 이하 — 응원봉 흔드는 방청석 연출 */}
-        <AudienceCheer players={audiencePlayers} />
+        {penalty === null && <AudienceCheer players={audiencePlayers} />}
 
         {/* 채팅 말풍선 — 게임 진행 화면과 동일하게 우상단에 겹쳐 표시 */}
         <ChatStream items={streamItems} />

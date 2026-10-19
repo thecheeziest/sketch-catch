@@ -27,12 +27,19 @@ export type Player = UserPublic &
   inAward?: boolean;
 };
 
+// 벌칙 설정 — 필드가 없으면 벌칙 없는 방. 모드 1에서만 허용
+export type RoomPenalty = {
+  loserCount: 1 | 2; // 벌칙에 걸리는 꼴찌 인원 (동점이면 더 늘어날 수 있다)
+  text: string; // 무엇을 걸지
+};
+
 export type RoomConfig = {
   roundCount: number;
   drawTimer: number; // seconds
   answerTimer: number; // seconds (mode 2)
   categories: Category[];
   playerCountMax: number; // mode1=3~12, mode2=4~12
+  penalty?: RoomPenalty;
 };
 
 // 방 찾기 목록 항목 — GET /rooms 응답. 대기실(LOBBY)만 WAITING, 그 외(게임·시상식)는 PLAYING

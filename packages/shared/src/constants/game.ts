@@ -12,6 +12,10 @@ export const ROOM_PLAYER_MIN = 3;
 export const MODE2_PLAYER_MIN = 4;
 export const ROOM_PLAYER_MAX = 12;
 
+// 벌칙 (모드 1 전용) — 켜면 스피디한 단판으로 시작하도록 턴·타이머 기본값을 바꿔 준다 (이후 수동 변경 가능)
+export const PENALTY_TEXT_MAX_LENGTH = 20;
+export const PENALTY_PRESET = { roundCount: 1, drawTimer: 40 } as const;
+
 // 친구
 export const FRIEND_CODE_LENGTH = 5;
 

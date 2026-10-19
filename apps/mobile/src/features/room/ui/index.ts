@@ -9,3 +9,4 @@ export * from './StepperField';
 export * from './PlayerProfileDialog';
 export * from './LobbyChatLog';
 export * from './RoomListCard';
+export * from './PenaltyField';
