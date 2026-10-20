@@ -1,5 +1,5 @@
 import { useRef, useState } from 'react';
-import { isPenaltyLoserCountValid, PENALTY_PRESET, type RoomPenalty } from '@sketch-catch/shared';
+import { PENALTY_LOSER_MAX, PENALTY_PRESET, type RoomPenalty } from '@sketch-catch/shared';
 import { ApiError } from '@/shared/api';
 
 type Options = {
@@ -16,13 +16,14 @@ type Options = {
  */
 export function usePenaltyForm({ playerCountMax, roundCount, drawTimer, setRoundCount, setDrawTimer }: Options) {
   const [enabled, setEnabled] = useState(false);
-  const [loserCount, setLoserCount] = useState<1 | 2>(1);
+  const [loserCount, setLoserCount] = useState(1);
   const [text, setText] = useState('');
   const beforePreset = useRef<{ roundCount: number; drawTimer: number } | null>(null);
 
-  const canPickTwo = isPenaltyLoserCountValid(2, playerCountMax);
-  // 최대 인원을 줄여 꼴찌 2명이 불가능해지면 1명으로 본다 (저장 시에도 이 값이 나간다)
-  const effectiveLoserCount = canPickTwo ? loserCount : 1;
+  // 벌칙 인원을 빼고도 최소 2명은 남아야 한다 (isPenaltyLoserCountValid와 같은 기준)
+  const maxLoserCount = Math.max(1, Math.min(PENALTY_LOSER_MAX, playerCountMax - 2));
+  // 최대 인원을 줄여 고른 인원이 불가능해지면 가능한 최대치로 본다 (저장 시에도 이 값이 나간다)
+  const effectiveLoserCount = Math.min(loserCount, maxLoserCount);
   const trimmedText = text.trim();
   const isValid = !enabled || trimmedText.length > 0;
   const penalty: RoomPenalty | null = enabled ? { loserCount: effectiveLoserCount, text: trimmedText } : null;
@@ -54,7 +55,7 @@ export function usePenaltyForm({ playerCountMax, roundCount, drawTimer, setRound
     enabled,
     loserCount: effectiveLoserCount,
     text,
-    canPickTwo,
+    maxLoserCount,
     isValid,
     penalty,
     toggle,

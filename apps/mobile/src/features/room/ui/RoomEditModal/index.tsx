@@ -74,7 +74,7 @@ export function RoomEditModal({ visible, onClose, roomCode }: Props) {
           <Icon name={locked ? 'LOCK' : 'LOCK_OPEN'} size={20} />
           <Switch value={locked} onValueChange={value => { playFeedback('select'); setLocked(value); }} trackColor={{ false: colors.DARK_100, true: colors.PRIMARY_400 }} />
         </View>
-        <PenaltyField form={penaltyForm} unavailable={roomState?.mode === 2} labelColor={colors.DARK_100} />
+        {roomState?.mode === 1 && <PenaltyField form={penaltyForm} labelColor={colors.DARK_100} />}
         <Button label="저장" color="primary" disabled={isPending || !penaltyForm.isValid} onPress={handleSave} />
       </ScrollView>
     </Dialog>
