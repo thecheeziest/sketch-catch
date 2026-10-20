@@ -6,7 +6,7 @@ import {
   InvalidFormatError, SelfRequestError, UserNotFoundError, AlreadyFriendsError, DuplicateRequestError,
   RequestNotFoundError, ForbiddenError,
 } from '../services/friends.service.js';
-import { PUSH_TYPE } from '@sketch-catch/shared';
+import { buildPushDeepLink, PUSH_TYPE } from '@sketch-catch/shared';
 import { sendPush, shouldSend } from '../services/push.service.js';
 import { prisma } from '../db/prisma.js';
 import { logger } from '../lib/logger.js';
@@ -41,14 +41,14 @@ export const friendsRoutes: FastifyPluginAsync = async (app) => {
             await sendPush([pushToken], {
               title: '친구 요청 수락',
               body: `${nickname}님이 친구 요청을 수락했어요.`,
-              data: { type: PUSH_TYPE.FRIEND_ACCEPT },
+              data: { type: PUSH_TYPE.FRIEND_ACCEPT, url: buildPushDeepLink({ kind: 'friends' }) },
             });
             return;
           }
           await sendPush([pushToken], {
             title: '친구 요청',
             body: `${nickname}님이 친구 요청을 보냈어요.`,
-            data: { type: PUSH_TYPE.FRIEND_REQUEST },
+            data: { type: PUSH_TYPE.FRIEND_REQUEST, url: buildPushDeepLink({ kind: 'friends' }) },
           });
         })().catch((err) => logger.error({ err }, 'push send failed'));
       }
@@ -93,7 +93,7 @@ export const friendsRoutes: FastifyPluginAsync = async (app) => {
           await sendPush([pushToken], {
             title: '친구 요청 수락',
             body: `${me?.nickname ?? '친구'}님이 친구 요청을 수락했어요.`,
-            data: { type: PUSH_TYPE.FRIEND_ACCEPT },
+            data: { type: PUSH_TYPE.FRIEND_ACCEPT, url: buildPushDeepLink({ kind: 'friends' }) },
           });
         })().catch((err) => logger.error({ err }, 'push send failed'));
       }

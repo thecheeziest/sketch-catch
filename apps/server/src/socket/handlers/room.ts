@@ -42,7 +42,12 @@ type JoinResult =
   | { ok: true; state: RoomState }
   | { ok: false; code: 'ROOM_NOT_FOUND' | 'ALREADY_LEFT' | 'ROOM_FULL' | 'GAME_IN_PROGRESS'; message: string };
 
-export async function handleRoomJoin(game: GameNamespace, socket: GameSocket, code: string): Promise<void> {
+export async function handleRoomJoin(
+  game: GameNamespace,
+  socket: GameSocket,
+  code: string,
+  resume = false,
+): Promise<void> {
   const userId = socket.data.userId;
 
   // 동시 입장 시 slot 번호가 겹치는 read-modify-write 레이스를 막기 위해 방 단위 락으로 감싼다.
@@ -62,6 +67,10 @@ export async function handleRoomJoin(game: GameNamespace, socket: GameSocket, co
       existingPlayer.connected = true;
       cancelGraceLeave(code, userId);
     } else {
+      // 재접속인데 명단에 없으면 끊긴 동안 퇴장 처리된 것 — 새 참가자로 다시 넣지 않는다 (방장 권한 등이 이미 넘어감)
+      if (resume) {
+        return { ok: false, code: 'ALREADY_LEFT', message: '자리를 오래 비워 방에서 나왔어요!' };
+      }
       // 신규 유저는 대기실에서만 입장 가능 — 진행 중·시상식 중인 게임에 끼어들면 출제 순서에 없는 유저가 생겨 게임이 멈춘다
       if (state.status !== 'LOBBY') {
         return { ok: false, code: 'GAME_IN_PROGRESS', message: '이미 게임이 한창이에요!' };

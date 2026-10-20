@@ -15,7 +15,8 @@ import type { StrokeEvent } from '../types/stroke.js';
 // 클라이언트 → 서버 (Socket.io EventsMap: 각 이벤트를 함수 시그니처로 정의)
 export type ClientEvents = {
   auth: (payload: { token: string }) => void;
-  'room:join': (payload: { code: string }) => void;
+  // resume: 이 방에 이미 들어와 있던 소켓의 재접속 — 그사이 명단에서 빠졌으면 새로 입장시키지 않고 거절한다
+  'room:join': (payload: { code: string; resume?: boolean }) => void;
   'room:leave': () => void;
   'room:ready': (payload: { ready: boolean }) => void;
   'room:start': () => void;
@@ -152,6 +153,8 @@ export type PresenceServerEvents = {
   'presence:update': (payload: { userId: string; status: PresenceStatus; room?: PresenceRoomSummary }) => void;
   'match:update': (payload: MatchLobbyUpdate) => void;
   'match:found': (payload: { code: string }) => void;
+  // 앱을 켜 둔 친구에게 푸시와 별개로 바로 초대 확인을 띄운다 (푸시 토큰이 없어도 동작)
+  'invite:received': (payload: { roomCode: string }) => void;
 };
 
 export const PRESENCE_NAMESPACE = '/presence' as const;

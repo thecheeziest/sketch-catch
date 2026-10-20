@@ -1,11 +1,10 @@
 import { useEffect } from 'react';
 import * as Notifications from 'expo-notifications';
-import { router } from 'expo-router';
-import { PUSH_TYPE } from '@sketch-catch/shared';
+import { parsePushDeepLink, PUSH_TYPE, type PushDeepLink } from '@sketch-catch/shared';
 import { friendsQueryKeys } from '@/features/friends/api/queryKeys';
 import { queryClient } from '@/shared/api';
 import { useToastStore } from '@/shared/model';
-import { usePushStore } from '../model/usePushStore';
+import { openPushDeepLink } from './openPushDeepLink';
 
 // 콜드 스타트 시 리스너와 getLastNotificationResponse가 같은 응답을 함께 넘길 수 있어 한 번만 처리한다
 let lastHandledResponseId: string | null = null;
@@ -23,14 +22,13 @@ function refreshForPush(data: unknown): void {
   }
 }
 
-function parseRoomCode(data: unknown): string | null {
-  const roomCode = (data as { roomCode?: unknown } | null)?.roomCode;
-  return typeof roomCode === 'string' && roomCode.length > 0 ? roomCode : null;
-}
-
-function handleGameInviteTap(roomCode: string): void {
-  // NotificationGate가 스플래시·로그인 이후 입장 확인(방에 없을 때) 또는 방 이동 확인(D-11)을 띄운다
-  usePushStore.getState().setPendingInvite(roomCode);
+// data.url(딥링크)을 우선 해석하고, url이 없는 이전 서버의 푸시는 roomCode 유무로 판단한다
+function resolvePushDeepLink(data: unknown): PushDeepLink {
+  const { url, roomCode } = (data ?? {}) as { url?: unknown; roomCode?: unknown };
+  const link = typeof url === 'string' ? parsePushDeepLink(url) : null;
+  if (link) return link;
+  if (typeof roomCode === 'string' && roomCode.length > 0) return { kind: 'invite', roomCode };
+  return { kind: 'friends' };
 }
 
 function handleResponse(response: Notifications.NotificationResponse): void {
@@ -42,18 +40,13 @@ function handleResponse(response: Notifications.NotificationResponse): void {
 
   const { data } = response.notification.request.content;
   refreshForPush(data);
-  const roomCode = parseRoomCode(data);
-  if (!roomCode) {
-    router.push('/(tabs)/friends' as never);
-    return;
-  }
-  handleGameInviteTap(roomCode);
+  openPushDeepLink(resolvePushDeepLink(data));
 }
 
 // D-10 포그라운드 Toast + Pattern 3 탭 딥링크(웜/콜드 스타트) 등록
 export function useNotificationListeners(): void {
   useEffect(() => {
-    const receivedSub = Notifications.addNotificationReceivedListener((notification) => {
+    const receivedSub = Notifications.addNotificationReceivedListener(notification => {
       const { title, body, data } = notification.request.content;
       refreshForPush(data);
       useToastStore.getState().show(`${title ?? ''} ${body ?? ''}`.trim());

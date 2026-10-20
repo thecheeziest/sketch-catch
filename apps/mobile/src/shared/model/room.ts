@@ -1,9 +1,11 @@
+import { useCallback } from 'react';
 import { create } from 'zustand';
 import { immer } from 'zustand/middleware/immer';
 import { io, type Socket } from 'socket.io-client';
-import type { ClientEvents, ServerEvents, RoomState, Player } from '@sketch-catch/shared';
+import type { ChatMessage, ClientEvents, ServerEvents, RoomState, Player } from '@sketch-catch/shared';
 import { CLIENT_EVENT, SOCKET_NAMESPACE, UPDATE_REQUIRED_CODE } from '@sketch-catch/shared';
 import { APP_CLIENT_INFO } from '../config/appInfo';
+import { getChatTextColor } from '../config/cosmetics';
 import { useAppUpdateStore } from './appUpdate';
 import { useAuthStore } from './auth';
 import { useToastStore } from './toast';
@@ -27,18 +29,47 @@ const JOIN_REJECT_CODES = new Set(['ROOM_NOT_FOUND', 'ROOM_FULL', 'ALREADY_LEFT'
 
 type JoinError = { code: string; message: string };
 
+// 백그라운드 복귀 확인 중 입장이 거절됐을 때 — 서버 에러 문구 대신 자리 만료로 안내한다
+const RESYNC_EXPIRED_MESSAGE = '자리를 오래 비워 홈으로 돌아왔어요!';
+
+function isMember(state: RoomState | null): boolean {
+  const myId = useAuthStore.getState().user?.id;
+  return state?.players.some(p => p.id === myId) ?? false;
+}
+
+// 방에서 한 번이라도 본 유저의 모습 — 나가서 players에서 빠져도 채팅·결과 화면에 캐릭터를 그리기 위해 남겨 둔다
+export type KnownPlayer = { nickname: string; characterId: string; chatColorId: string | null };
+
+function rememberPlayers(known: Record<string, KnownPlayer>, players: Player[]): void {
+  for (const p of players) {
+    const prev = known[p.id];
+    const chatColorId = p.chatColorId ?? null;
+    // 값이 같으면 건드리지 않아 room:state마다 구독 화면이 다시 그려지지 않게 한다
+    if (prev && prev.nickname === p.nickname && prev.characterId === p.characterId && prev.chatColorId === chatColorId) {
+      continue;
+    }
+    known[p.id] = { nickname: p.nickname, characterId: p.characterId, chatColorId };
+  }
+}
+
 type RoomStore = {
   socket: Socket<ServerEvents, ClientEvents> | null;
   // 현재 소켓이 속한 방 코드 — 소켓은 방 1개에 귀속된다
   roomCode: string | null;
   joinError: JoinError | null;
   roomState: RoomState | null;
+  knownPlayers: Record<string, KnownPlayer>;
+  // 백그라운드 복귀 후 서버에 방 자리가 남아 있는지 확인하는 중 — 끝날 때까지 방 화면 조작을 막는다
+  isResyncing: boolean;
   isMatchmaking: boolean;
   matchingSeconds: number;
   matchLobby: MatchLobby | null;
   matchFoundCode: string | null;
   connect: (code: string) => void;
   disconnect: (code: string) => void;
+  resync: () => void;
+  forceReconnect: () => void;
+  endResync: () => void;
   setRoomState: (s: RoomState) => void;
   setMatchmaking: (on: boolean) => void;
   setMatchingSeconds: (n: number) => void;
@@ -52,6 +83,8 @@ export const useRoomStore = create<RoomStore>()(
     roomCode: null,
     joinError: null,
     roomState: null,
+    knownPlayers: {},
+    isResyncing: false,
     isMatchmaking: false,
     matchingSeconds: 0,
     matchLobby: null,
@@ -76,8 +109,9 @@ export const useRoomStore = create<RoomStore>()(
       socket.on('connect', () => {
         didRefreshAuth = false;
         didWarnConnection = false;
-        // 최초 연결·재연결 모두 방에 (재)입장 — 서버가 진행 중 라운드/스텝을 이 소켓에 다시 보내준다
-        socket.emit(CLIENT_EVENT.ROOM_JOIN, { code });
+        // 최초 연결·재연결 모두 방에 (재)입장 — 서버가 진행 중 라운드/스텝을 이 소켓에 다시 보내준다.
+        // 이미 들어와 있던 방이면 resume — 끊긴 사이 명단에서 빠졌다면 새 참가자로 넣지 않고 거절받는다
+        socket.emit(CLIENT_EVENT.ROOM_JOIN, { code, resume: isMember(get().roomState) });
       });
       socket.on('connect_error', err => {
         // 최소 빌드 미달 — 재연결해도 계속 거부되므로 연결을 멈추고 업데이트 화면으로 전환
@@ -110,6 +144,7 @@ export const useRoomStore = create<RoomStore>()(
       socket.on('room:state', s => {
         if (s.code !== code) return;
         get().setRoomState(s);
+        if (get().isResyncing) get().endResync();
       });
       socket.on('room:removed', payload => {
         if (payload.code !== code || get().roomCode !== code) return;
@@ -123,6 +158,7 @@ export const useRoomStore = create<RoomStore>()(
           if (st.roomState && !st.roomState.players.some(p => p.id === player.id)) {
             st.roomState.players.push(player);
           }
+          rememberPlayers(st.knownPlayers, [player]);
         }),
       );
       socket.on('room:player:leave', ({ userId }: { userId: string }) =>
@@ -142,10 +178,18 @@ export const useRoomStore = create<RoomStore>()(
         }),
       );
       socket.on('error', ({ code: errorCode, message }) => {
-        useToastStore.getState().show(message, 'error');
+        // 들어와 있던 방의 재접속이 거절된 것 — 끊긴 사이 방이 사라졌거나 명단에서 빠졌다 (코드 오류가 아님)
+        const isRejoinRejected =
+          (get().isResyncing || isMember(get().roomState)) && JOIN_REJECT_CODES.has(errorCode);
+        if (isRejoinRejected) {
+          useToastStore.getState().show(RESYNC_EXPIRED_MESSAGE, 'info');
+        } else {
+          useToastStore.getState().show(message, 'error');
+        }
         if (!JOIN_REJECT_CODES.has(errorCode)) return;
         set(st => {
           st.joinError = { code: errorCode, message };
+          st.isResyncing = false;
         });
       });
 
@@ -154,6 +198,9 @@ export const useRoomStore = create<RoomStore>()(
         st.roomCode = code;
         st.joinError = null;
         st.roomState = null;
+        st.isResyncing = false;
+        // 다른 방에 들어갈 때만 비운다 — 방을 나간 뒤에도 시상식·리뷰 화면이 이전 방 유저를 그릴 수 있어야 한다
+        st.knownPlayers = {};
       });
     },
 
@@ -166,12 +213,42 @@ export const useRoomStore = create<RoomStore>()(
         st.roomCode = null;
         st.joinError = null;
         st.roomState = null;
+        st.isResyncing = false;
       });
     },
+
+    // 연결이 살아 있으면 재입장 요청으로 자리를 확인하고, 끊겨 있으면 다시 연결한다 (connect 핸들러가 재입장)
+    // room:state를 받으면 끝나고, 입장이 거절되면 joinError로 각 화면이 홈으로 보낸다
+    resync: () => {
+      const { socket, roomCode, roomState } = get();
+      if (!socket || !roomCode) return;
+      set(st => {
+        st.isResyncing = true;
+      });
+      if (socket.connected) {
+        socket.emit(CLIENT_EVENT.ROOM_JOIN, { code: roomCode, resume: isMember(roomState) });
+      } else {
+        socket.connect();
+      }
+    },
+
+    // iOS는 백그라운드 동안 끊긴 소켓을 ping 타임아웃 전까지 연결된 것으로 본다 — 응답이 없으면 직접 다시 연결한다
+    forceReconnect: () => {
+      const { socket } = get();
+      if (!socket) return;
+      socket.disconnect();
+      socket.connect();
+    },
+
+    endResync: () =>
+      set(st => {
+        st.isResyncing = false;
+      }),
 
     setRoomState: s =>
       set(st => {
         st.roomState = s;
+        rememberPlayers(st.knownPlayers, [...s.players, ...(s.awardViewers ?? [])]);
       }),
 
     setMatchmaking: on =>
@@ -199,3 +276,22 @@ export const useRoomStore = create<RoomStore>()(
       }),
   })),
 );
+
+// userId로 방에서 본 유저의 모습을 찾는 함수 — 지금 players에 없는(나간) 유저도 찾는다
+export function useKnownPlayer(): (userId: string | null | undefined) => KnownPlayer | undefined {
+  const knownPlayers = useRoomStore(s => s.knownPlayers);
+  return useCallback(userId => (userId ? knownPlayers[userId] : undefined), [knownPlayers]);
+}
+
+// 채팅 보낸 사람의 캐릭터·글자색 — 메시지에 담긴 보낸 시점 값을 먼저 쓰고, 없으면(이전 서버) 방에서 본 모습으로 채운다
+export function useChatSenderLook(): (message: ChatMessage) => { characterId: string; textColor: string | null } {
+  const knownPlayer = useKnownPlayer();
+  return useCallback(
+    message => {
+      const known = knownPlayer(message.userId);
+      const chatColorId = message.chatColorId !== undefined ? message.chatColorId : known?.chatColorId;
+      return { characterId: message.characterId ?? known?.characterId ?? '', textColor: getChatTextColor(chatColorId) };
+    },
+    [knownPlayer],
+  );
+}

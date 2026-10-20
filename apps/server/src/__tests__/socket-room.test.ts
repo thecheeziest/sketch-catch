@@ -176,6 +176,34 @@ describe('socket room handlers', () => {
       // 대기실 입장 시 presence IN_LOBBY 갱신
       expect(mockSetPresence).toHaveBeenCalledWith('u3', 'IN_LOBBY');
     });
+
+    it('재접속(resume)인데 명단에 없으면 새로 넣지 않고 ALREADY_LEFT를 emit한다', async () => {
+      const state = makeRoomState();
+      mockGetRoomState.mockResolvedValue(state);
+      const socket = makeSocket('u3', []);
+      const game = makeNamespace();
+
+      await handleRoomJoin(game as any, socket as any, 'ABC123', true);
+
+      expect(socket.emit).toHaveBeenCalledWith(SERVER_EVENT.ERROR, {
+        code: 'ALREADY_LEFT',
+        message: expect.any(String),
+      });
+      expect(mockSaveRoomState).not.toHaveBeenCalled();
+    });
+
+    it('재접속(resume)이고 명단에 있으면 그대로 복귀한다', async () => {
+      const state = makeRoomState();
+      state.players[1]!.connected = false;
+      mockGetRoomState.mockResolvedValue(state);
+      const socket = makeSocket('u2', []);
+      const game = makeNamespace();
+
+      await handleRoomJoin(game as any, socket as any, 'ABC123', true);
+
+      expect(state.players[1]!.connected).toBe(true);
+      expect(socket.emit).not.toHaveBeenCalledWith(SERVER_EVENT.ERROR, expect.anything());
+    });
   });
 
   // LBBY-02: handleRoomReady / handleRoomStart

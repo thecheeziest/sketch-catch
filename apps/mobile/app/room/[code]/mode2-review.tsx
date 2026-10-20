@@ -3,8 +3,8 @@ import { Alert, Keyboard, KeyboardAvoidingView, Linking, Pressable, StyleSheet }
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Text, View } from 'dripsy';
 import { useLocalSearchParams } from 'expo-router';
-import { colors, fontFamily, getChatTextColor, spacing, textSizes } from '@/shared/config';
-import { useAuthStore, useRoomStore, useToastStore } from '@/shared/model';
+import { colors, fontFamily, spacing, textSizes } from '@/shared/config';
+import { useAuthStore, useChatSenderLook, useKnownPlayer, useRoomStore, useToastStore } from '@/shared/model';
 import { Button } from '@/shared/ui/Button';
 import { Dialog } from '@/shared/ui/Dialog';
 import { gameSurface } from '@/features/game/config';
@@ -53,8 +53,9 @@ export default function Mode2ReviewScreen() {
     () => [...(roomSnapshot?.players ?? [])].sort((a, b) => a.slot - b.slot),
     [roomSnapshot?.players],
   );
-  const characterOf = (userId: string | null | undefined): string =>
-    players.find(p => p.id === userId)?.characterId ?? '';
+  const knownPlayer = useKnownPlayer();
+  const chatSenderLook = useChatSenderLook();
+  const characterOf = (userId: string | null | undefined): string => knownPlayer(userId)?.characterId ?? '';
 
   const isInAwardRoster = liveRoomState?.players.some(p => p.id === myId && p.inAward === true) ?? false;
   // 새 게임이 시작되면 시상식 유저는 명단에서 빠져 awardViewers로 옮겨진다 - 채팅은 계속 가능, 한번 더는 불가
@@ -107,12 +108,11 @@ export default function Mode2ReviewScreen() {
         id: m.id,
         nickname: m.nickname,
         text: m.text,
-        characterId: players.find(p => p.id === m.userId)?.characterId ?? '',
-        textColor: getChatTextColor(players.find(p => p.id === m.userId)?.chatColorId),
+        ...chatSenderLook(m),
         isCorrect: false,
         createdAt: m.createdAt,
       })),
-    [chatMessages, players],
+    [chatMessages, chatSenderLook],
   );
 
   return (
