@@ -1,10 +1,11 @@
 import type { FastifyPluginAsync } from 'fastify';
 import { z } from 'zod';
-import { INVITE_RESEND_COOLDOWN_SEC, PUSH_TYPE, roomCodeSchema } from '@sketch-catch/shared';
+import { buildPushDeepLink, INVITE_RESEND_COOLDOWN_SEC, PUSH_TYPE, roomCodeSchema } from '@sketch-catch/shared';
 import { authenticate } from '../middleware/authenticate.js';
 import { getRoomState } from '../services/rooms.service.js';
 import { getPresence } from '../db/redis.js';
 import { sendPush, shouldSend } from '../services/push.service.js';
+import { emitToPresenceUser } from '../socket/presence.namespace.js';
 import { prisma } from '../db/prisma.js';
 import { logger } from '../lib/logger.js';
 
@@ -51,21 +52,30 @@ export const invitesRoutes: FastifyPluginAsync = async (app) => {
         select: { pushToken: true },
       });
       if (!target) return reply.status(404).send({ error: 'USER_NOT_FOUND' });
-      if (!target.pushToken) {
-        logger.warn({ targetId: bodyParsed.data.target }, 'invite push skipped: target has no pushToken');
-        return reply.send({ ok: true });
-      }
 
       // 연타는 막되, 상대가 초대를 놓쳤을 때 쿨다운 뒤 다시 보낼 수 있도록 짧은 TTL을 쓴다
       const notificationId = `game-invite:${inviterId}:${targetId}:${state.code}`;
       if (!(await shouldSend(notificationId, INVITE_RESEND_COOLDOWN_SEC))) {
         return reply.status(429).send({ error: 'INVITE_COOLDOWN' });
       }
+
+      // 앱을 켜 둔 상대에게는 푸시 도착 여부와 상관없이 바로 초대 확인을 띄운다
+      emitToPresenceUser(targetId, 'invite:received', { roomCode: state.code });
+
+      if (!target.pushToken) {
+        logger.warn({ targetId }, 'invite push skipped: target has no pushToken');
+        return reply.send({ ok: true });
+      }
       const inviter = await prisma.user.findUnique({ where: { id: inviterId }, select: { nickname: true } });
       await sendPush([target.pushToken], {
         title: '게임 초대',
         body: `${inviter?.nickname ?? '친구'}님이 게임에 초대했어요.`,
-        data: { type: PUSH_TYPE.GAME_INVITE, roomCode: state.code, roomTitle: state.title ?? '' },
+        data: {
+          type: PUSH_TYPE.GAME_INVITE,
+          roomCode: state.code,
+          roomTitle: state.title ?? '',
+          url: buildPushDeepLink({ kind: 'invite', roomCode: state.code }),
+        },
       });
 
       return reply.send({ ok: true });

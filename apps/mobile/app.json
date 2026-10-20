@@ -27,6 +27,7 @@
         "backgroundColor": "#1E1C2C"
       },
       "package": "com.sketchcatch.app",
+      "googleServicesFile": "./google-services.json",
       "versionCode": 4
     },
     "web": {

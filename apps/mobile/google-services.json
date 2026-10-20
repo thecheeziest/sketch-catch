@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "1086709343859",
+    "project_id": "sketch-catch",
+    "storage_bucket": "sketch-catch.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:1086709343859:android:b36d934507c2445901ec06",
+        "android_client_info": {
+          "package_name": "com.sketchcatch.app"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyBptoVSyIy8yqllw24w2s6FWLm6YD1YhVo"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}

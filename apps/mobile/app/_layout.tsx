@@ -2,6 +2,7 @@ import { useAppVersionGate } from '@/features/appUpdate/lib/useAppVersionGate';
 import { ForceUpdateScreen } from '@/features/appUpdate/ui/ForceUpdateScreen';
 import { useMe } from '@/features/auth/api';
 import { useIsSignedIn } from '@/features/auth/lib';
+import { useInviteSocketListener } from '@/features/push/lib/useInviteSocketListener';
 import { useNotificationListeners } from '@/features/push/lib/useNotificationListeners';
 import { usePushRegistration } from '@/features/push/lib/usePushRegistration';
 import { hydratePushPreference, usePushPreferenceStore } from '@/features/push/model/usePushPreferenceStore';
@@ -202,6 +203,7 @@ export default function RootLayout() {
   }, [isAuthenticated]);
 
   useNotificationListeners();
+  useInviteSocketListener();
 
   useEffect(() => {
     if ((!fontsLoaded && !fontError) || !isLoaded || skipSplashAnimation === null) return;

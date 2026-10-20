@@ -23,10 +23,16 @@ vi.mock('../services/push.service.js', () => ({
   shouldSend: vi.fn().mockResolvedValue(true),
 }));
 
+vi.mock('../socket/presence.namespace.js', () => ({
+  emitToPresenceUser: vi.fn(),
+  broadcastPresenceUpdate: vi.fn(),
+}));
+
 const { prisma } = await import('../db/prisma.js');
 const { redis } = await import('../db/redis.js');
 const { getRoomState } = await import('../services/rooms.service.js');
 const { sendPush, shouldSend } = await import('../services/push.service.js');
+const { emitToPresenceUser } = await import('../socket/presence.namespace.js');
 const { signTokens } = await import('../auth/jwt.js');
 const { invitesRoutes } = await import('../routes/invites.js');
 
@@ -71,7 +77,14 @@ describe('POST /rooms/:code/invite', () => {
     expect(res.json()).toEqual({ ok: true });
     expect(sendPush).toHaveBeenCalledWith(
       ['ExponentPushToken[xxx]'],
-      expect.objectContaining({ data: { type: 'GAME_INVITE', roomCode: 'ABC123', roomTitle: '테스트 방' } })
+      expect.objectContaining({
+        data: {
+          type: 'GAME_INVITE',
+          roomCode: 'ABC123',
+          roomTitle: '테스트 방',
+          url: 'sketchcatch:///invite/ABC123',
+        },
+      })
     );
   });
 
@@ -137,7 +150,7 @@ describe('POST /rooms/:code/invite', () => {
     expect(sendPush).not.toHaveBeenCalled();
   });
 
-  it('target의 pushToken이 null이면 발송 없이 ok:true', async () => {
+  it('target의 pushToken이 null이어도 인앱 초대는 전송, 푸시 발송 없이 ok:true', async () => {
     const headers = await authHeader();
     vi.mocked(getRoomState).mockResolvedValue(lobbyRoom);
     vi.mocked(prisma.user.findUnique).mockResolvedValue({ pushToken: null } as any);
@@ -152,6 +165,7 @@ describe('POST /rooms/:code/invite', () => {
     expect(res.statusCode).toBe(200);
     expect(res.json()).toEqual({ ok: true });
     expect(sendPush).not.toHaveBeenCalled();
+    expect(emitToPresenceUser).toHaveBeenCalledWith('u2', 'invite:received', { roomCode: 'ABC123' });
   });
 
   it('body에 target 누락 → 400 INVALID_INPUT', async () => {
@@ -207,6 +221,7 @@ describe('POST /rooms/:code/invite', () => {
     expect(res.json()).toEqual({ error: 'INVITE_COOLDOWN' });
     expect(shouldSend).toHaveBeenCalledWith('game-invite:u1:u2:ABC123', 30);
     expect(sendPush).not.toHaveBeenCalled();
+    expect(emitToPresenceUser).not.toHaveBeenCalled();
   });
 
   it('Authorization 헤더 없으면 401', async () => {
