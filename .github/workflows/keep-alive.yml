@@ -1,23 +1,48 @@
 name: Keep Alive
 
 # Render 무료 웹 서비스는 15분 동안 요청이 없으면 잠들고 깨는 데 약 1분이 걸린다.
-# 10분마다 DB를 건드리지 않는 /ping을 호출해 깨워 둔다 (월 750시간 무료 한도 안에서 24시간 유지).
+# GitHub cron은 실행이 늦거나 빠지는 일이 잦아서, 매번 새 실행에 기대지 않고 릴레이로 유지한다:
+#   - 한 번 시작된 실행이 약 5시간 40분 동안 5분마다 DB를 건드리지 않는 /ping을 호출한다
+#   - 끝나기 직전 자기 자신을 workflow_dispatch로 다시 실행해 다음 주자에게 넘긴다
+#   - cron은 릴레이가 끊겼을 때 다시 살리는 복구용 (정각은 부하가 커서 피한다)
 # 저장소 Variable SERVER_URL(예: https://sketch-catch-server.onrender.com)이 없으면 건너뛴다.
 on:
   schedule:
-    - cron: '*/10 * * * *'
+    - cron: '17 * * * *'
   workflow_dispatch:
 
+# 실행 중이면 새 실행은 대기 1개만 남긴다 (릴레이 주자를 죽이지 않는다)
 concurrency:
   group: keep-alive
-  cancel-in-progress: true
+  cancel-in-progress: false
+
+permissions:
+  actions: write
+
+env:
+  PING_INTERVAL_SECONDS: 300
+  # job 최대 6시간 안에서 재실행까지 마치도록 여유를 둔다
+  RELAY_DURATION_SECONDS: 20400
 
 jobs:
   ping:
     runs-on: ubuntu-latest
-    timeout-minutes: 5
+    timeout-minutes: 350
     if: ${{ vars.SERVER_URL != '' }}
     steps:
-      - name: Ping server
-        # 잠든 상태라면 깨어나는 데 1분 정도 걸리므로 넉넉히 기다리고 재시도한다
-        run: curl --fail --silent --show-error --max-time 120 --retry 2 --retry-delay 10 "${{ vars.SERVER_URL }}/ping"
+      - name: Ping server periodically
+        run: |
+          end=$((SECONDS + RELAY_DURATION_SECONDS))
+          while [ "$SECONDS" -lt "$end" ]; do
+            # 잠든 상태라면 깨어나는 데 1분 정도 걸리므로 넉넉히 기다린다. 실패해도 릴레이는 이어간다
+            status=$(curl --silent --output /dev/null --write-out '%{http_code} %{time_total}s' \
+              --max-time 120 --retry 2 --retry-delay 10 "${{ vars.SERVER_URL }}/ping" || echo 'failed')
+            echo "$(date -u '+%Y-%m-%dT%H:%M:%SZ') ping: $status"
+            sleep "$PING_INTERVAL_SECONDS"
+          done
+
+      - name: Hand off to next run
+        if: ${{ !cancelled() }}
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: gh workflow run keep-alive.yml --repo "${{ github.repository }}" --ref "${{ github.event.repository.default_branch }}"
