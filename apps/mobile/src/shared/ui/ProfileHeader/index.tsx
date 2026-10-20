@@ -70,7 +70,7 @@ export function ProfileHeader({ rightSlot }: Props) {
           <FeedbackPressable
             onPress={openShop}
             accessibilityRole="button"
-            accessibilityLabel="꾸미기 상점 열기"
+            accessibilityLabel="캐치샵 열기"
             style={({ pressed }) => [styles.characterBtn, pressed && { opacity: 0.7 }]}
             hitSlop={4}
           >
@@ -102,7 +102,7 @@ export function ProfileHeader({ rightSlot }: Props) {
           </View>
         </View>
         <View sx={{ flexDirection: 'row', alignItems: 'center', gap: spacing.XS }}>
-          <CoinChip label={String(user.coins)} onPress={openShop} accessibilityLabel={`보유 코인 ${user.coins}개, 상점 열기`} />
+          <CoinChip label={String(user.coins)} onPress={openShop} accessibilityLabel={`보유 코인 ${user.coins}개, 캐치샵 열기`} />
           {rightSlot}
           <FeedbackPressable
             onPress={() => guardNav(() => router.push('/settings'))}

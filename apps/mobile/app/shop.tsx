@@ -49,7 +49,7 @@ export default function ShopScreen() {
           <Icon name="BACK" size={24} />
         </FeedbackPressable>
         <Text variants={['bold', 'T2']} sx={{ flex: 1, color: colors.LIGHT_100 }}>
-          꾸미기
+          캐치샵
         </Text>
         <CoinChip label={String(user.coins)} accessibilityLabel={`보유 코인 ${user.coins}개`} />
       </View>
