@@ -53,8 +53,6 @@ export type RoomListItem = {
   playerCount: number; // 퇴장(left)·시상식 잔류(inAward) 제외
   playerCountMax: number;
   hasPassword: boolean;
-  // 잠금은 켰지만 비밀번호가 없는 방 — 초대로만 입장 가능
-  inviteOnly: boolean;
   categories: Category[];
   penalty?: RoomPenalty;
 };

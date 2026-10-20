@@ -40,7 +40,7 @@ export default function RoomCreateScreen() {
         categories,
         title: title.trim() || undefined,
         locked,
-        password: locked && password.trim() ? password.trim() : undefined,
+        password: locked ? password.trim() : undefined,
         penalty: penaltyForm.penalty ?? undefined,
       },
       {
@@ -97,7 +97,7 @@ export default function RoomCreateScreen() {
         </View>
         {locked && (
           <AppInput
-            label="비밀번호 (선택)"
+            label="비밀번호"
             placeholder="친구에게 알려줄 비밀번호"
             value={password}
             onChangeText={setPassword}
@@ -110,7 +110,7 @@ export default function RoomCreateScreen() {
             label="방 만들기"
             color="primary"
             loading={isPending}
-            disabled={!penaltyForm.isValid}
+            disabled={!penaltyForm.isValid || (locked && !password.trim())}
             onPress={handleCreate}
           />
         </View>

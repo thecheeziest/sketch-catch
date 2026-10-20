@@ -92,7 +92,6 @@ function toRoomListItem(state: RoomState, hasPassword: boolean): RoomListItem {
     playerCount: state.players.filter(p => !p.inAward && !p.left).length,
     playerCountMax: state.config.playerCountMax,
     hasPassword: locked && hasPassword,
-    inviteOnly: locked && !hasPassword,
     categories: state.config.categories,
     penalty: state.mode === 1 ? state.config.penalty : undefined,
   };
