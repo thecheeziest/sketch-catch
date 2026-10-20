@@ -6,6 +6,7 @@ import {
   isPenaltyLoserCountValid,
   roomCategoriesSchema,
   roomCodeSchema,
+  roomPasswordSchema,
   roomPenaltySchema,
   SOCKET_NAMESPACE,
   SERVER_EVENT,
@@ -17,6 +18,9 @@ import {
   saveRoomState,
   assertJoinable,
   listRooms,
+  getRoomPassword,
+  setRoomPassword,
+  clearRoomPassword,
   RoomFullError,
   RoomLockedError,
   WrongPasswordError,
@@ -33,7 +37,8 @@ export const roomsRoutes: FastifyPluginAsync = async (app) => {
     const parsed = createRoomSchema.safeParse(req.body);
     if (!parsed.success) return reply.status(400).send({ error: 'INVALID_INPUT' });
 
-    const { mode, playerCountMax, roundCount, drawTimer, answerTimer, categories, title, locked, penalty } = parsed.data;
+    const { mode, playerCountMax, roundCount, drawTimer, answerTimer, categories, title, locked, password, penalty } =
+      parsed.data;
     if (penalty && !isPenaltyTextClean(penalty.text)) return reply.status(400).send({ error: 'PROFANE_PENALTY' });
 
     try {
@@ -42,7 +47,6 @@ export const roomsRoutes: FastifyPluginAsync = async (app) => {
 
       const defaultTitle = title ?? `${user.nickname}님의 방`;
 
-      const { password } = parsed.data as { password?: string };
       const state = await createRoom({
         hostId: req.userId!,
         userIds: [req.userId!],
@@ -104,6 +108,17 @@ export const roomsRoutes: FastifyPluginAsync = async (app) => {
       if (nextPenalty && !isPenaltyLoserCountValid(nextPenalty.loserCount, nextPlayerCountMax)) {
         return reply.status(400).send({ error: 'INVALID_INPUT' });
       }
+
+      // 잠금 방은 비밀번호가 반드시 있어야 한다 — 새로 잠그면 비밀번호 필수, 이미 잠긴 방은 비우면 기존 비밀번호 유지
+      const password = body.password === undefined ? undefined : roomPasswordSchema.safeParse(body.password);
+      if (password && !password.success) return reply.status(400).send({ error: 'INVALID_INPUT' });
+      const nextLocked = typeof body.locked === 'boolean' ? body.locked : (state.locked ?? false);
+      if (nextLocked && !password && (await getRoomPassword(code)) === null) {
+        return reply.status(400).send({ error: 'INVALID_INPUT' });
+      }
+
+      if (nextLocked && password) await setRoomPassword(code, password.data);
+      if (state.locked && !nextLocked) await clearRoomPassword(code);
 
       if (typeof body.title === 'string') state.title = body.title.trim() || state.title;
       if (typeof body.locked === 'boolean') state.locked = body.locked;

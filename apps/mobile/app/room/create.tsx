@@ -40,7 +40,7 @@ export default function RoomCreateScreen() {
         categories,
         title: title.trim() || undefined,
         locked,
-        password: locked && password.trim() ? password.trim() : undefined,
+        password: locked ? password.trim() : undefined,
         penalty: penaltyForm.penalty ?? undefined,
       },
       {
@@ -58,6 +58,8 @@ export default function RoomCreateScreen() {
       setPlayerCountMax((current) => Math.max(current, MODE2_PLAYER_MIN))
       // 모드 2는 벌칙을 걸 수 없다 — 켜져 있었다면 끄면서 턴·타이머도 되돌린다
       if (penaltyForm.enabled) penaltyForm.toggle(false)
+      // 모드 2는 카테고리 칸이 숨겨지므로 비어 있으면 전체로 되돌려 보이지 않는 이유로 버튼이 막히지 않게 한다
+      setCategories((current) => (current.length === 0 ? ['CUSTOM', ...ALL_CATEGORIES] : current))
     }
   }
 
@@ -97,7 +99,7 @@ export default function RoomCreateScreen() {
         </View>
         {locked && (
           <AppInput
-            label="비밀번호 (선택)"
+            label="비밀번호"
             placeholder="친구에게 알려줄 비밀번호"
             value={password}
             onChangeText={setPassword}
@@ -110,7 +112,7 @@ export default function RoomCreateScreen() {
             label="방 만들기"
             color="primary"
             loading={isPending}
-            disabled={!penaltyForm.isValid}
+            disabled={!penaltyForm.isValid || (locked && !password.trim()) || categories.length === 0}
             onPress={handleCreate}
           />
         </View>

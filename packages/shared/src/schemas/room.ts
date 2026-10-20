@@ -25,6 +25,9 @@ export const categorySchema = z.enum([
 // 방에서 쓰는 제시어 카테고리 — 최소 1개는 선택해야 한다 (방 생성·설정 변경 공통)
 export const roomCategoriesSchema = z.array(categorySchema).min(1, '카테고리를 1개 이상 골라 주세요');
 
+// 방 비밀번호 — 잠금 방은 반드시 있어야 한다 (방 생성·설정 변경 공통). 초대 입장만 비밀번호 없이 들어온다
+export const roomPasswordSchema = z.string().trim().min(1, '비밀번호를 입력해 주세요').max(20);
+
 // 벌칙 — 무엇을 걸지(공백만은 불가)와 꼴찌 인원. 비속어 검사는 서버에서 따로 한다
 export const roomPenaltySchema = z.object({
   loserCount: z.number().int().min(1).max(PENALTY_LOSER_MAX),
@@ -46,8 +49,12 @@ export const createRoomSchema = z
     categories: roomCategoriesSchema,
     title: z.string().max(20).optional(),
     locked: z.boolean().default(false),
-    password: z.string().max(20).optional(),
+    password: roomPasswordSchema.optional(),
     penalty: roomPenaltySchema.optional(),
+  })
+  .refine((value) => !value.locked || value.password !== undefined, {
+    path: ['password'],
+    message: '잠금 방은 비밀번호가 필요해요',
   })
   .refine((value) => value.mode !== 2 || value.playerCountMax >= 4, {
     path: ['playerCountMax'],

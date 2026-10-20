@@ -51,6 +51,8 @@ export async function handleChatSend(
         id: randomUUID(),
         userId: sender.id,
         nickname: sender.nickname,
+        characterId: sender.characterId,
+        chatColorId: sender.chatColorId ?? null,
         text: masked,
         masked: masked !== trimmed,
         createdAt: Date.now(),
@@ -86,11 +88,12 @@ export async function handleChatSend(
   // GAME-01: 비속어 필터
   const { masked } = profanityFilter(trimmed);
 
-  const player = state.players.find((p) => p.id === socket.data.userId);
   const msg: ChatMessage = {
     id: randomUUID(),
     userId: socket.data.userId,
-    nickname: player?.nickname ?? '',
+    nickname: participant.nickname,
+    characterId: participant.characterId,
+    chatColorId: participant.chatColorId ?? null,
     text: masked,
     masked: masked !== trimmed,
     createdAt: Date.now(),

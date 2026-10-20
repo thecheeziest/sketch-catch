@@ -96,7 +96,6 @@ describe('방 찾기 목록', () => {
         playerCount: 1,
         playerCountMax: 6,
         hasPassword: false,
-        inviteOnly: false,
         categories: ['ANIMAL', 'FOOD'],
       },
     ]);
@@ -167,14 +166,14 @@ describe('방 찾기 목록', () => {
     expect(list[0]).toMatchObject({ code: room.code, playerCount: 2 });
   });
 
-  it('비밀번호가 있는 잠금 방은 hasPassword, 비밀번호 없는 잠금 방은 inviteOnly로 표시한다', async () => {
+  it('비밀번호가 있는 잠금 방은 hasPassword로 표시한다', async () => {
     const secret = await makeRoom({ at: BASE, locked: true, password: '1234' });
-    const invite = await makeRoom({ at: BASE + 1000, locked: true });
+    const open = await makeRoom({ at: BASE + 1000 });
 
     const byCode = new Map((await listRooms()).map(r => [r.code, r]));
 
-    expect(byCode.get(secret.code)).toMatchObject({ hasPassword: true, inviteOnly: false });
-    expect(byCode.get(invite.code)).toMatchObject({ hasPassword: false, inviteOnly: true });
+    expect(byCode.get(secret.code)).toMatchObject({ hasPassword: true });
+    expect(byCode.get(open.code)).toMatchObject({ hasPassword: false });
   });
 
   it('상태 키가 사라진 방과 TTL이 지난 인덱스 항목은 조회하면서 정리한다', async () => {

@@ -243,8 +243,10 @@ export default function GameScreen() {
         id: m.id,
         nickname: m.nickname,
         text: m.text,
-        characterId: players.find(p => p.id === m.userId)?.characterId ?? '',
-        textColor: getChatTextColor(players.find(p => p.id === m.userId)?.chatColorId),
+        characterId: m.characterId ?? players.find(p => p.id === m.userId)?.characterId ?? '',
+        textColor: getChatTextColor(
+          m.chatColorId !== undefined ? m.chatColorId : players.find(p => p.id === m.userId)?.chatColorId,
+        ),
         isCorrect: m.id === correct?.messageId,
         createdAt: m.createdAt,
         score: m.id === correct?.messageId ? roundResult?.scoreDelta[m.userId] : undefined,

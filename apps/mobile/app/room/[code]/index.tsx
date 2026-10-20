@@ -7,7 +7,7 @@ import { colors, getChatTextColor, spacing, textSizes } from '@/shared/config';
 import { useAuthStore, useRoomStore, useToastStore } from '@/shared/model';
 import { copyToClipboard, useHardwareBack } from '@/shared/lib';
 import { Button, FlatList, Icon, PixelFrame, SketchbookLoadingSpinner } from '@/shared/ui';
-import type { Player } from '@sketch-catch/shared';
+import type { ChatMessage, Player } from '@sketch-catch/shared';
 import { CLIENT_EVENT, MODE2_PLAYER_MIN, ROOM_PLAYER_MIN } from '@sketch-catch/shared';
 import { Text, View } from 'dripsy';
 import { useLocalSearchParams, useRouter } from 'expo-router';
@@ -121,9 +121,15 @@ export default function LobbyScreen() {
   const startButtonLabel = '게임 시작';
   // 방장이 아직 시상식에 있으면 대기실에서는 시작할 수 없다 (방장이 한번 더를 누르거나 나가면 해소)
   const isHostInAward = roomState?.players.some(p => p.id === roomState.hostId && p.inAward === true) ?? false;
-  const characterIdOf = (userId: string): string => roomState?.players.find(p => p.id === userId)?.characterId ?? '';
-  const chatColorOf = (userId: string): string | null =>
-    getChatTextColor(roomState?.players.find(p => p.id === userId)?.chatColorId);
+  // 메시지에 담긴 보낸 시점의 모습을 우선한다 — 나간 유저는 players에 없다
+  const characterIdOf = (message: ChatMessage): string =>
+    message.characterId ?? roomState?.players.find(p => p.id === message.userId)?.characterId ?? '';
+  const chatColorOf = (message: ChatMessage): string | null =>
+    getChatTextColor(
+      message.chatColorId !== undefined
+        ? message.chatColorId
+        : roomState?.players.find(p => p.id === message.userId)?.chatColorId,
+    );
 
   const handleNudge = (): void => {
     socket?.emit(CLIENT_EVENT.ROOM_NUDGE);

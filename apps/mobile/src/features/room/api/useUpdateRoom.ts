@@ -5,6 +5,7 @@ import type { RoomState, Category, RoomPenalty } from '@sketch-catch/shared';
 type UpdateRoomInput = {
   title?: string;
   locked?: boolean;
+  password?: string; // 이미 잠긴 방은 생략하면 기존 비밀번호 유지
   playerCountMax?: number;
   roundCount?: number;
   drawTimer?: number;

@@ -166,7 +166,7 @@ export default function FriendsScreen() {
                 <FriendItem
                   friend={item}
                   index={index}
-                  onLongPress={() =>
+                  onDelete={() =>
                     setDeleteTarget({
                       friendshipId: item.friendshipId,
                       userId: item.userId,

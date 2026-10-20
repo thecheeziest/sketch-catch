@@ -28,6 +28,10 @@ export function RoomEditModal({ visible, onClose, roomCode }: Props) {
   const [drawTimer, setDrawTimer] = useState(60)
   const [categories, setCategories] = useState<Category[]>(['CUSTOM', ...ALL_CATEGORIES])
   const [locked, setLocked] = useState(false)
+  const [password, setPassword] = useState('')
+  // 이미 잠긴 방은 비밀번호가 서버에 있으므로 비워 두면 기존 비밀번호를 유지한다
+  const wasLocked = roomState?.locked ?? false
+  const isPasswordMissing = locked && !wasLocked && !password.trim()
   const playerMin = roomState?.mode === 2 ? MODE2_PLAYER_MIN : ROOM_PLAYER_MIN
   const penaltyForm = usePenaltyForm({ playerCountMax, roundCount, drawTimer, setRoundCount, setDrawTimer })
   const { reset: resetPenalty } = penaltyForm
@@ -40,6 +44,7 @@ export function RoomEditModal({ visible, onClose, roomCode }: Props) {
       setDrawTimer(roomState.config.drawTimer)
       setCategories((roomState.config.categories as Category[]) ?? [...ALL_CATEGORIES])
       setLocked(roomState.locked ?? false)
+      setPassword('')
       resetPenalty(roomState.config.penalty)
     }
     // resetPenalty는 렌더마다 새로 만들어지지만 모달을 열 때·방 상태가 바뀔 때만 다시 맞추면 된다
@@ -48,7 +53,7 @@ export function RoomEditModal({ visible, onClose, roomCode }: Props) {
 
   const handleSave = (): void => {
     mutate(
-      { title: title.trim() || undefined, locked, playerCountMax, roundCount, drawTimer, categories, penalty: penaltyForm.penalty },
+      { title: title.trim() || undefined, locked, password: locked && password.trim() ? password.trim() : undefined, playerCountMax, roundCount, drawTimer, categories, penalty: penaltyForm.penalty },
       {
         onSuccess: () => { onClose() },
         onError: (err) => {
@@ -72,10 +77,20 @@ export function RoomEditModal({ visible, onClose, roomCode }: Props) {
         <View sx={{ flexDirection: 'row', alignItems: 'center', gap: spacing.SM }}>
           <Text sx={{ flex: 1, color: colors.DARK_100 }}>잠금</Text>
           <Icon name={locked ? 'LOCK' : 'LOCK_OPEN'} size={20} />
-          <Switch value={locked} onValueChange={value => { playFeedback('select'); setLocked(value); }} trackColor={{ false: colors.DARK_100, true: colors.PRIMARY_400 }} />
+          <Switch value={locked} onValueChange={value => { playFeedback('select'); setLocked(value); if (!value) setPassword('') }} trackColor={{ false: colors.DARK_100, true: colors.PRIMARY_400 }} />
         </View>
+        {locked && (
+          <AppInput
+            label="비밀번호"
+            placeholder={wasLocked ? '비워 두면 기존 비밀번호 유지' : '친구에게 알려줄 비밀번호'}
+            value={password}
+            onChangeText={setPassword}
+            maxLength={20}
+            secureTextEntry
+          />
+        )}
         {roomState?.mode === 1 && <PenaltyField form={penaltyForm} labelColor={colors.DARK_100} />}
-        <Button label="저장" color="primary" disabled={isPending || !penaltyForm.isValid} onPress={handleSave} />
+        <Button label="저장" color="primary" disabled={isPending || !penaltyForm.isValid || isPasswordMissing || categories.length === 0} onPress={handleSave} />
       </ScrollView>
     </Dialog>
   )

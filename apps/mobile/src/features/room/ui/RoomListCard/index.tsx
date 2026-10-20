@@ -24,7 +24,6 @@ export function RoomListCard({ room, onPress, extraChips }: Props) {
   const dimmed = getRoomBlockReason(room) !== null;
   const isAllCategories = ALL_CATEGORIES.every(cat => room.categories.includes(cat));
   const categoryLabels = isAllCategories ? ['전체'] : room.categories.map(cat => CATEGORY_LABEL[cat]);
-  const isLocked = room.hasPassword || room.inviteOnly;
 
   return (
     <FeedbackPressable
@@ -43,7 +42,7 @@ export function RoomListCard({ room, onPress, extraChips }: Props) {
           <Badge label={MODE_LABEL[room.mode]} color={MODE_COLOR[room.mode]} />
           {extraChips}
           <View sx={{ flex: 1 }} />
-          {isLocked && <Icon name="LOCK" size={14} />}
+          {room.hasPassword && <Icon name="LOCK" size={14} />}
           <Text variant="B3" sx={{ color: colors.LIGHT_100 }}>
             {room.playerCount}/{room.playerCountMax}
           </Text>

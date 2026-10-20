@@ -3,11 +3,12 @@ import { Image, Text, View } from 'dripsy'
 import { colors, getCharacterImageSource } from '@/shared/config';
 import type { Friend } from '@/shared/model';
 import { Button } from '../Button';
+import { Icon } from '../Icon';
 import { StyleSheet } from 'react-native';
 
 type Props = {
   friend: Friend;
-  onLongPress: () => void;
+  onDelete: () => void;
   onJoin?: () => void;
   isJoining?: boolean;
   index?: number;
@@ -29,7 +30,7 @@ const PRESENCE_LABEL: Record<Friend['presenceStatus'], string> = {
 
 const ROW_BG = [`${colors.WHITE}70`, `${colors.PRIMARY_300}70`] as const;
 
-export function FriendItem({ friend, onLongPress, onJoin, isJoining, index }: Props) {
+export function FriendItem({ friend, onDelete, onJoin, isJoining, index }: Props) {
   const imageSource = getCharacterImageSource(friend.characterId);
   const bgColor = index !== undefined ? ROW_BG[index % 2] : 'transparent';
 
@@ -39,11 +40,7 @@ export function FriendItem({ friend, onLongPress, onJoin, isJoining, index }: Pr
       : PRESENCE_LABEL[friend.presenceStatus];
 
   return (
-    <FeedbackPressable
-      style={[styles.row, { backgroundColor: bgColor }]}
-      onLongPress={onLongPress}
-      delayLongPress={500}
-    >
+    <View style={[styles.row, { backgroundColor: bgColor }]}>
       <View
         sx={{
           width: 12,
@@ -68,7 +65,15 @@ export function FriendItem({ friend, onLongPress, onJoin, isJoining, index }: Pr
       {friend.room?.joinable && onJoin ? (
         <Button label="같이하기" color="secondary" height={32} onPress={onJoin} disabled={isJoining} />
       ) : null}
-    </FeedbackPressable>
+      <FeedbackPressable
+        onPress={onDelete}
+        hitSlop={8}
+        accessibilityRole="button"
+        accessibilityLabel={`${friend.nickname} 친구 삭제`}
+      >
+        <Icon name="UNFRIEND" size={20} color={colors.LIGHT_500} />
+      </FeedbackPressable>
+    </View>
   );
 }
 
