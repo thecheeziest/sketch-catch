@@ -5,9 +5,9 @@ import { Text, View } from 'dripsy';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { CLIENT_EVENT } from '@sketch-catch/shared';
-import { colors, getChatTextColor } from '@/shared/config';
+import { colors } from '@/shared/config';
 import { useHardwareBack } from '@/shared/lib';
-import { useAuthStore, useRoomStore } from '@/shared/model';
+import { useAuthStore, useChatSenderLook, useKnownPlayer, useRoomStore } from '@/shared/model';
 import { gameSurface, gameText, legendSwatch, playerDot, resultOverlay, toolbar } from '@/features/game/config';
 import { useGameStore } from '@/features/game/model/useGameStore';
 import type { GameResultOverlayData } from '@/features/game/model/resultOverlay';
@@ -115,6 +115,8 @@ export default function GameScreen() {
   const [overlay, setOverlay] = useState<GameResultOverlayData | null>(null);
 
   const players = roomState?.players ?? [];
+  const knownPlayer = useKnownPlayer();
+  const chatSenderLook = useChatSenderLook();
   const drawerId = round?.drawerId ?? '';
 
   // 라운드 시작 시각(클라이언트 기준) — 정답 결과 오버레이의 solveSeconds 계산용
@@ -147,7 +149,7 @@ export default function GameScreen() {
     overlayVisibleRef.current = true;
 
     if (roundResult.correctUserId != null) {
-      const winner = players.find(p => p.id === roundResult.correctUserId);
+      const winner = knownPlayer(roundResult.correctUserId);
       const solveSeconds = Math.max(1, Math.round((Date.now() - roundStartRef.current) / 1000));
       setOverlay({
         kind: 'correct',
@@ -159,7 +161,7 @@ export default function GameScreen() {
         characterId: winner?.characterId ?? '',
       });
     } else {
-      const drawer = players.find(p => p.id === drawerId);
+      const drawer = knownPlayer(drawerId);
       setOverlay({
         kind: 'gameover',
         id: `gameover-${overlaySeqRef.current}`,
@@ -243,15 +245,12 @@ export default function GameScreen() {
         id: m.id,
         nickname: m.nickname,
         text: m.text,
-        characterId: m.characterId ?? players.find(p => p.id === m.userId)?.characterId ?? '',
-        textColor: getChatTextColor(
-          m.chatColorId !== undefined ? m.chatColorId : players.find(p => p.id === m.userId)?.chatColorId,
-        ),
+        ...chatSenderLook(m),
         isCorrect: m.id === correct?.messageId,
         createdAt: m.createdAt,
         score: m.id === correct?.messageId ? roundResult?.scoreDelta[m.userId] : undefined,
       })),
-    [chatMessages, players, correct?.messageId, roundResult],
+    [chatMessages, chatSenderLook, correct?.messageId, roundResult],
   );
 
   const roundEnded = roundResult != null;

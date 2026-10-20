@@ -6,7 +6,7 @@ import { useLocalSearchParams } from 'expo-router';
 import { useGameStore } from '@/features/game/model/useGameStore';
 import { useChatSender } from '@/features/game/api/useChatSender';
 import { useAuthStore } from '@/shared/model/auth';
-import { useRoomStore } from '@/shared/model/room';
+import { useChatSenderLook, useKnownPlayer, useRoomStore } from '@/shared/model/room';
 import { useRoomChatStore } from '@/features/room/model/useRoomChatStore';
 import { PodiumSlot, PenaltyAward, ChatStream, ChatInputBar } from '@/features/game/ui';
 import { AudienceCheer } from '@/features/game/ui/AudienceCheer';
@@ -14,7 +14,7 @@ import { useAwardSession } from '@/features/room/lib';
 import { CoinRewardChip, useCoinRewardStore } from '@/features/shop';
 import { Button } from '@/shared/ui/Button';
 import { Dialog } from '@/shared/ui/Dialog';
-import { colors, getChatTextColor, spacing, textSizes, fontFamily } from '@/shared/config';
+import { colors, spacing, textSizes, fontFamily } from '@/shared/config';
 
 export default function AwardScreen() {
   const { code } = useLocalSearchParams<{ code: string }>();
@@ -45,8 +45,8 @@ export default function AwardScreen() {
   const ranking = result?.ranking ?? [];
   const players = roomState?.players ?? [];
 
-  // userId → characterId 맵
-  const characterMap = Object.fromEntries(players.map(p => [p.id, p.characterId]));
+  const knownPlayer = useKnownPlayer();
+  const chatSenderLook = useChatSenderLook();
 
   // [한번 더!]로 대기실에 재입장한 유저 - 실시간 방 상태 기준 (퇴장자 제외)
   const waitingIds = new Set(
@@ -58,8 +58,8 @@ export default function AwardScreen() {
   // ranking 항목을 PodiumPlayer 형태로 변환 — 중도 퇴장 여부(left)도 함께 전달
   const toPodiumPlayer = (item: { userId: string; rank: number; score: number }) => ({
     userId: item.userId,
-    nickname: players.find(p => p.id === item.userId)?.nickname ?? item.userId,
-    characterId: characterMap[item.userId] ?? 'cat',
+    nickname: knownPlayer(item.userId)?.nickname ?? item.userId,
+    characterId: knownPlayer(item.userId)?.characterId ?? 'cat',
     score: item.score,
     left: players.find(p => p.id === item.userId)?.left === true,
     waiting: waitingIds.has(item.userId),
@@ -73,7 +73,7 @@ export default function AwardScreen() {
   const audiencePlayers = useMemo(
     () => restRanking.map(item => ({ ...toPodiumPlayer(item), rank: item.rank })),
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    [restRanking, players],
+    [restRanking, players, knownPlayer],
   );
 
   // 벌칙 방 — 걸린 사람은 무대 밖, 나머지(중도 퇴장자 포함)는 한 단상에 모인다
@@ -89,15 +89,11 @@ export default function AwardScreen() {
         id: m.id,
         nickname: m.nickname,
         text: m.text,
-        characterId: m.characterId ?? characterMap[m.userId] ?? '',
-        textColor: getChatTextColor(
-          m.chatColorId !== undefined ? m.chatColorId : players.find(p => p.id === m.userId)?.chatColorId,
-        ),
+        ...chatSenderLook(m),
         isCorrect: false,
         createdAt: m.createdAt,
       })),
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-    [chatMessages, players],
+    [chatMessages, chatSenderLook],
   );
 
   // 시상대 baseCardWidth: 화면 너비를 3등분에서 약간 여유 있게
