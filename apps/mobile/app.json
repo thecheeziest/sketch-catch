@@ -28,7 +28,7 @@
       },
       "package": "com.sketchcatch.app",
       "googleServicesFile": "./google-services.json",
-      "versionCode": 4
+      "versionCode": 5
     },
     "web": {
       "favicon": "./assets/app-icons/04-shooting-star-symbol.png"
