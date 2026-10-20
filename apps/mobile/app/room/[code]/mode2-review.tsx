@@ -110,7 +110,6 @@ export default function Mode2ReviewScreen() {
         text: m.text,
         ...chatSenderLook(m),
         isCorrect: false,
-        createdAt: m.createdAt,
       })),
     [chatMessages, chatSenderLook],
   );

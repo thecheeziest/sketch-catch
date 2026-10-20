@@ -91,7 +91,6 @@ export default function AwardScreen() {
         text: m.text,
         ...chatSenderLook(m),
         isCorrect: false,
-        createdAt: m.createdAt,
       })),
     [chatMessages, chatSenderLook],
   );

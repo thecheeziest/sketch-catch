@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { Image, Text, View } from 'dripsy';
 import { StyleSheet } from 'react-native';
 import Animated, { FadeInDown, FadeOut, LinearTransition } from 'react-native-reanimated';
@@ -12,7 +12,6 @@ export type ChatStreamItem = {
   text: string;
   characterId: string;
   isCorrect: boolean;
-  createdAt: number;
   /** 정답 시 획득 점수 — 도착 전(찰나)에는 배지를 "정답"으로 대체 표시 */
   score?: number;
   /** 상점에서 산 채팅 글자색 — null이면 기본색 */
@@ -35,19 +34,35 @@ const CHIP_SIZE = 16;
  * (흰 캔버스 위에서 글자가 배경과 함께 흰색으로 수렴해 대비가 붕괴).
  */
 export function ChatStream({ items }: Props) {
-  // 5초 만료는 시간 경과만으로도 재렌더가 필요 — items가 안 바뀌어도 틱을 돌리다가,
+  // 서버 createdAt은 폰 시계와 어긋날 수 있어(폰이 빠르면 말풍선이 아예 안 뜬다) 이 기기가 처음 받은 시각으로 노출 시간을 잰다.
+  // 화면 진입 시점에 이미 있던 메시지는 지난 채팅이므로 띄우지 않는다.
+  const receivedAtRef = useRef<Map<string, number> | null>(null);
+  if (receivedAtRef.current === null) receivedAtRef.current = new Map(items.map((i) => [i.id, -Infinity]));
+  const receivedAt = receivedAtRef.current;
+  const now = Date.now();
+  for (const item of items) {
+    if (!receivedAt.has(item.id)) receivedAt.set(item.id, now);
+  }
+  for (const id of receivedAt.keys()) {
+    if (!items.some((i) => i.id === id)) receivedAt.delete(id);
+  }
+  const isAlive = (item: ChatStreamItem): boolean => Date.now() - (receivedAt.get(item.id) ?? -Infinity) < DISPLAY_MS;
+
+  // 노출 만료는 시간 경과만으로도 재렌더가 필요 — items가 안 바뀌어도 틱을 돌리다가,
   // 살아있는 메시지가 없어지면 인터벌을 스스로 정리한다(무한 리렌더 방지).
   const [, setTick] = useState(0);
   useEffect(() => {
-    if (items.length === 0) return undefined;
+    if (!items.some(isAlive)) return undefined;
     const id = setInterval(() => {
       setTick((t) => t + 1);
-      if (!items.some((i) => Date.now() - i.createdAt < DISPLAY_MS)) clearInterval(id);
+      if (!items.some(isAlive)) clearInterval(id);
     }, 500);
     return () => clearInterval(id);
+    // isAlive는 렌더마다 새로 만들어지지만 읽는 Map은 같은 ref라 items 변경 시에만 재구독하면 된다
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [items]);
 
-  const visible = items.filter((i) => Date.now() - i.createdAt < DISPLAY_MS);
+  const visible = items.filter(isAlive);
 
   return (
     <View pointerEvents="none" style={styles.container}>
