@@ -27,7 +27,6 @@ const FA_ICONS = {
   INVITE: 'paper-plane',
   TROPHY: 'trophy',
   SAVE: 'download',
-  UNFRIEND: 'user-times',
 } as const;
 
 export type IconName = keyof typeof TEXT_ICONS | keyof typeof FA_ICONS;

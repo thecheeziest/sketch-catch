@@ -2,8 +2,9 @@ import { FeedbackPressable } from '@/shared/ui/FeedbackPressable';
 import { Image, Text, View } from 'dripsy'
 import { colors, getCharacterImageSource } from '@/shared/config';
 import type { Friend } from '@/shared/model';
+import type { PixelSpriteData } from '@sketch-catch/shared';
 import { Button } from '../Button';
-import { Icon } from '../Icon';
+import { PixelSprite } from '../PixelSprite';
 import { StyleSheet } from 'react-native';
 
 type Props = {
@@ -12,6 +13,21 @@ type Props = {
   onJoin?: () => void;
   isJoining?: boolean;
   index?: number;
+};
+
+const UNFRIEND_SPRITE: PixelSpriteData = {
+  rows: [
+    '..lll........',
+    '.lllll.......',
+    '.lllll..r...r',
+    '..lll....r.r.',
+    '..........r..',
+    '.lllll...r.r.',
+    'lllllll.r...r',
+    'lllllll......',
+    'lllllll......',
+  ],
+  colors: { l: colors.LIGHT_500, r: colors.ERROR_300 },
 };
 
 const PRESENCE_COLOR: Record<Friend['presenceStatus'], string> = {
@@ -71,7 +87,7 @@ export function FriendItem({ friend, onDelete, onJoin, isJoining, index }: Props
         accessibilityRole="button"
         accessibilityLabel={`${friend.nickname} 친구 삭제`}
       >
-        <Icon name="UNFRIEND" size={20} color={colors.LIGHT_500} />
+        <PixelSprite sprite={UNFRIEND_SPRITE} pixelSize={1.5} />
       </FeedbackPressable>
     </View>
   );
