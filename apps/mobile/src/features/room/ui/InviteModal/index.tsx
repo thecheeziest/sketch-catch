@@ -33,7 +33,7 @@ const PRESENCE_LABEL: Record<Friend['presenceStatus'], string> = {
 const INVITE_LABEL: Record<InviteCooldownStatus, string> = {
   idle: '초대',
   coolingDown: '초대 중',
-  resendable: '다시 초대',
+  resendable: '초대',
 };
 
 // 이미 대기실·게임에 있는 친구는 초대해도 반응할 수 없으므로 목록에는 보이되 초대 버튼은 막는다 (서버도 TARGET_BUSY로 거부)

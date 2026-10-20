@@ -90,7 +90,7 @@ export function RoomEditModal({ visible, onClose, roomCode }: Props) {
           />
         )}
         {roomState?.mode === 1 && <PenaltyField form={penaltyForm} labelColor={colors.DARK_100} />}
-        <Button label="저장" color="primary" disabled={isPending || !penaltyForm.isValid || isPasswordMissing} onPress={handleSave} />
+        <Button label="저장" color="primary" disabled={isPending || !penaltyForm.isValid || isPasswordMissing || categories.length === 0} onPress={handleSave} />
       </ScrollView>
     </Dialog>
   )
