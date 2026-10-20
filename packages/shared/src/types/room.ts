@@ -29,7 +29,7 @@ export type Player = UserPublic &
 
 // 벌칙 설정 — 필드가 없으면 벌칙 없는 방. 모드 1에서만 허용
 export type RoomPenalty = {
-  loserCount: 1 | 2; // 벌칙에 걸리는 꼴찌 인원 (동점이면 더 늘어날 수 있다)
+  loserCount: number; // 벌칙에 걸리는 꼴찌 인원 1~PENALTY_LOSER_MAX (동점이면 더 늘어날 수 있다)
   text: string; // 무엇을 걸지
 };
 

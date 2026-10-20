@@ -1,5 +1,5 @@
 import { z } from 'zod';
-import { PENALTY_TEXT_MAX_LENGTH } from '../constants/game.js';
+import { PENALTY_LOSER_MAX, PENALTY_TEXT_MAX_LENGTH } from '../constants/game.js';
 
 // 방 코드: 6자리 영문 대문자/숫자
 export const roomCodeSchema = z
@@ -27,11 +27,11 @@ export const roomCategoriesSchema = z.array(categorySchema).min(1, '카테고리
 
 // 벌칙 — 무엇을 걸지(공백만은 불가)와 꼴찌 인원. 비속어 검사는 서버에서 따로 한다
 export const roomPenaltySchema = z.object({
-  loserCount: z.union([z.literal(1), z.literal(2)]),
+  loserCount: z.number().int().min(1).max(PENALTY_LOSER_MAX),
   text: z.string().trim().min(1, '무엇을 걸지 적어 주세요').max(PENALTY_TEXT_MAX_LENGTH),
 });
 
-// 꼴찌를 빼고도 최소 2명은 단상에 남아야 한다 — 꼴찌 2명은 최대 인원 4명 이상부터
+// 꼴찌를 빼고도 최소 2명은 단상에 남아야 한다 — 벌칙 인원은 최대 인원 - 2까지
 export function isPenaltyLoserCountValid(loserCount: number, playerCountMax: number): boolean {
   return loserCount <= playerCountMax - 2;
 }
@@ -59,7 +59,7 @@ export const createRoomSchema = z
   })
   .refine(
     (value) => value.penalty === undefined || isPenaltyLoserCountValid(value.penalty.loserCount, value.playerCountMax),
-    { path: ['penalty', 'loserCount'], message: '꼴찌 2명은 4명 이상 방에서만 고를 수 있어요' },
+    { path: ['penalty', 'loserCount'], message: '벌칙 인원은 최대 인원보다 2명 이상 적어야 해요' },
   );
 
 // 채팅: 최대 30자 (GAME-01)

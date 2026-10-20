@@ -155,10 +155,16 @@ describe('createRoomSchema penalty', () => {
     expect(createRoomSchema.safeParse({ ...three, playerCountMax: 4 }).success).toBe(true);
   });
 
-  it('꼴찌 인원은 1·2명만 허용한다', () => {
-    expect(createRoomSchema.safeParse({ ...baseCreateInput, penalty: { loserCount: 3, text: '커피' } }).success).toBe(
-      false,
-    );
+  it('벌칙 인원은 최대 인원 - 2까지 허용한다', () => {
+    const twelve = { ...baseCreateInput, playerCountMax: 12, penalty: { loserCount: 10, text: '커피' } };
+    expect(createRoomSchema.safeParse(twelve).success).toBe(true);
+    expect(createRoomSchema.safeParse({ ...twelve, playerCountMax: 11 }).success).toBe(false);
+  });
+
+  it('벌칙 인원은 1~10명만 허용한다', () => {
+    const input = { ...baseCreateInput, playerCountMax: 12 };
+    expect(createRoomSchema.safeParse({ ...input, penalty: { loserCount: 0, text: '커피' } }).success).toBe(false);
+    expect(createRoomSchema.safeParse({ ...input, penalty: { loserCount: 11, text: '커피' } }).success).toBe(false);
   });
 });
 
