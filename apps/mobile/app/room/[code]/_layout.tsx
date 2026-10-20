@@ -4,6 +4,7 @@ import { useRoomStore, useToastStore } from '@/shared/model';
 import { useGameStore } from '@/features/game/model/useGameStore';
 import { useRoomChatStore } from '@/features/room/model/useRoomChatStore';
 import { useRoomBackgroundGuard } from '@/features/room/lib';
+import { RoomResyncOverlay } from '@/features/room/ui';
 import { useMode2Store } from '@/features/mode2/model/useMode2Store';
 import { useCoinRewardStore } from '@/features/shop';
 
@@ -37,12 +38,15 @@ export default function RoomCodeLayout() {
   }, [code]);
 
   return (
-    <Stack screenOptions={{ headerShown: false, gestureEnabled: false }}>
-      <Stack.Screen name="index" />
-      <Stack.Screen name="game" />
-      <Stack.Screen name="mode2" />
-      <Stack.Screen name="mode2-review" />
-      <Stack.Screen name="award" />
-    </Stack>
+    <>
+      <Stack screenOptions={{ headerShown: false, gestureEnabled: false }}>
+        <Stack.Screen name="index" />
+        <Stack.Screen name="game" />
+        <Stack.Screen name="mode2" />
+        <Stack.Screen name="mode2-review" />
+        <Stack.Screen name="award" />
+      </Stack>
+      <RoomResyncOverlay />
+    </>
   );
 }

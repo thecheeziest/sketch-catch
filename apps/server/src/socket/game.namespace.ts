@@ -77,7 +77,9 @@ export function registerGameNamespace(io: Server<ClientEvents, ServerEvents>): v
     // 현재 소켓이 속한 방의 작업 줄에서 실행 (방에 없으면 핸들러가 스스로 무시한다)
     const inRoom = (event: string, task: () => Promise<void>): void => run(socket, event, roomCodesOf(socket), task);
 
-    socket.on('room:join', ({ code }) => run(socket, 'room:join', [code], () => handleRoomJoin(game, socket, code)));
+    socket.on('room:join', ({ code, resume }) =>
+      run(socket, 'room:join', [code], () => handleRoomJoin(game, socket, code, resume === true)),
+    );
     socket.on('room:leave', () => inRoom('room:leave', () => handleRoomLeave(game, socket)));
     socket.on('room:ready', ({ ready }) => inRoom('room:ready', () => handleRoomReady(game, socket, ready)));
     socket.on('room:nudge', () => inRoom('room:nudge', () => handleRoomNudge(game, socket)));

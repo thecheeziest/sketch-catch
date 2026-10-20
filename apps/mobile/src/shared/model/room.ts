@@ -178,7 +178,9 @@ export const useRoomStore = create<RoomStore>()(
         }),
       );
       socket.on('error', ({ code: errorCode, message }) => {
-        const isRejoinRejected = get().isResyncing && JOIN_REJECT_CODES.has(errorCode);
+        // 들어와 있던 방의 재접속이 거절된 것 — 끊긴 사이 방이 사라졌거나 명단에서 빠졌다 (코드 오류가 아님)
+        const isRejoinRejected =
+          (get().isResyncing || isMember(get().roomState)) && JOIN_REJECT_CODES.has(errorCode);
         if (isRejoinRejected) {
           useToastStore.getState().show(RESYNC_EXPIRED_MESSAGE, 'info');
         } else {
