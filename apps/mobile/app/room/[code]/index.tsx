@@ -12,7 +12,7 @@ import { CLIENT_EVENT, MODE2_PLAYER_MIN, ROOM_PLAYER_MIN } from '@sketch-catch/s
 import { Text, View } from 'dripsy';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { useEffect, useRef, useState } from 'react';
-import { type ListRenderItem, Alert, ImageBackground, KeyboardAvoidingView, Platform, StyleSheet, useWindowDimensions } from 'react-native';
+import { type ListRenderItem, Alert, ImageBackground, KeyboardAvoidingView, StyleSheet, useWindowDimensions } from 'react-native';
 import roomBackground from '@assets/room-background.png';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
@@ -234,7 +234,8 @@ export default function LobbyScreen() {
 
         <LobbyChatLog messages={lobbyMessages} characterIdOf={characterIdOf} chatColorOf={chatColorOf} />
 
-        <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
+        {/* Android도 edge-to-edge라 adjustResize로 창이 줄지 않는다 — 양 플랫폼 모두 padding으로 직접 밀어 올린다 */}
+        <KeyboardAvoidingView behavior="padding">
           {isHostInAward && !isHost && (
             <Text sx={{ ...textSizes.B3, color: colors.LIGHT_100, textAlign: 'center', paddingTop: spacing.XS }}>
               방장이 시상식에서 돌아오면 시작할 수 있어요

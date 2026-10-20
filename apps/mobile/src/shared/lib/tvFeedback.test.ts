@@ -119,6 +119,8 @@ afterEach(() => {
 
 // 효과음 플레이어 수 — BGM 플레이어는 그 다음 인덱스부터 만들어진다
 const EFFECT_PLAYERS = 16;
+// 백그라운드 복귀 시 효과음 플레이어를 다시 만든 뒤 BGM을 만든다 — 효과음 + 첫 BGM + 다시 만든 효과음 다음 인덱스
+const RESUMED_BGM = EFFECT_PLAYERS * 2 + 1;
 
 describe('TV 효과음·햅틱', () => {
   it('모든 모달이 TV 플레이어를 공유하며 켜짐 90ms·꺼짐 160ms에 햅틱을 낸다', async () => {
@@ -283,15 +285,15 @@ describe('게임 오디오 재생 제어', () => {
     expect(bgm?.volume).toBe(0.35);
     native.appState = 'background';
     native.appListener?.('background');
-    // Android 미디어 세션이 이어폰 연결 시 다시 재생하지 못하도록 플레이어 자체를 해제하고 효과음은 무음으로 둔다
+    // Android 미디어 세션이 이어폰·블루투스 재생 신호를 가로채지 못하도록 BGM·효과음 플레이어를 모두 해제한다
     expect(bgm?.remove).toHaveBeenCalledOnce();
-    expect(native.players.slice(0, EFFECT_PLAYERS).every(player => player.volume === 0)).toBe(true);
+    expect(native.players.slice(0, EFFECT_PLAYERS).every(player => player.remove.mock.calls.length === 1)).toBe(true);
     native.appState = 'active';
     native.appListener?.('active');
     await settle();
-    expect(native.players).toHaveLength(EFFECT_PLAYERS + 2);
-    expect(native.players[EFFECT_PLAYERS + 1]?.source).toBe(103);
-    expect(native.players[EFFECT_PLAYERS + 1]?.play).toHaveBeenCalledOnce();
+    expect(native.players).toHaveLength(RESUMED_BGM + 1);
+    expect(native.players[RESUMED_BGM]?.source).toBe(103);
+    expect(native.players[RESUMED_BGM]?.play).toHaveBeenCalledOnce();
   });
 
   it('iOS 제어 센터 등 잠깐 비활성일 때는 해제하지 않고 일시정지만 한다', async () => {
@@ -315,8 +317,8 @@ describe('게임 오디오 재생 제어', () => {
     native.appState = 'active';
     native.appListener?.('active');
     await settle();
-    expect(native.players[EFFECT_PLAYERS + 1]?.source).toBe(106);
-    expect(native.players[EFFECT_PLAYERS + 1]?.play).toHaveBeenCalledOnce();
+    expect(native.players[RESUMED_BGM]?.source).toBe(106);
+    expect(native.players[RESUMED_BGM]?.play).toHaveBeenCalledOnce();
   });
 
   it('빠른 화면 전환은 마지막 곡만 만들고 이전 플레이어를 해제한다', async () => {
@@ -357,10 +359,10 @@ describe('게임 오디오 재생 제어', () => {
     native.appState = 'active';
     native.appListener?.('active');
     await settle();
-    const bgm = native.players[EFFECT_PLAYERS + 1];
+    const bgm = native.players[RESUMED_BGM];
     expect(bgm?.source).toBe(105);
     if (bgm) bgm.isLoaded = true;
-    native.loads.get(EFFECT_PLAYERS + 1)?.({ isLoaded: true });
+    native.loads.get(RESUMED_BGM)?.({ isLoaded: true });
     expect(bgm?.play).toHaveBeenCalledOnce();
   });
 });

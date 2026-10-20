@@ -247,7 +247,6 @@ export default function GameScreen() {
         text: m.text,
         ...chatSenderLook(m),
         isCorrect: m.id === correct?.messageId,
-        createdAt: m.createdAt,
         score: m.id === correct?.messageId ? roundResult?.scoreDelta[m.userId] : undefined,
       })),
     [chatMessages, chatSenderLook, correct?.messageId, roundResult],

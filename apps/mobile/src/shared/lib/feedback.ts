@@ -140,6 +140,19 @@ export function setMusicDucked(ducked: boolean): void {
   updateMusicVolume();
 }
 
+function createEffectPlayers(): void {
+  for (const name of Object.keys(soundSources) as Array<keyof typeof soundSources>) {
+    // 효과음은 진행 상태 이벤트를 쓰지 않는다 — Android는 플레이어마다 이 간격으로 메인 스레드를 깨우므로 길게 둔다
+    players[name] = createAudioPlayer(soundSources[name], { updateInterval: 1000 });
+  }
+}
+function releaseEffectPlayers(): void {
+  for (const name of Object.keys(players) as Array<keyof typeof players>) {
+    players[name]?.remove();
+    delete players[name];
+  }
+}
+
 export function initializeFeedback(): () => void {
   const id = ++lifecycleId;
   void (async () => {
@@ -154,10 +167,7 @@ export function initializeFeedback(): () => void {
         shouldPlayInBackground: false,
       });
       if (id !== lifecycleId) return;
-      for (const name of Object.keys(soundSources) as Array<keyof typeof soundSources>) {
-        // 효과음은 진행 상태 이벤트를 쓰지 않는다 — Android는 플레이어마다 이 간격으로 메인 스레드를 깨우므로 길게 둔다
-        players[name] = createAudioPlayer(soundSources[name], { updateInterval: 1000 });
-      }
+      if (AppState.currentState !== 'background') createEffectPlayers();
       ready = true;
       syncMusic();
     } catch (error) {
@@ -166,6 +176,7 @@ export function initializeFeedback(): () => void {
   })();
   const appSubscription = AppState.addEventListener('change', state => {
     if (state === 'active') {
+      if (ready && Object.keys(players).length === 0) createEffectPlayers();
       syncMusic();
       return;
     }
@@ -175,12 +186,10 @@ export function initializeFeedback(): () => void {
       return;
     }
     // Android는 플레이어마다 미디어 세션이 있어, 일시정지만 하면 이어폰·블루투스 연결 시 OS가 "재생" 신호로
-    // 다시 틀어 버린다. 백그라운드에선 BGM 플레이어를 해제하고(복귀 시 syncMusic이 다시 만든다) 효과음은 무음으로 둔다.
+    // 다시 틀어 버린다. 백그라운드에선 BGM·효과음 플레이어를 모두 해제해 미디어 세션을 없애고, 복귀 시 다시 만든다.
     ++musicGeneration;
     releaseMusic();
-    for (const player of Object.values(players)) {
-      if (player) player.volume = 0;
-    }
+    releaseEffectPlayers();
   });
   const unsubscribe = useFeedbackStore.subscribe((state, previous) => {
     if (state.soundEnabled !== previous.soundEnabled || state.soundVolume !== previous.soundVolume) {
@@ -209,10 +218,7 @@ export function initializeFeedback(): () => void {
     requestedScene = null;
     overlayDucked = false;
     lastUiAt = -Infinity;
-    for (const name of Object.keys(players) as Array<keyof typeof players>) {
-      players[name]?.remove();
-      delete players[name];
-    }
+    releaseEffectPlayers();
   };
 }
 
