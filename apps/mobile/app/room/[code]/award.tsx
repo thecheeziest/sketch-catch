@@ -89,8 +89,10 @@ export default function AwardScreen() {
         id: m.id,
         nickname: m.nickname,
         text: m.text,
-        characterId: characterMap[m.userId] ?? '',
-        textColor: getChatTextColor(players.find(p => p.id === m.userId)?.chatColorId),
+        characterId: m.characterId ?? characterMap[m.userId] ?? '',
+        textColor: getChatTextColor(
+          m.chatColorId !== undefined ? m.chatColorId : players.find(p => p.id === m.userId)?.chatColorId,
+        ),
         isCorrect: false,
         createdAt: m.createdAt,
       })),

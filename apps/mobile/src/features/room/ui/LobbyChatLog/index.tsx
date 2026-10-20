@@ -8,9 +8,9 @@ import { PixelFrame } from '@/shared/ui/PixelFrame';
 type Props = {
   /** 오래된 것이 앞, 최신이 뒤 */
   messages: ChatMessage[];
-  characterIdOf: (userId: string) => string;
+  characterIdOf: (message: ChatMessage) => string;
   /** 상점에서 산 채팅 글자색 — null이면 기본색 */
-  chatColorOf: (userId: string) => string | null;
+  chatColorOf: (message: ChatMessage) => string | null;
 };
 
 const CHIP_SIZE = 16;
@@ -21,7 +21,7 @@ export function LobbyChatLog({ messages, characterIdOf, chatColorOf }: Props) {
   const data = [...messages].reverse();
 
   const renderItem: ListRenderItem<ChatMessage> = ({ item }) => {
-    const characterId = characterIdOf(item.userId);
+    const characterId = characterIdOf(item);
     const imageSource = getCharacterImageSource(characterId);
     return (
       <View style={styles.row}>
@@ -40,7 +40,7 @@ export function LobbyChatLog({ messages, characterIdOf, chatColorOf }: Props) {
             {item.nickname}
           </Text>
           <Text
-            sx={{ fontFamily: fontFamily.REGULAR, fontSize: 13, color: chatColorOf(item.userId) ?? colors.LIGHT_100, flexShrink: 1 }}
+            sx={{ fontFamily: fontFamily.REGULAR, fontSize: 13, color: chatColorOf(item) ?? colors.LIGHT_100, flexShrink: 1 }}
           >
             {item.text}
           </Text>

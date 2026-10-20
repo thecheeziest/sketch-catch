@@ -66,6 +66,10 @@ export type ChatMessage = {
   id: string;
   userId: string;
   nickname: string;
+  // 보낸 시점의 모습 — 보낸 사람이 나가 players에서 빠져도 채팅에 캐릭터·색이 남도록 메시지에 함께 담는다
+  // 이전 서버가 보낸 메시지에는 없으므로 optional, 없으면 클라이언트가 players에서 찾는다
+  characterId?: string;
+  chatColorId?: string | null;
   text: string;
   masked: boolean;
   createdAt: number;
