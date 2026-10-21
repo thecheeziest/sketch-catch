@@ -58,7 +58,8 @@ export function ProfileHeader({ rightSlot }: Props) {
   const characterSource = getCharacterImageSource(user.characterId);
 
   const handleCopy = (): Promise<void> => copyToClipboard(`${user.nickname}#${user.friendCode}`);
-  const openShop = (): void => guardNav(() => router.push('/shop'));
+  const openShop = (): void => guardNav(() => router.push({ pathname: '/cosmetics', params: { view: 'shop' } }));
+  const openWardrobe = (): void => guardNav(() => router.push({ pathname: '/cosmetics', params: { view: 'wardrobe' } }));
 
   return (
     <>
@@ -68,9 +69,9 @@ export function ProfileHeader({ rightSlot }: Props) {
         />
         <View sx={sxStyles.left}>
           <FeedbackPressable
-            onPress={openShop}
+            onPress={openWardrobe}
             accessibilityRole="button"
-            accessibilityLabel="캐치샵 열기"
+            accessibilityLabel="내 옷장 열기"
             style={({ pressed }) => [styles.characterBtn, pressed && { opacity: 0.7 }]}
             hitSlop={4}
           >

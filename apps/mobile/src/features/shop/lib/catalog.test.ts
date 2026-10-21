@@ -45,11 +45,14 @@ describe('캐치샵 상품 구성', () => {
     }));
     const defaultTile: ShopTile = { key: 'default', item: null, name: '기본', state: 'EQUIPPED', selected: true };
     const rows = getShopCatalogRows([defaultTile, ...tiles]);
-    expect(rows[0]?.kind).toBe('default');
+    // 기본 모습은 맨 위 별도 행이 아니라 일반 등급의 첫 카드로 들어가고 개수에도 포함된다
+    const commonCount = items.filter(item => item.rarity === 'COMMON').length + 1;
+    expect(rows[0]).toMatchObject({ kind: 'heading', rarity: 'COMMON', count: commonCount });
+    expect(rows[1]).toMatchObject({ kind: 'items', tiles: [{ key: 'default' }, {}, {}] });
     for (const row of rows) {
       if (row.kind !== 'items') continue;
-      expect(row.tiles).toHaveLength(3);
-      expect(new Set(row.tiles.map(tile => tile.item?.rarity)).size).toBe(1);
+      expect(new Set(row.tiles.map(tile => tile.item?.rarity ?? 'COMMON')).size).toBe(1);
+      if (row.tiles[0]?.item?.rarity !== 'COMMON' && row.tiles[0]?.item !== null) expect(row.tiles).toHaveLength(3);
     }
   });
 
@@ -164,10 +167,15 @@ describe('캐치샵 상품 구성', () => {
       selected: false,
     }));
     const rows = getShopCatalogRows(tiles);
+    expect(rows.some(row => row.kind === 'heading')).toBe(false);
     expect(rows.filter(row => row.kind === 'character-heading').map(row => row.name)).toEqual(['과일', '동물', '채소']);
     const itemRows = rows.filter(row => row.kind === 'items');
     expect(itemRows).toHaveLength(15);
     expect(itemRows.every(row => row.tiles.length === 3)).toBe(true);
     expect(isValidCharacterId('not-a-character')).toBe(false);
+
+    // 장착 중이어도 맨 위에 따로 빼지 않고 분류 안의 제자리에 둔다
+    const equippedTiles = tiles.map(tile => (tile.key === 'shark' ? { ...tile, state: 'EQUIPPED' as const } : tile));
+    expect(getShopCatalogRows(equippedTiles)[0]).toMatchObject({ kind: 'character-heading', name: '과일' });
   });
 });

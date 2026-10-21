@@ -7,3 +7,7 @@ export { ShopItemTile } from './ui/ShopItemTile';
 export { ShopActionBar } from './ui/ShopActionBar';
 export { PurchaseDialog } from './ui/PurchaseDialog';
 export { NotEnoughCoinDialog } from './ui/NotEnoughCoinDialog';
+export { CurtainTransition } from './ui/CurtainTransition';
+export { CoinRainTransition } from './ui/CoinRainTransition';
+export { WARDROBE_BUTTON_BORDER, WARDROBE_SPRITE } from './config/pixelArt';
+export { parseCosmeticsView, type CosmeticsView } from './lib/wardrobe';
