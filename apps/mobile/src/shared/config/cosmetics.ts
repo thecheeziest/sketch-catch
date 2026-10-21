@@ -54,15 +54,28 @@ export function getFrameDecoSprite(deco: FrameDeco, color: string): PixelSpriteD
         rows: ['ll...ll', 'lgl.lgl', '.lgsgl.', '...s...', '...s...'],
         colors: { l: '#72E0A2', g: '#04C165', s: '#046335' },
       };
-    case 'STAR':
+    case 'DOG_EAR':
       return {
-        rows: ['...o...', '..oyo..', 'oooyooo', 'oyhhhyo', '.oyyyo.', '.oyoyo.', '.o...o.'],
-        colors: { o: INK, y: color, h: '#FFF4CC' },
+        rows: [
+          '..oooo...',
+          '.oyyyyo..',
+          'oyyhhhyo.',
+          'oyyhhhyo.',
+          'oyyhhhyo.',
+          'oyyyhhyo.',
+          '.oyyyhyo.',
+          '.oyyyyyo.',
+          '..oyyyyo.',
+          '..oyyyyo.',
+          '...oyyo..',
+          '....oo...',
+        ],
+        colors: { o: INK, y: color, h: '#D59B46' },
       };
-    case 'MOON':
+    case 'BEAR_EAR':
       return {
-        rows: ['..oooo.', '.oyyo..', 'oyho...', 'oyho...', 'oyyyo..', '.oyyyo.', '..oooo.'],
-        colors: { o: INK, y: color, h: '#F0EBFF' },
+        rows: ['..ooo..', '.oyyyo.', 'oyhhhyo', 'oyhhhyo', '.oyyyo.', '..ooo..'],
+        colors: { o: INK, y: color, h: '#E8BA94' },
       };
   }
 }

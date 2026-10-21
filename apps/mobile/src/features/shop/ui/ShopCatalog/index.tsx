@@ -36,6 +36,14 @@ export function ShopCatalog({ tiles, category, characterId, tileWidth, onSelect 
           </View>
         );
       }
+      if (item.kind === 'character-heading') {
+        return (
+          <View sx={sxStyles.heading}>
+            <Text sx={{ fontSize: 13, color: colors.INFO_100 }}>{item.name}</Text>
+            <Text sx={{ fontSize: 11, color: colors.LIGHT_500 }}>{item.count}종</Text>
+          </View>
+        );
+      }
       if (item.kind === 'default') {
         return (
           <FeedbackPressable

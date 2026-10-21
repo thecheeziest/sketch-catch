@@ -2,7 +2,7 @@ import { existsSync } from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { createRequire } from 'node:module';
-import { createCanvas, GlobalFonts, loadImage, type Image, type SKRSContext2D } from '@napi-rs/canvas';
+import { createCanvas, GlobalFonts, loadImage, type Canvas, type Image, type SKRSContext2D } from '@napi-rs/canvas';
 import type { GifEncoderInstance } from 'gifenc';
 import {
   BRUSH_SPRITE,
@@ -72,14 +72,28 @@ function ensureFontRegistered(): void {
   fontRegistered = true;
 }
 
-const characterCache = new Map<string, Image | null>();
+type CharacterImage = Image | Canvas;
+const characterCache = new Map<string, CharacterImage | null>();
 
-async function loadCharacter(characterId: string): Promise<Image | null> {
+async function loadCharacter(characterId: string): Promise<CharacterImage | null> {
   const cached = characterCache.get(characterId);
   if (cached !== undefined) return cached;
   // characterId는 서버가 검증한 값이지만 경로 조합 전에 한 번 더 제한한다
   const file = path.join(CHARACTER_DIR, `${characterId.replace(/[^a-z]/g, '')}.png`);
-  const image = existsSync(file) ? await loadImage(file) : null;
+  let image: CharacterImage | null = null;
+  if (existsSync(file)) {
+    const source = await loadImage(file);
+    if (source.width > 128 || source.height > 128) {
+      // 신규 고해상도 원본을 그대로 캐시하면 45종 누적 시 메모리가 커진다. GIF 아바타는 128px로 충분하다.
+      const bitmap = createCanvas(128, 128);
+      const ctx = bitmap.getContext('2d');
+      ctx.imageSmoothingEnabled = false;
+      ctx.drawImage(source, 0, 0, 128, 128);
+      image = bitmap;
+    } else {
+      image = source;
+    }
+  }
   characterCache.set(characterId, image);
   return image;
 }
@@ -135,12 +149,12 @@ function makeLayout(width: number): Layout {
 }
 
 type Scene = {
-  owner: Image | null;
+  owner: CharacterImage | null;
   ownerText: string;
   sway: number;
   strokes: Stroke[];
   emptySketch: boolean;
-  guesser: { image: Image | null; text: string; icon: PixelSpriteData | null } | null;
+  guesser: { image: CharacterImage | null; text: string; icon: PixelSpriteData | null } | null;
 };
 
 export async function revealToGif(opts: RevealToGifOptions): Promise<Buffer> {
@@ -153,7 +167,7 @@ export async function revealToGif(opts: RevealToGifOptions): Promise<Buffer> {
   const enc = GIFEncoder();
 
   const entries = buildRevealEntries(opts.steps);
-  const imageOf = async (userId: string): Promise<Image | null> => {
+  const imageOf = async (userId: string): Promise<CharacterImage | null> => {
     const player = opts.players.find(p => p.id === userId);
     return player ? loadCharacter(player.characterId) : null;
   };
@@ -285,7 +299,7 @@ function renderScene(ctx: SKRSContext2D, layout: Layout, scene: Scene): void {
   }
 }
 
-function drawCharacter(ctx: SKRSContext2D, image: Image | null, x: number, y: number, size: number): void {
+function drawCharacter(ctx: SKRSContext2D, image: CharacterImage | null, x: number, y: number, size: number): void {
   if (image) {
     ctx.drawImage(image, x, y, size, size);
     return;
