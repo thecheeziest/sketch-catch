@@ -1,6 +1,9 @@
 import { describe, expect, it } from 'vitest';
 import {
   COSMETIC_ARTWORKS,
+  CHARACTER_GROUPS,
+  CHARACTER_IDS,
+  isValidCharacterId,
   getShopItem,
   getShopItemsByCategory,
   SHOP_ITEMS,
@@ -100,5 +103,71 @@ describe('캐치샵 상품 구성', () => {
     });
     expect(getShopItem('chat_legend_rainbow')).not.toHaveProperty('shadows');
     expect(getShopItem('chat_legend_rainbow')).not.toHaveProperty('outlines');
+  });
+  it('일반 배경은 단색 6종, 기존 패턴은 보유 ID를 유지한 희귀 6종이다', () => {
+    const backgrounds = getShopItemsByCategory('BACKGROUND');
+    const common = backgrounds.filter(item => item.rarity === 'COMMON');
+    expect(common.map(item => item.name)).toEqual(['연한 빨강', '핑크', '노랑', '연두', '하늘', '블랙']);
+    expect(common.every(item => item.pattern === 'SOLID' && !!item.color)).toBe(true);
+    const rare = backgrounds.filter(item => item.rarity === 'RARE');
+    expect(rare).toHaveLength(6);
+    expect(rare.map(item => item.id).sort()).toEqual([
+      'bg_check',
+      'bg_dots',
+      'bg_space',
+      'bg_stars',
+      'bg_stripe',
+      'bg_sunset',
+    ]);
+    expect(getShopItem('bg_sunset')).toMatchObject({ name: '화이트 도트', pattern: 'POLKA' });
+    expect(getShopItem('bg_space')).toMatchObject({ name: '이목 집중', pattern: 'BURST' });
+  });
+  it('테두리를 유사한 색과 모티프별 3개씩 배치하고 기존 귀 상품 ID를 유지한다', () => {
+    const frames = getShopItemsByCategory('FRAME');
+    expect(frames.filter(item => item.rarity === 'COMMON').map(item => item.name)).toEqual([
+      '실버 테두리',
+      '골드 테두리',
+      '검정 테두리',
+      '오렌지 테두리',
+      '핑크 테두리',
+      '빨강 테두리',
+      '하늘 테두리',
+      '아쿠아 테두리',
+      '민트 테두리',
+    ]);
+    expect(frames.filter(item => item.rarity === 'RARE').map(item => item.name)).toEqual([
+      '고양이 귀',
+      '강아지 귀',
+      '곰돌이 귀',
+      '왕관',
+      '리본',
+      '새싹',
+    ]);
+    expect(getShopItem('frame_star')).toMatchObject({ deco: 'DOG_EAR' });
+    expect(getShopItem('frame_moon')).toMatchObject({ deco: 'BEAR_EAR' });
+  });
+  it('캐릭터는 과일·동물·채소 각 15종이며 모두 500코인으로 분류별 3열에 표시된다', () => {
+    const items = getShopItemsByCategory('CHARACTER');
+    expect(items).toHaveLength(45);
+    expect(new Set(CHARACTER_IDS).size).toBe(45);
+    expect(items.map(item => item.id)).toEqual(CHARACTER_IDS);
+    for (const group of CHARACTER_GROUPS) {
+      expect(group.ids).toHaveLength(15);
+      expect(group.ids.every(isValidCharacterId)).toBe(true);
+    }
+    expect(items.every(item => item.price === 500)).toBe(true);
+    const tiles: ShopTile[] = items.map(item => ({
+      key: item.id,
+      item,
+      name: item.name,
+      state: 'BUYABLE',
+      selected: false,
+    }));
+    const rows = getShopCatalogRows(tiles);
+    expect(rows.filter(row => row.kind === 'character-heading').map(row => row.name)).toEqual(['과일', '동물', '채소']);
+    const itemRows = rows.filter(row => row.kind === 'items');
+    expect(itemRows).toHaveLength(15);
+    expect(itemRows.every(row => row.tiles.length === 3)).toBe(true);
+    expect(isValidCharacterId('not-a-character')).toBe(false);
   });
 });

@@ -38,7 +38,10 @@ async function decodeFirstFrame(buf: Buffer): Promise<ReturnType<ReturnType<type
 describe('gif generation', () => {
   it('GIF89a 매직 바이트로 시작하는 공개식 GIF를 만든다', async () => {
     const buf = await revealToGif({
-      players,
+      players: [
+        { ...players[0]!, characterId: 'shark' },
+        { ...players[1]!, characterId: 'potato' },
+      ],
       steps: [
         { kind: 'PROMPT', authorId: 'u1', text: '강아지' },
         { kind: 'DRAW', authorId: 'u1', strokes: [sampleStroke] },

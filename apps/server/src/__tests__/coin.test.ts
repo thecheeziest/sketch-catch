@@ -212,6 +212,19 @@ describe('purchaseItem', () => {
     },
   );
 
+  it.each(SHOP_ITEMS.filter(item => item.category === 'CHARACTER'))(
+    '캐릭터 $id를 500코인으로 구매하고 장착한다',
+    async item => {
+      await purchaseItem('u', item.id, true);
+      expect(db.user.updateMany).toHaveBeenCalledWith({
+        where: { id: 'u', coins: { gte: 500 } },
+        data: { coins: { decrement: 500 } },
+      });
+      expect(db.userItem.create).toHaveBeenCalledWith({ data: { userId: 'u', itemId: item.id } });
+      expect(db.user.update.mock.calls[0]![0].data).toEqual({ characterId: item.id });
+    },
+  );
+
   it('이미 보유한 아이템은 거부', async () => {
     db.userItem.findUnique.mockResolvedValue({ userId: 'u', itemId: 'fox' });
     await expect(purchaseItem('u', 'fox', true)).rejects.toBeInstanceOf(AlreadyOwnedError);

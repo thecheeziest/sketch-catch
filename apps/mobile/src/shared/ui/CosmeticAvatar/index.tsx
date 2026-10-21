@@ -48,7 +48,12 @@ export function CosmeticAvatar({
     if (background) {
       return (
         <View style={StyleSheet.absoluteFill}>
-          <CosmeticBackground pattern={background.pattern} artwork={background.artwork} size={backgroundSize} />
+          <CosmeticBackground
+            pattern={background.pattern}
+            color={background.color}
+            artwork={background.artwork}
+            size={backgroundSize}
+          />
         </View>
       );
     }
@@ -109,12 +114,31 @@ export function CosmeticAvatar({
         </View>
       )}
 
-      {decoSprite && frame?.deco === 'CAT_EAR' && (
+      {decoSprite && (frame?.deco === 'CAT_EAR' || frame?.deco === 'BEAR_EAR' || frame?.deco === 'DOG_EAR') && (
         <>
-          <View style={[styles.deco, { top: -decoPixel * 3, left: size * 0.1 }]} pointerEvents="none">
+          <View
+            style={[
+              styles.deco,
+              {
+                top: -decoPixel * 3,
+                left: frame.deco === 'DOG_EAR' ? -decoPixel : size * 0.1,
+              },
+            ]}
+            pointerEvents="none"
+          >
             <PixelSprite sprite={decoSprite} pixelSize={decoPixel} />
           </View>
-          <View style={[styles.deco, { top: -decoPixel * 3, right: size * 0.1 }]} pointerEvents="none">
+          <View
+            style={[
+              styles.deco,
+              {
+                top: -decoPixel * 3,
+                right: frame.deco === 'DOG_EAR' ? -decoPixel : size * 0.1,
+                transform: [{ scaleX: -1 }],
+              },
+            ]}
+            pointerEvents="none"
+          >
             <PixelSprite sprite={decoSprite} pixelSize={decoPixel} />
           </View>
         </>
@@ -124,12 +148,11 @@ export function CosmeticAvatar({
           <PixelSprite sprite={decoSprite} pixelSize={decoPixel} />
         </View>
       )}
-      {decoSprite &&
-        (frame?.deco === 'CROWN' || frame?.deco === 'SPROUT' || frame?.deco === 'STAR' || frame?.deco === 'MOON') && (
-          <View style={[styles.deco, styles.decoCenter, { top: -decoPixel * 4 }]} pointerEvents="none">
-            <PixelSprite sprite={decoSprite} pixelSize={decoPixel} />
-          </View>
-        )}
+      {decoSprite && (frame?.deco === 'CROWN' || frame?.deco === 'SPROUT') && (
+        <View style={[styles.deco, styles.decoCenter, { top: -decoPixel * 4 }]} pointerEvents="none">
+          <PixelSprite sprite={decoSprite} pixelSize={decoPixel} />
+        </View>
+      )}
     </View>
   );
 }
