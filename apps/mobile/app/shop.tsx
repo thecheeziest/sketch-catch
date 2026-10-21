@@ -1,12 +1,11 @@
 import { useRouter } from 'expo-router';
-import { ScrollView, Text, View } from 'dripsy';
+import { Text, View } from 'dripsy';
 import { StyleSheet, useWindowDimensions } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import {
   NotEnoughCoinDialog,
   PurchaseDialog,
   ShopActionBar,
-  ShopItemTile,
   ShopStage,
   ShopTabs,
   useShopScreen,
@@ -14,6 +13,7 @@ import {
 import { colors, spacing } from '@/shared/config';
 import { CoinChip, Icon, PixelLoadingSpinner } from '@/shared/ui';
 import { FeedbackPressable } from '@/shared/ui/FeedbackPressable';
+import { ShopCatalog } from '@/features/shop/ui/ShopCatalog';
 
 const COLUMNS = 3;
 const GRID_GAP = 14;
@@ -60,18 +60,13 @@ export default function ShopScreen() {
         <ShopTabs active={shop.tab} onChange={shop.setTab} />
       </View>
 
-      <ScrollView contentContainerStyle={styles.grid}>
-        {shop.tiles.map(tile => (
-          <ShopItemTile
-            key={tile.key}
-            tile={tile}
-            category={shop.tab}
-            characterId={selection.CHARACTER ?? user.characterId}
-            width={tileWidth}
-            onPress={() => shop.select(tile)}
-          />
-        ))}
-      </ScrollView>
+      <ShopCatalog
+        tiles={shop.tiles}
+        category={shop.tab}
+        characterId={selection.CHARACTER ?? user.characterId}
+        tileWidth={tileWidth}
+        onSelect={shop.select}
+      />
 
       <SafeAreaView edges={['bottom']} style={{ backgroundColor: colors.DARK_400 }}>
         <ShopActionBar
@@ -113,14 +108,6 @@ const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: colors.DARK_300 },
   center: { alignItems: 'center', justifyContent: 'center' },
   iconBtn: { width: 44, height: 44, alignItems: 'center', justifyContent: 'center' },
-  grid: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    gap: GRID_GAP,
-    paddingHorizontal: spacing.MD,
-    paddingTop: spacing.SM,
-    paddingBottom: spacing.LG,
-  },
 });
 
 const sxStyles = {

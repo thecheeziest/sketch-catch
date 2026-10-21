@@ -1,6 +1,7 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { Prisma } from '@prisma/client';
 import type { RoomState } from '@sketch-catch/shared';
+import { SHOP_ITEMS } from '@sketch-catch/shared';
 
 // 트랜잭션 클라이언트(tx)와 일반 클라이언트를 같은 mock으로 쓴다
 const db = {
@@ -51,8 +52,12 @@ describe('computeMode1Lines', () => {
 
   it('3등 보너스는 4인 이상일 때만 준다', () => {
     const stats = createCoinStats();
-    expect(computeMode1Lines({ userId: 'a', rank: 3, playerCount: 3, stats }).some(l => l.reason === 'RANK')).toBe(false);
-    expect(computeMode1Lines({ userId: 'a', rank: 3, playerCount: 4, stats }).find(l => l.reason === 'RANK')?.amount).toBe(10);
+    expect(computeMode1Lines({ userId: 'a', rank: 3, playerCount: 3, stats }).some(l => l.reason === 'RANK')).toBe(
+      false,
+    );
+    expect(
+      computeMode1Lines({ userId: 'a', rank: 3, playerCount: 4, stats }).find(l => l.reason === 'RANK')?.amount,
+    ).toBe(10);
   });
 
   it('그리기 차례에 아무것도 그리지 않았으면 순위 보너스를 빼고 나머지는 준다', () => {
@@ -188,6 +193,25 @@ describe('purchaseItem', () => {
     await expect(purchaseItem('u', 'nope', true)).rejects.toBeInstanceOf(ItemNotFoundError);
   });
 
+  it.each(SHOP_ITEMS.filter(item => item.rarity === 'LEGENDARY'))(
+    '전설 $id를 서버 가격으로 구매·장착한다',
+    async item => {
+      await purchaseItem('u', item.id, true);
+      expect(db.user.updateMany).toHaveBeenCalledWith({
+        where: { id: 'u', coins: { gte: 2000 } },
+        data: { coins: { decrement: 2000 } },
+      });
+      expect(db.userItem.create).toHaveBeenCalledWith({ data: { userId: 'u', itemId: item.id } });
+      const field = {
+        FRAME: 'frameId',
+        BACKGROUND: 'backgroundId',
+        CHAT_COLOR: 'chatColorId',
+        CHARACTER: 'characterId',
+      }[item.category];
+      expect(db.user.update.mock.calls[0]![0].data).toEqual({ [field]: item.id });
+    },
+  );
+
   it('이미 보유한 아이템은 거부', async () => {
     db.userItem.findUnique.mockResolvedValue({ userId: 'u', itemId: 'fox' });
     await expect(purchaseItem('u', 'fox', true)).rejects.toBeInstanceOf(AlreadyOwnedError);
@@ -208,7 +232,9 @@ describe('equipItem', () => {
 
   it('보유한 아이템만 장착', async () => {
     db.userItem.findUnique.mockResolvedValue(null);
-    await expect(equipItem('u', { category: 'BACKGROUND', itemId: 'bg_dots' })).rejects.toBeInstanceOf(ItemNotOwnedError);
+    await expect(equipItem('u', { category: 'BACKGROUND', itemId: 'bg_dots' })).rejects.toBeInstanceOf(
+      ItemNotOwnedError,
+    );
 
     db.userItem.findUnique.mockResolvedValue({ userId: 'u', itemId: 'bg_dots' });
     await equipItem('u', { category: 'BACKGROUND', itemId: 'bg_dots' });

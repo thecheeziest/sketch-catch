@@ -1,8 +1,9 @@
 import { Text, View } from 'dripsy';
 import { StyleSheet } from 'react-native';
 import type { ShopCategory } from '@sketch-catch/shared';
-import { colors, fontFamily, getChatTextColor, spacing } from '@/shared/config';
+import { colors, spacing } from '@/shared/config';
 import { CosmeticAvatar } from '@/shared/ui/CosmeticAvatar';
+import { CosmeticChatText } from '@/shared/ui/CosmeticChatText';
 import { PixelFrame } from '@/shared/ui/PixelFrame';
 
 type Props = {
@@ -15,8 +16,6 @@ const AVATAR_SIZE = 120;
 
 // 꾸미기 미리보기 무대 — 고른 아이템을 입어 본 모습과 채팅 글자색을 함께 보여준다
 export function ShopStage({ nickname, selection, isTrying }: Props) {
-  const chatColor = getChatTextColor(selection.CHAT_COLOR) ?? colors.LIGHT_100;
-
   return (
     <View sx={sxStyles.stage}>
       <CosmeticAvatar
@@ -35,11 +34,13 @@ export function ShopStage({ nickname, selection, isTrying }: Props) {
           <PixelFrame borderColor={colors.DARK_100} borderWidth={2} notchSize={4} style={StyleSheet.absoluteFill}>
             <View style={[StyleSheet.absoluteFill, { backgroundColor: colors.DARK_200 }]} />
           </PixelFrame>
-          <Text sx={{ fontFamily: fontFamily.REGULAR, fontSize: 13, lineHeight: 20, padding: spacing.SM, color: chatColor }}>
-            정답 고양이!
-          </Text>
+          <View sx={{ padding: spacing.SM }}>
+            <CosmeticChatText itemId={selection.CHAT_COLOR}>정답 고양이!</CosmeticChatText>
+          </View>
         </View>
-        {isTrying && <Text sx={{ fontSize: 12, lineHeight: 18, color: colors.WARNING_200 }}>입어보는 중 · 미보유 포함</Text>}
+        {isTrying && (
+          <Text sx={{ fontSize: 12, lineHeight: 18, color: colors.WARNING_200 }}>입어보는 중 · 미보유 포함</Text>
+        )}
       </View>
     </View>
   );

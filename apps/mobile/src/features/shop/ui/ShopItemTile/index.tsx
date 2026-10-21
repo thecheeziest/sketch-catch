@@ -1,8 +1,9 @@
 import { Image, Text, View } from 'dripsy';
 import { StyleSheet } from 'react-native';
 import type { ShopCategory } from '@sketch-catch/shared';
-import { COIN_SPRITE, colors, fontFamily, getCharacterImageSource, getChatTextColor } from '@/shared/config';
+import { COIN_SPRITE, colors, getCharacterImageSource } from '@/shared/config';
 import { CosmeticAvatar } from '@/shared/ui/CosmeticAvatar';
+import { CosmeticChatText } from '@/shared/ui/CosmeticChatText';
 import { FeedbackPressable } from '@/shared/ui/FeedbackPressable';
 import { PixelFrame } from '@/shared/ui/PixelFrame';
 import { PixelSprite } from '@/shared/ui/PixelSprite';
@@ -16,7 +17,7 @@ type Props = {
   onPress: () => void;
 };
 
-const PREVIEW_SIZE = 56;
+const PREVIEW_SIZE = 64;
 
 function TilePreview({ tile, category, characterId }: Pick<Props, 'tile' | 'category' | 'characterId'>) {
   const id = tile.item?.id ?? null;
@@ -46,11 +47,7 @@ function TilePreview({ tile, category, characterId }: Pick<Props, 'tile' | 'cate
         />
       );
     case 'CHAT_COLOR':
-      return (
-        <Text sx={{ fontFamily: fontFamily.BOLD, fontSize: 20, lineHeight: 28, color: getChatTextColor(id) ?? colors.LIGHT_100 }}>
-          가나다
-        </Text>
-      );
+      return <CosmeticChatText itemId={id}>고양이!</CosmeticChatText>;
   }
 }
 
@@ -60,7 +57,9 @@ function TileStatus({ tile }: { tile: ShopTile }) {
   return (
     <View sx={{ flexDirection: 'row', alignItems: 'center', gap: 4 }}>
       <PixelSprite sprite={COIN_SPRITE} pixelSize={1.5} />
-      <Text sx={{ fontSize: 12, color: tile.state === 'BUYABLE' ? colors.WARNING_400 : colors.GRAY }}>{tile.item?.price}</Text>
+      <Text sx={{ fontSize: 12, color: tile.state === 'BUYABLE' ? colors.WARNING_400 : colors.GRAY }}>
+        {tile.item?.price}
+      </Text>
     </View>
   );
 }
@@ -83,9 +82,15 @@ export function ShopItemTile({ tile, category, characterId, width, onPress }: Pr
       >
         <View style={[StyleSheet.absoluteFill, { backgroundColor: colors.DARK_200 }]} />
       </PixelFrame>
-      <View style={[styles.preview, tile.state === 'SHORT' && styles.dimmed]}>
+      <View style={styles.preview}>
         <TilePreview tile={tile} category={category} characterId={characterId} />
       </View>
+      <Text
+        sx={{ fontSize: 10, lineHeight: 16, color: colors.LIGHT_300, textAlign: 'center', paddingHorizontal: 3 }}
+        numberOfLines={1}
+      >
+        {tile.name}
+      </Text>
       <View style={styles.status}>
         <TileStatus tile={tile} />
       </View>
@@ -94,8 +99,7 @@ export function ShopItemTile({ tile, category, characterId, width, onPress }: Pr
 }
 
 const styles = StyleSheet.create({
-  tile: { height: 118 },
+  tile: { height: 140 },
   preview: { flex: 1, alignItems: 'center', justifyContent: 'center', paddingTop: 8 },
   status: { height: 30, alignItems: 'center', justifyContent: 'center' },
-  dimmed: { opacity: 0.4 },
 });

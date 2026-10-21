@@ -284,13 +284,21 @@ export function useKnownPlayer(): (userId: string | null | undefined) => KnownPl
 }
 
 // 채팅 보낸 사람의 캐릭터·글자색 — 메시지에 담긴 보낸 시점 값을 먼저 쓰고, 없으면(이전 서버) 방에서 본 모습으로 채운다
-export function useChatSenderLook(): (message: ChatMessage) => { characterId: string; textColor: string | null } {
+export function useChatSenderLook(): (message: ChatMessage) => {
+  characterId: string;
+  textColor: string | null;
+  chatColorId: string | null;
+} {
   const knownPlayer = useKnownPlayer();
   return useCallback(
     message => {
       const known = knownPlayer(message.userId);
       const chatColorId = message.chatColorId !== undefined ? message.chatColorId : known?.chatColorId;
-      return { characterId: message.characterId ?? known?.characterId ?? '', textColor: getChatTextColor(chatColorId) };
+      return {
+        characterId: message.characterId ?? known?.characterId ?? '',
+        textColor: getChatTextColor(chatColorId),
+        chatColorId: chatColorId ?? null,
+      };
     },
     [knownPlayer],
   );

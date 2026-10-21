@@ -1,6 +1,7 @@
 import { Image, View } from 'dripsy';
 import { StyleSheet } from 'react-native';
 import { getBackgroundItem, getCharacterImageSource, getFrameDecoSprite, getFrameItem } from '@/shared/config';
+import { FRAME_ARTWORKS } from '@/shared/config/cosmeticArtworks';
 import { CosmeticBackground } from '../CosmeticBackground';
 import { PixelFrame } from '../PixelFrame';
 import { PixelSprite } from '../PixelSprite';
@@ -33,7 +34,11 @@ export function CosmeticAvatar({
   const background = getBackgroundItem(backgroundId);
   const borderColor = frame?.color ?? defaultBorderColor;
   const imageSource = getCharacterImageSource(characterId);
-  const characterSize = Math.round(size * CHARACTER_RATIO);
+  const artworkSource = frame?.artwork ? FRAME_ARTWORKS[frame.artwork] : null;
+  // 생성 시안의 투명 여백·두꺼운 장식을 고려해 캐릭터와 배경을 안쪽 창에 맞춘다.
+  const characterSize = Math.round(size * (artworkSource ? 0.59 : CHARACTER_RATIO));
+  const backgroundSize = Math.round(size * (artworkSource ? 0.76 : 1));
+  const backgroundInset = (size - backgroundSize) / 2;
   const decoPixel = Math.max(1, Math.round(size / 24));
   const decoSprite = frame?.deco ? getFrameDecoSprite(frame.deco, frame.color) : null;
 
@@ -43,7 +48,7 @@ export function CosmeticAvatar({
     if (background) {
       return (
         <View style={StyleSheet.absoluteFill}>
-          <CosmeticBackground pattern={background.pattern} size={size} />
+          <CosmeticBackground pattern={background.pattern} artwork={background.artwork} size={backgroundSize} />
         </View>
       );
     }
@@ -53,9 +58,24 @@ export function CosmeticAvatar({
     return null;
   })();
 
-  return (
-    <View style={{ width: size, height: size }}>
-      {borderColor ? (
+  const framedBackground = (() => {
+    if (artworkSource) {
+      return (
+        <View
+          style={{
+            position: 'absolute',
+            top: backgroundInset,
+            left: backgroundInset,
+            width: backgroundSize,
+            height: backgroundSize,
+          }}
+        >
+          {backgroundLayer}
+        </View>
+      );
+    }
+    if (borderColor) {
+      return (
         <PixelFrame
           borderColor={borderColor}
           borderWidth={size >= 60 ? 3 : 2}
@@ -64,9 +84,14 @@ export function CosmeticAvatar({
         >
           {backgroundLayer}
         </PixelFrame>
-      ) : (
-        backgroundLayer
-      )}
+      );
+    }
+    return backgroundLayer;
+  })();
+
+  return (
+    <View style={{ width: size, height: size }}>
+      {framedBackground}
       <View style={styles.center} pointerEvents="none">
         {imageSource !== null && (
           <Image
@@ -77,6 +102,12 @@ export function CosmeticAvatar({
           />
         )}
       </View>
+
+      {artworkSource !== null && (
+        <View style={StyleSheet.absoluteFill} pointerEvents="none">
+          <Image source={artworkSource} style={{ width: size, height: size }} resizeMode="contain" />
+        </View>
+      )}
 
       {decoSprite && frame?.deco === 'CAT_EAR' && (
         <>
@@ -93,11 +124,12 @@ export function CosmeticAvatar({
           <PixelSprite sprite={decoSprite} pixelSize={decoPixel} />
         </View>
       )}
-      {decoSprite && (frame?.deco === 'CROWN' || frame?.deco === 'SPROUT') && (
-        <View style={[styles.deco, styles.decoCenter, { top: -decoPixel * 4 }]} pointerEvents="none">
-          <PixelSprite sprite={decoSprite} pixelSize={decoPixel} />
-        </View>
-      )}
+      {decoSprite &&
+        (frame?.deco === 'CROWN' || frame?.deco === 'SPROUT' || frame?.deco === 'STAR' || frame?.deco === 'MOON') && (
+          <View style={[styles.deco, styles.decoCenter, { top: -decoPixel * 4 }]} pointerEvents="none">
+            <PixelSprite sprite={decoSprite} pixelSize={decoPixel} />
+          </View>
+        )}
     </View>
   );
 }

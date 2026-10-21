@@ -4,6 +4,7 @@ import { StyleSheet } from 'react-native';
 import Animated, { FadeInDown, FadeOut, LinearTransition } from 'react-native-reanimated';
 import { fontFamily, getCharacterColor, getCharacterImageSource } from '@/shared/config';
 import { PixelFrame } from '@/shared/ui/PixelFrame';
+import { CosmeticChatText } from '@/shared/ui/CosmeticChatText';
 import { chatStream } from '@/features/game/config';
 
 export type ChatStreamItem = {
@@ -16,6 +17,7 @@ export type ChatStreamItem = {
   score?: number;
   /** 상점에서 산 채팅 글자색 — null이면 기본색 */
   textColor?: string | null;
+  chatColorId?: string | null;
 };
 
 type Props = {
@@ -114,7 +116,12 @@ export function ChatStream({ items }: Props) {
                 {item.nickname}
               </Text>
               {/* 긴 채팅도 말줄임 없이 전체를 보여준다 (최대 30자라 두세 줄 안에서 끝난다) */}
-              <Text sx={{ fontFamily: fontFamily.REGULAR, fontSize: 13, color: fg, flexShrink: 1 }}>{item.text}</Text>
+              <CosmeticChatText
+                itemId={item.isCorrect ? null : item.chatColorId}
+                color={item.chatColorId && hasTextColor ? undefined : fg}
+              >
+                {item.text}
+              </CosmeticChatText>
               {item.isCorrect && (
                 <Text sx={{ fontFamily: fontFamily.BOLD, fontSize: 11, color: chatStream.CORRECT_FG, flexShrink: 0 }}>
                   {item.score != null ? `+${item.score}` : '정답'}

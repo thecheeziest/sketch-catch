@@ -18,9 +18,13 @@ export function getBackgroundItem(id: string | null | undefined): BackgroundItem
   return item?.category === 'BACKGROUND' ? item : null;
 }
 
-export function getChatTextColor(id: string | null | undefined): string | null {
+export function getChatItem(id: string | null | undefined): ChatColorItem | null {
   const item = id ? getShopItem(id) : undefined;
-  return item?.category === 'CHAT_COLOR' ? (item as ChatColorItem).color : null;
+  return item?.category === 'CHAT_COLOR' ? item : null;
+}
+
+export function getChatTextColor(id: string | null | undefined): string | null {
+  return getChatItem(id)?.color ?? null;
 }
 
 const INK = '#2B1E3A';
@@ -41,8 +45,24 @@ export function getFrameDecoSprite(deco: FrameDeco, color: string): PixelSpriteD
         colors: { o: INK, y: '#FFCC00', r: '#FF0077' },
       };
     case 'RIBBON':
-      return { rows: ['oo...oo', 'opo.opo', 'oppdppo', 'opo.opo', 'oo...oo'], colors: { o: INK, p: color, d: '#BB0055' } };
+      return {
+        rows: ['oo...oo', 'opo.opo', 'oppdppo', 'opo.opo', 'oo...oo'],
+        colors: { o: INK, p: color, d: '#BB0055' },
+      };
     case 'SPROUT':
-      return { rows: ['ll...ll', 'lgl.lgl', '.lgsgl.', '...s...', '...s...'], colors: { l: '#72E0A2', g: '#04C165', s: '#046335' } };
+      return {
+        rows: ['ll...ll', 'lgl.lgl', '.lgsgl.', '...s...', '...s...'],
+        colors: { l: '#72E0A2', g: '#04C165', s: '#046335' },
+      };
+    case 'STAR':
+      return {
+        rows: ['...o...', '..oyo..', 'oooyooo', 'oyhhhyo', '.oyyyo.', '.oyoyo.', '.o...o.'],
+        colors: { o: INK, y: color, h: '#FFF4CC' },
+      };
+    case 'MOON':
+      return {
+        rows: ['..oooo.', '.oyyo..', 'oyho...', 'oyho...', 'oyyyo..', '.oyyyo.', '..oooo.'],
+        colors: { o: INK, y: color, h: '#F0EBFF' },
+      };
   }
 }

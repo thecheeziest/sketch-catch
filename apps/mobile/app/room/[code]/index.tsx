@@ -124,6 +124,7 @@ export default function LobbyScreen() {
   const chatSenderLook = useChatSenderLook();
   const characterIdOf = (message: ChatMessage): string => chatSenderLook(message).characterId;
   const chatColorOf = (message: ChatMessage): string | null => chatSenderLook(message).textColor;
+  const chatStyleOf = (message: ChatMessage): string | null => chatSenderLook(message).chatColorId;
 
   const handleNudge = (): void => {
     socket?.emit(CLIENT_EVENT.ROOM_NUDGE);
@@ -232,7 +233,12 @@ export default function LobbyScreen() {
           style={styles.slotList}
         />
 
-        <LobbyChatLog messages={lobbyMessages} characterIdOf={characterIdOf} chatColorOf={chatColorOf} />
+        <LobbyChatLog
+          messages={lobbyMessages}
+          characterIdOf={characterIdOf}
+          chatColorOf={chatColorOf}
+          chatStyleOf={chatStyleOf}
+        />
 
         {/* Android도 edge-to-edge라 adjustResize로 창이 줄지 않는다 — 양 플랫폼 모두 padding으로 직접 밀어 올린다 */}
         <KeyboardAvoidingView behavior="padding">
