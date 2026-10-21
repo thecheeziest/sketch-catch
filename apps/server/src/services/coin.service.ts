@@ -7,8 +7,10 @@ import {
   type CoinReward,
   type CoinRewardLine,
   type CoinStats,
+  type EquipAllInput,
   type EquipInput,
   type RoomState,
+  type ShopCategory,
   type ShopItem,
 } from '@sketch-catch/shared';
 import { prisma } from '../db/prisma.js';
@@ -274,6 +276,31 @@ export async function equipItem(userId: string, input: EquipInput): Promise<User
   await assertOwned(userId, item.id);
 
   return prisma.user.update({ where: { id: userId }, data: equipData(item), include: USER_WITH_ITEMS });
+}
+
+/** 옷장 저장 — 바뀐 카테고리를 모두 검증한 뒤 한 번의 업데이트로 장착한다 (전부 성공하거나 전부 실패) */
+export async function equipAll(userId: string, input: EquipAllInput): Promise<UserWithItems> {
+  const data: Prisma.UserUpdateInput = {};
+  const itemIds: string[] = [];
+  for (const category of Object.keys(input) as ShopCategory[]) {
+    const itemId = input[category];
+    if (itemId === undefined) continue;
+    if (itemId === null) {
+      if (category === 'CHARACTER') throw new ItemNotFoundError();
+      data[UNEQUIP_FIELD[category]] = null;
+      continue;
+    }
+    const item = getShopItem(itemId);
+    if (!item || item.category !== category) throw new ItemNotFoundError();
+    Object.assign(data, equipData(item));
+    itemIds.push(item.id);
+  }
+
+  if (itemIds.length > 0) {
+    const owned = await prisma.userItem.findMany({ where: { userId, itemId: { in: itemIds } }, select: { itemId: true } });
+    if (owned.length !== itemIds.length) throw new ItemNotOwnedError();
+  }
+  return prisma.user.update({ where: { id: userId }, data, include: USER_WITH_ITEMS });
 }
 
 export async function assertOwned(userId: string, itemId: string): Promise<void> {

@@ -58,3 +58,15 @@ export const equipSchema = z.discriminatedUnion('category', [
   z.object({ category: z.literal('CHAT_COLOR'), itemId: z.string().min(1).max(40).nullable() }),
 ]);
 export type EquipInput = z.infer<typeof equipSchema>;
+
+// PATCH /me/equip-all — 옷장 저장. 바뀐 카테고리만 담아 한 번에 장착한다
+const cosmeticIdSchema = z.string().min(1).max(40).nullable().optional();
+export const equipAllSchema = z
+  .object({
+    CHARACTER: characterIdSchema.optional(),
+    FRAME: cosmeticIdSchema,
+    BACKGROUND: cosmeticIdSchema,
+    CHAT_COLOR: cosmeticIdSchema,
+  })
+  .refine(v => Object.values(v).some(id => id !== undefined), { message: '변경할 항목을 1개 이상 포함해주세요' });
+export type EquipAllInput = z.infer<typeof equipAllSchema>;

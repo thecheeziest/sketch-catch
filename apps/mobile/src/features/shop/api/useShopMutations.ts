@@ -1,5 +1,5 @@
 import { useMutation, useQueryClient, type QueryClient } from '@tanstack/react-query';
-import type { EquipInput, UserPrivate } from '@sketch-catch/shared';
+import type { EquipAllInput, EquipInput, UserPrivate } from '@sketch-catch/shared';
 import { apiPatch, apiPost, type ApiError } from '@/shared/api';
 import { useAuthStore } from '@/shared/model';
 import { ME_QUERY_KEY } from '@/features/auth/api';
@@ -24,6 +24,15 @@ export function useEquipItem() {
   const qc = useQueryClient();
   return useMutation<UserPrivate, ApiError, EquipInput>({
     mutationFn: input => apiPatch<UserPrivate>('/me/equip', input),
+    onSuccess: user => applyMe(qc, user),
+  });
+}
+
+// 옷장 저장 — 바뀐 카테고리를 한 번에 장착한다
+export function useEquipAll() {
+  const qc = useQueryClient();
+  return useMutation<UserPrivate, ApiError, EquipAllInput>({
+    mutationFn: input => apiPatch<UserPrivate>('/me/equip-all', input),
     onSuccess: user => applyMe(qc, user),
   });
 }

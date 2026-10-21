@@ -2,24 +2,52 @@ import { Text, View } from 'dripsy';
 import { colors, spacing } from '@/shared/config';
 import { Button } from '@/shared/ui/Button';
 import { SHOP_TABS, type ShopTile } from '../../lib/useShopScreen';
+import type { CosmeticsView } from '../../lib/wardrobe';
 import type { ShopCategory } from '@sketch-catch/shared';
 
 type Props = {
+  view: CosmeticsView;
   category: ShopCategory;
   current: ShopTile | null;
   coins: number;
   isEquipping: boolean;
   onEquip: () => void;
   onPurchase: () => void;
+  canSave: boolean;
+  isSaving: boolean;
+  onSave: () => void;
 };
 
 const ACTION_WIDTH = 168;
 
-// 고른 아이템 이름 + 상태별 버튼 (장착중 / 장착하기 / 구매 / 코인 부족)
-export function ShopActionBar({ category, current, coins, isEquipping, onEquip, onPurchase }: Props) {
+// 고른 아이템 이름 + 버튼. 샵은 상태별(장착중 / 장착하기 / 구매 / 코인 부족), 옷장은 저장
+export function ShopActionBar({
+  view,
+  category,
+  current,
+  coins,
+  isEquipping,
+  onEquip,
+  onPurchase,
+  canSave,
+  isSaving,
+  onSave,
+}: Props) {
   const categoryLabel = SHOP_TABS.find(tab => tab.category === category)?.label ?? '';
 
   const action = (() => {
+    if (view === 'wardrobe') {
+      return (
+        <Button
+          label="저장"
+          color="secondary"
+          disabled={!canSave}
+          loading={isSaving}
+          onPress={onSave}
+          style={{ width: ACTION_WIDTH }}
+        />
+      );
+    }
     if (!current) return null;
     switch (current.state) {
       case 'EQUIPPED':

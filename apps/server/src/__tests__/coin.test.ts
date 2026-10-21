@@ -7,7 +7,7 @@ import { SHOP_ITEMS } from '@sketch-catch/shared';
 const db = {
   coinLedger: { findUnique: vi.fn(), aggregate: vi.fn(), findFirst: vi.fn(), create: vi.fn() },
   user: { update: vi.fn(), updateMany: vi.fn() },
-  userItem: { findUnique: vi.fn(), create: vi.fn() },
+  userItem: { findUnique: vi.fn(), findMany: vi.fn(), create: vi.fn() },
 };
 vi.mock('../db/prisma.js', () => ({
   prisma: { ...db, $transaction: vi.fn(async (fn: (tx: typeof db) => unknown) => fn(db)) },
@@ -24,6 +24,7 @@ const {
   settleGameReward,
   purchaseItem,
   equipItem,
+  equipAll,
   AlreadyOwnedError,
   InsufficientCoinsError,
   ItemNotFoundError,
@@ -262,5 +263,44 @@ describe('equipItem', () => {
     await equipItem('u', { category: 'CHAT_COLOR', itemId: null });
     expect(db.user.update.mock.calls[0]![0].data).toEqual({ chatColorId: null });
     expect(db.userItem.findUnique).not.toHaveBeenCalled();
+  });
+});
+
+describe('equipAll', () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+    db.user.update.mockResolvedValue({ id: 'u', items: [] });
+  });
+
+  it('바뀐 카테고리를 한 번의 업데이트로 장착한다', async () => {
+    db.userItem.findMany.mockResolvedValue([{ itemId: 'fox' }, { itemId: 'bg_dots' }]);
+    await equipAll('u', { CHARACTER: 'fox', BACKGROUND: 'bg_dots', CHAT_COLOR: null });
+    expect(db.userItem.findMany).toHaveBeenCalledWith({
+      where: { userId: 'u', itemId: { in: ['fox', 'bg_dots'] } },
+      select: { itemId: true },
+    });
+    expect(db.user.update).toHaveBeenCalledTimes(1);
+    expect(db.user.update.mock.calls[0]![0].data).toEqual({
+      characterId: 'fox',
+      backgroundId: 'bg_dots',
+      chatColorId: null,
+    });
+  });
+
+  it('하나라도 보유하지 않았으면 아무것도 장착하지 않는다', async () => {
+    db.userItem.findMany.mockResolvedValue([{ itemId: 'fox' }]);
+    await expect(equipAll('u', { CHARACTER: 'fox', BACKGROUND: 'bg_dots' })).rejects.toBeInstanceOf(ItemNotOwnedError);
+    expect(db.user.update).not.toHaveBeenCalled();
+  });
+
+  it('카테고리가 다른 아이템은 거부', async () => {
+    await expect(equipAll('u', { FRAME: 'bg_dots' })).rejects.toBeInstanceOf(ItemNotFoundError);
+    expect(db.user.update).not.toHaveBeenCalled();
+  });
+
+  it('기본 모습으로만 되돌리면 보유 확인 없이 해제한다', async () => {
+    await equipAll('u', { FRAME: null });
+    expect(db.userItem.findMany).not.toHaveBeenCalled();
+    expect(db.user.update.mock.calls[0]![0].data).toEqual({ frameId: null });
   });
 });

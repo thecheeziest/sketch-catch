@@ -1,11 +1,12 @@
 import type { FastifyPluginAsync, FastifyReply } from 'fastify';
-import { equipSchema, purchaseSchema } from '@sketch-catch/shared';
+import { equipAllSchema, equipSchema, purchaseSchema } from '@sketch-catch/shared';
 import { authenticate } from '../middleware/authenticate.js';
 import {
   AlreadyOwnedError,
   InsufficientCoinsError,
   ItemNotFoundError,
   ItemNotOwnedError,
+  equipAll,
   equipItem,
   purchaseItem,
 } from '../services/coin.service.js';
@@ -42,6 +43,18 @@ export const shopRoutes: FastifyPluginAsync = async app => {
       return reply.send(toUserPrivate(user));
     } catch (err) {
       return sendShopError(reply, err, 'PATCH /me/equip');
+    }
+  });
+
+  // 옷장 저장 — 바뀐 카테고리를 한 번에 장착한다
+  app.patch('/me/equip-all', { preHandler: authenticate }, async (request, reply) => {
+    const parsed = equipAllSchema.safeParse(request.body);
+    if (!parsed.success) return reply.status(400).send({ error: 'INVALID_INPUT' });
+    try {
+      const user = await equipAll(request.userId!, parsed.data);
+      return reply.send(toUserPrivate(user));
+    } catch (err) {
+      return sendShopError(reply, err, 'PATCH /me/equip-all');
     }
   });
 };

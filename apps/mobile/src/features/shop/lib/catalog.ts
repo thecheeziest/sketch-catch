@@ -2,22 +2,23 @@ import { CHARACTER_GROUPS, SHOP_RARITIES, type ShopRarity } from '@sketch-catch/
 import type { ShopTile } from './useShopScreen';
 
 export type ShopCatalogRow =
-  | { key: string; kind: 'default'; tile: ShopTile }
   | { key: string; kind: 'heading'; rarity: ShopRarity; count: number }
   | { key: string; kind: 'character-heading'; name: string; count: number }
   | { key: string; kind: 'items'; tiles: ShopTile[] };
 
-// 등급이 바뀔 때 새 행을 시작한다. 기본 해제는 판매 상품 수에 포함하지 않는다.
+// 기본 모습(item null)은 일반 등급 카드로 다룬다 — 다른 걸 사도 늘 보유 상태로 남는다
+const rarityOf = (tile: ShopTile): ShopRarity => tile.item?.rarity ?? 'COMMON';
+
+// 등급이 바뀔 때 새 행을 시작한다. 캐릭터는 등급이 없으므로 등급 헤딩 대신 과일·동물·채소 분류만 둔다.
 export function getShopCatalogRows(tiles: ShopTile[]): ShopCatalogRow[] {
   const rows: ShopCatalogRow[] = [];
-  const defaultTile = tiles.find(tile => tile.item === null);
-  if (defaultTile) rows.push({ key: 'default', kind: 'default', tile: defaultTile });
+  const isCharacter = tiles.some(tile => tile.item?.category === 'CHARACTER');
   for (const rarity of SHOP_RARITIES) {
-    const items = tiles.filter(tile => tile.item?.rarity === rarity);
+    const items = tiles.filter(tile => rarityOf(tile) === rarity);
     if (items.length === 0) continue;
-    rows.push({ key: rarity, kind: 'heading', rarity, count: items.length });
+    if (!isCharacter) rows.push({ key: rarity, kind: 'heading', rarity, count: items.length });
     const sections =
-      items[0]?.item?.category === 'CHARACTER'
+      isCharacter
         ? CHARACTER_GROUPS.map(group => {
             const ids = new Set<string>(group.ids);
             return { key: group.id, name: group.name, items: items.filter(tile => ids.has(tile.item?.id ?? '')) };

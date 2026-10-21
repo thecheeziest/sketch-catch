@@ -85,7 +85,7 @@ const CHARACTER_NAMES: Record<CharacterId, string> = {
   frog: '개구리',
   turtle: '거북이',
   duck: '오리',
-  chicken: '병아리',
+  chicken: '닭',
   peach: '복숭아',
   lychee: '리치',
   mango: '망고',
