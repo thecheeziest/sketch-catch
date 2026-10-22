@@ -118,7 +118,7 @@ afterEach(() => {
 });
 
 // 효과음 플레이어 수 — BGM 플레이어는 그 다음 인덱스부터 만들어진다
-const EFFECT_PLAYERS = 16;
+const EFFECT_PLAYERS = 20;
 // 백그라운드 복귀 시 효과음 플레이어를 다시 만든 뒤 BGM을 만든다 — 효과음 + 첫 BGM + 다시 만든 효과음 다음 인덱스
 const RESUMED_BGM = EFFECT_PLAYERS * 2 + 1;
 
@@ -208,6 +208,32 @@ describe('TV 효과음·햅틱', () => {
 });
 
 describe('게임 오디오 재생 제어', () => {
+  it('코인 비는 긴 로딩에도 반복하고, 마지막 낙하음으로 바뀌면 반복 재생을 멈춘다', async () => {
+    const stop = engine.playFeedback('coinRain');
+    await settle();
+    const rain = native.players[16];
+    expect(rain?.loop).toBe(true);
+    vi.advanceTimersByTime(30000);
+    stop();
+    expect(rain?.pause).toHaveBeenCalledOnce();
+    engine.playFeedback('coinRainTail');
+    await settle();
+    expect(native.players[17]?.loop).toBe(false);
+    expect(native.players[17]?.play).toHaveBeenCalledOnce();
+  });
+
+  it('코인 반복음도 효과음 끄기와 백그라운드 전환 시 멈춘다', async () => {
+    engine.playFeedback('coinRain');
+    await settle();
+    preferences.useFeedbackStore.getState().updatePreferences({ soundVolume: 0.2 });
+    expect(native.players[16]?.volume).toBe(0.2);
+    preferences.useFeedbackStore.getState().updatePreferences({ soundEnabled: false });
+    expect(native.players[16]?.pause).toHaveBeenCalledOnce();
+    native.appState = 'background';
+    native.appListener?.('background');
+    expect(native.players[16]?.remove).toHaveBeenCalledOnce();
+  });
+
   it('방에서 홈으로 나오면 지난 결과음·예약 햅틱을 취소하되 TV 종료는 유지한다', async () => {
     engine.setMusicScene('classic');
     await settle();
