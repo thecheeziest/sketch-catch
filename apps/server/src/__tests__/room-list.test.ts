@@ -145,7 +145,7 @@ describe('방 찾기 목록', () => {
     expect(list.map(r => r.status)).toEqual(['WAITING', 'WAITING', 'PLAYING', 'PLAYING']);
   });
 
-  it('인원은 퇴장·시상식 잔류 유저를 빼고 세며, 남은 인원이 없는 방은 숨긴다', async () => {
+  it('인원은 퇴장 유저만 빼고 시상식 잔류 유저는 자리를 지켜 세며, 대기실에 아무도 없는 방은 숨긴다', async () => {
     const room = await makeRoom({ at: BASE });
     const extra = (id: string, patch: Partial<Player>): Player => ({
       ...room.players[0]!,
@@ -159,11 +159,13 @@ describe('방 찾기 목록', () => {
     });
     const empty = await makeRoom({ at: BASE + 1000 });
     await saveRoomState({ ...empty, players: [{ ...empty.players[0]!, left: true }] });
+    const onlyAward = await makeRoom({ at: BASE + 2000 });
+    await saveRoomState({ ...onlyAward, players: [{ ...onlyAward.players[0]!, inAward: true }] });
 
     const list = await listRooms();
 
     expect(list).toHaveLength(1);
-    expect(list[0]).toMatchObject({ code: room.code, playerCount: 2 });
+    expect(list[0]).toMatchObject({ code: room.code, playerCount: 3 });
   });
 
   it('비밀번호가 있는 잠금 방은 hasPassword로 표시한다', async () => {

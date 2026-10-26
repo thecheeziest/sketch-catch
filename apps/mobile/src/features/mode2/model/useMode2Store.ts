@@ -1,6 +1,7 @@
 import { create } from 'zustand';
 import { immer } from 'zustand/middleware/immer';
-import type { Mode2Step, Mode2ReviewState, RoomState, Stroke } from '@sketch-catch/shared';
+import type { Mode2Step, Mode2ReviewLiveUpdate, Mode2ReviewState, RoomState, Stroke } from '@sketch-catch/shared';
+import { CLIENT_EVENT } from '@sketch-catch/shared';
 import { useRoomStore } from '@/shared/model/room';
 import { useAuthStore } from '@/shared/model/auth';
 
@@ -17,9 +18,8 @@ type Mode2Store = {
   stepTiming: Mode2StepTiming | null;
   myStrokes: Stroke[];
   review: Mode2ReviewState | null;
-  // 실시간 공개식에서 현재 발표가 시작되는(된) 기기 시각
-  reviewEntryStartAt: number | null;
-  gifs: Record<string, string>;
+  // 실시간 공개식에서 지금 시트가 시작된 기기 시각 — 시트 안의 발표는 이 시각부터 기기가 직접 재생한다
+  reviewSheetStartAt: number | null;
   // actions
   // 방 소켓에 모드2 이벤트 리스너를 1회 등록하고 해제 함수를 돌려준다 (room/[code]/_layout에서 호출)
   registerMode2Listeners: () => () => void;
@@ -34,8 +34,7 @@ export const useMode2Store = create<Mode2Store>()(
     stepTiming: null,
     myStrokes: [],
     review: null,
-    reviewEntryStartAt: null,
-    gifs: {},
+    reviewSheetStartAt: null,
 
     registerMode2Listeners: () => {
       const socket = useRoomStore.getState().socket;
@@ -69,13 +68,23 @@ export const useMode2Store = create<Mode2Store>()(
         const live = payload.live;
         set(st => {
           st.review = payload;
-          st.reviewEntryStartAt = live ? Date.now() + live.leadMs - live.elapsedMs : null;
+          st.reviewSheetStartAt = live ? Date.now() - live.elapsedMs : null;
         });
       };
 
-      const handleCookieReady = ({ sheetId, gifUrl }: { sheetId: string; gifUrl: string }): void => {
+      // 다음 시트로 넘어갈 때 오는 위치 신호 — 시트(그림)를 아직 못 받았으면 재입장으로 전체를 다시 받는다
+      const handleReviewLive = (payload: Mode2ReviewLiveUpdate): void => {
+        if (!isCurrentGame(payload.gameId)) return;
+        if (!get().review) {
+          const code = useRoomStore.getState().roomCode;
+          if (code) socket.emit(CLIENT_EVENT.ROOM_JOIN, { code, resume: true });
+          return;
+        }
+        const live = payload.live;
         set(st => {
-          st.gifs[sheetId] = gifUrl;
+          if (!st.review) return;
+          st.review.live = live;
+          st.reviewSheetStartAt = live ? Date.now() - live.elapsedMs : null;
         });
       };
 
@@ -83,13 +92,13 @@ export const useMode2Store = create<Mode2Store>()(
       socket.on('room:state', handleRoomState);
       socket.on('mode2:step', handleStep);
       socket.on('mode2:review', handleReview);
-      socket.on('cookie:ready', handleCookieReady);
+      socket.on('mode2:review:live', handleReviewLive);
 
       return () => {
         socket.off('room:state', handleRoomState);
         socket.off('mode2:step', handleStep);
         socket.off('mode2:review', handleReview);
-        socket.off('cookie:ready', handleCookieReady);
+        socket.off('mode2:review:live', handleReviewLive);
       };
     },
 
@@ -105,8 +114,7 @@ export const useMode2Store = create<Mode2Store>()(
         st.stepTiming = null;
         st.myStrokes = [];
         st.review = null;
-        st.reviewEntryStartAt = null;
-        st.gifs = {};
+        st.reviewSheetStartAt = null;
       }),
   })),
 );

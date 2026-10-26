@@ -9,20 +9,15 @@ import { Button } from '@/shared/ui/Button';
 import { Dialog } from '@/shared/ui/Dialog';
 import { gameSurface } from '@/features/game/config';
 import { useChatSender } from '@/features/game/api/useChatSender';
-import { CanvasStage, ChatInputBar, ChatStream } from '@/features/game/ui';
+import { ChatInputBar, ChatStream } from '@/features/game/ui';
 import { useRoomChatStore } from '@/features/room/model/useRoomChatStore';
 import { useAwardSession } from '@/features/room/lib';
 import { CoinRewardChip, useCoinRewardStore } from '@/features/shop';
-import { ReferenceCanvas, useGifDownload, useMode2Store } from '@/features/mode2';
+import { useGifDownload, useMode2Store } from '@/features/mode2';
 import { useRevealPlayback } from '@/features/mode2/lib/useRevealPlayback';
-import { PixelSpeechBubble } from '@/features/mode2/ui/PixelSpeechBubble';
 import { RevealCharacterRow, type RevealSaveState } from '@/features/mode2/ui/RevealCharacterRow';
-import { RevealGuesser } from '@/features/mode2/ui/RevealGuesser';
-import { RevealPainter } from '@/features/mode2/ui/RevealPainter';
+import { RevealStage } from '@/features/mode2/ui/RevealStage';
 import { ReplayGuideTooltip } from '@/features/mode2/ui/ReplayGuideTooltip';
-
-// 맞히는 사람 영역 높이 고정 — 원조자 발표 중에 비어 있어도 스케치북 크기가 흔들리지 않게 한다
-const GUESSER_AREA_HEIGHT = 112;
 
 // 모드 2의 시상식 = 정답 공개식. 실시간으로 함께 본 뒤(AWARD), 캐릭터를 눌러 다시 보고 GIF로 저장한다.
 export default function Mode2ReviewScreen() {
@@ -32,14 +27,13 @@ export default function Mode2ReviewScreen() {
   // 공개식 화면은 이후 대기실·새 게임 상태가 도착해도 이번 판의 참가자 구성을 유지한다
   const [roomSnapshot] = useState(() => useRoomStore.getState().roomState);
   const review = useMode2Store(s => s.review);
-  const reviewEntryStartAt = useMode2Store(s => s.reviewEntryStartAt);
-  const gifs = useMode2Store(s => s.gifs);
+  const reviewSheetStartAt = useMode2Store(s => s.reviewSheetStartAt);
   const chatMessages = useRoomChatStore(s => s.awardMessages);
   const coinReward = useCoinRewardStore(s => s.reward);
   const { sendChat } = useChatSender();
   const { saveGif } = useGifDownload();
   const { rematch, exit, rematching, rematchError } = useAwardSession(code ?? '');
-  const { scene, isLive, isFinished, startReplay } = useRevealPlayback(review, reviewEntryStartAt);
+  const { playback, entriesBySheet, isLive, isFinished, startReplay } = useRevealPlayback(review, reviewSheetStartAt);
 
   const [guideVisible, setGuideVisible] = useState(false);
   const [saving, setSaving] = useState(false);
@@ -64,10 +58,12 @@ export default function Mode2ReviewScreen() {
   const canRematch =
     isFinished && isInAwardRoster && (liveRoomState?.status === 'AWARD' || liveRoomState?.status === 'LOBBY');
 
-  const displayedSheetId = scene ? review?.sheets[scene.sheetIndex]?.sheetId : undefined;
+  const displayedSheet = playback ? review?.sheets[playback.sheetIndex] : undefined;
+  const displayedSheetId = displayedSheet?.sheetId;
+  // GIF는 저장을 누를 때 서버가 만든다 — 발표가 끝나면 바로 저장할 수 있다
   const saveState: RevealSaveState = (() => {
     if (saving) return 'saving';
-    if (!isFinished || !displayedSheetId || !gifs[displayedSheetId]) return 'disabled';
+    if (!isFinished || !displayedSheetId) return 'disabled';
     return 'ready';
   })();
 
@@ -140,7 +136,7 @@ export default function Mode2ReviewScreen() {
       <RevealCharacterRow
         players={players}
         myId={myId}
-        highlightedId={scene?.ownerId ?? null}
+        highlightedId={displayedSheet?.ownerId ?? null}
         selectable={isFinished}
         onSelect={handleSelect}
         saveState={saveState}
@@ -148,30 +144,14 @@ export default function Mode2ReviewScreen() {
       />
 
       <Pressable style={styles.stage} onPress={Keyboard.dismiss} accessible={false}>
-        {scene ? (
-          <>
-            <View sx={{ alignItems: 'center', gap: 12, paddingHorizontal: spacing.MD, paddingTop: spacing.SM }}>
-              <RevealPainter key={scene.ownerId ?? 'owner'} characterId={characterOf(scene.ownerId)} />
-              <PixelSpeechBubble text={scene.ownerText} tail="up" />
-            </View>
-
-            <View sx={{ flex: 1, paddingHorizontal: spacing.MD, paddingVertical: spacing.SM }}>
-              <CanvasStage>
-                <ReferenceCanvas strokes={scene.strokes} />
-              </CanvasStage>
-            </View>
-
-            <View sx={{ height: GUESSER_AREA_HEIGHT, paddingHorizontal: spacing.MD, justifyContent: 'flex-end' }}>
-              {scene.guesser && (
-                <RevealGuesser
-                  key={scene.guesser.authorId}
-                  characterId={characterOf(scene.guesser.authorId)}
-                  text={scene.guesser.text}
-                  icon={scene.guesser.icon}
-                />
-              )}
-            </View>
-          </>
+        {playback ? (
+          <RevealStage
+            key={`${playback.sheetIndex}:${playback.startedAt}`}
+            entries={entriesBySheet[playback.sheetIndex] ?? []}
+            startedAt={playback.startedAt}
+            characterOf={characterOf}
+            feedbackKey={isLive ? `${review?.gameId ?? ''}:${playback.sheetIndex}` : undefined}
+          />
         ) : (
           <View sx={{ flex: 1, alignItems: 'center', justifyContent: 'center' }}>
             <Text sx={{ ...textSizes.B1, color: colors.GRAY }}>정답 공개를 준비하고 있어요...</Text>

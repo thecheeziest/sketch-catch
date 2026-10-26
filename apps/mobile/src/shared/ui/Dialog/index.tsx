@@ -41,10 +41,8 @@ export function Dialog({ visible, onClose, title, children, buttons, dismissible
       <Animated.View style={[StyleSheet.absoluteFill, styles.overlay, { opacity: overlayAnim }]} pointerEvents="none" />
       <Pressable style={StyleSheet.absoluteFill} onPress={dismissible ? dismiss : undefined} />
       <View style={styles.center} pointerEvents={closing ? 'none' : 'box-none'}>
-        <Animated.View
-          style={[styles.panel, { transform: [{ scaleX: scaleXAnim }, { scaleY: scaleYAnim }] }]}
-          onStartShouldSetResponder={() => true}
-        >
+        {/* 패널이 터치를 가져가면 iOS가 안쪽 ScrollView 스크롤을 막는다 — 배경 Pressable은 형제 뷰라 패널 터치로 닫히지 않는다 */}
+        <Animated.View style={[styles.panel, { transform: [{ scaleX: scaleXAnim }, { scaleY: scaleYAnim }] }]}>
           {/* absoluteFill: 패널 높이 결정 후 배경을 pixel corner로 clip */}
           <PixelFrame borderColor={colors.SECONDARY_200} style={StyleSheet.absoluteFill}>
             <View style={[StyleSheet.absoluteFill, { backgroundColor: colors.DARK_300 }]} />

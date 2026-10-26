@@ -10,3 +10,4 @@ export * from './drawing/paint.js';
 export * from './mode2/reveal.js';
 export * from './room/status.js';
 export * from './drawing/sprites.js';
+export * from './mode2/revealTimeline.js';

@@ -1,6 +1,8 @@
 import { describe, it, vi, expect, beforeEach, afterEach } from 'vitest';
-import type { RoomState, Player, Mode2StepContent } from '@sketch-catch/shared';
-import { MODE2_REVEAL_ENTRY_MS, MODE2_REVEAL_SHEET_GAP_MS } from '@sketch-catch/shared';
+import type { RoomState, Player, Mode2StepContent, Mode2ReviewSheet } from '@sketch-catch/shared';
+import { MODE2_REVEAL_SHEET_GAP_MS, getSheetRevealDurationMs } from '@sketch-catch/shared';
+
+const reviewStore = vi.hoisted(() => new Map<string, Mode2ReviewSheet[]>());
 
 // rooms.service mock
 vi.mock('../services/rooms.service.js', () => ({
@@ -8,9 +10,16 @@ vi.mock('../services/rooms.service.js', () => ({
   saveRoomState: vi.fn(),
 }));
 
-// replay.service mock — GIF 생성 여부만 검증(D-10), 실제 렌더링은 gif.test 책임
+// replay.service mock — 시트 기록 여부만 검증(D-10), GIF 렌더링은 gif.test 책임
 vi.mock('../services/replay.service.js', () => ({
-  generateSheetGifs: vi.fn().mockResolvedValue(undefined),
+  saveReplays: vi.fn().mockResolvedValue(undefined),
+}));
+
+vi.mock('../services/reviewStore.js', () => ({
+  saveReviewSheets: vi.fn(async (code: string, sheets: Mode2ReviewSheet[]) => {
+    reviewStore.set(code, sheets);
+  }),
+  getReviewSheets: vi.fn(async (code: string) => reviewStore.get(code) ?? null),
 }));
 
 vi.mock('../services/chatStore.js', () => ({
@@ -24,15 +33,19 @@ vi.mock('../socket/handlers/award.js', () => ({
   }),
 }));
 
+vi.mock('../socket/handlers/coinReward.js', () => ({
+  settleMode2Rewards: vi.fn().mockResolvedValue(undefined),
+}));
+
 import { getRoomState, saveRoomState } from '../services/rooms.service.js';
-import { generateSheetGifs } from '../services/replay.service.js';
+import { saveReplays } from '../services/replay.service.js';
 import { clearRoomChat } from '../services/chatStore.js';
 import { startMode2Review, resendReview } from '../socket/handlers/mode2-review.js';
 import { currentAssignee, finalStepForPlayerCount } from '../socket/handlers/mode2.js';
 
 const mockGetRoomState = vi.mocked(getRoomState);
 const mockSaveRoomState = vi.mocked(saveRoomState);
-const mockGenerateSheetGifs = vi.mocked(generateSheetGifs);
+const mockSaveReplays = vi.mocked(saveReplays);
 
 function makeCompletedMode2State(playerCount: number): RoomState {
   const players: Player[] = Array.from({ length: playerCount }, (_, i) => ({
@@ -108,14 +121,17 @@ function makeStatefulMocks(initial: RoomState) {
   };
 }
 
-function lastReview(game: ReturnType<typeof makeNamespace>) {
-  const calls = game._broadcastEmit.mock.calls.filter(([event]) => event === 'mode2:review');
-  return calls.at(-1)?.[1];
+function emitted(game: ReturnType<typeof makeNamespace>, event: string) {
+  return game._broadcastEmit.mock.calls.filter(([name]) => name === event).map(([, payload]) => payload);
 }
+
+// 4인 게임 = 시트마다 4건 발표
+const SHEET_MS = getSheetRevealDurationMs(4);
 
 describe('mode2 정답 공개식', () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    reviewStore.clear();
     vi.useFakeTimers();
   });
 
@@ -123,7 +139,7 @@ describe('mode2 정답 공개식', () => {
     vi.useRealTimers();
   });
 
-  it('진입 시 시상식 명단·채팅을 열고, 첫 시트 첫 발표를 테두리 이동 대기 후 시작하며 GIF를 백그라운드로 만든다', async () => {
+  it('진입 시 시상식 명단·채팅을 열고, 시트 전체를 한 번 보내며 방 상태에는 그림을 싣지 않는다', async () => {
     const ctl = makeStatefulMocks(makeCompletedMode2State(4));
     const game = makeNamespace();
 
@@ -132,57 +148,55 @@ describe('mode2 정답 공개식', () => {
     expect(ctl.state.status).toBe('MODE2_REVIEW');
     expect(ctl.state.players.every(p => p.inAward)).toBe(true);
     expect(clearRoomChat).toHaveBeenCalledWith('ABC123');
-    expect(game._broadcastEmit).toHaveBeenCalledWith('room:state', ctl.state);
-    expect(lastReview(game)).toMatchObject({
-      gameId: 'g1',
-      live: { sheetIndex: 0, entryIndex: 0, leadMs: MODE2_REVEAL_SHEET_GAP_MS, elapsedMs: 0 },
-    });
-    expect(lastReview(game).sheets).toHaveLength(4);
+    expect(JSON.stringify(ctl.state.current)).not.toContain('strokes');
+    expect(ctl.state.current).toMatchObject({ sheetIndex: 0, entryCounts: [4, 4, 4, 4], finished: false });
 
-    expect(mockGenerateSheetGifs).toHaveBeenCalledTimes(1);
-    const gifSheets = mockGenerateSheetGifs.mock.calls[0]![2];
-    expect(gifSheets).toHaveLength(4);
-    expect(gifSheets[0]).toMatchObject({ sheetId: 'p0', ownerId: 'p0', participantIds: ['p0', 'p1', 'p2', 'p3'] });
-    expect(gifSheets[0]!.players[0]).toEqual({ id: 'p0', nickname: 'player0', characterId: 'cat' });
-    expect(gifSheets[0]!.steps).toHaveLength(8);
+    const [review] = emitted(game, 'mode2:review');
+    expect(review).toMatchObject({ gameId: 'g1', live: { sheetIndex: 0, elapsedMs: 0 } });
+    expect(review.sheets).toHaveLength(4);
+    expect(reviewStore.get('ABC123')).toHaveLength(4);
+
+    expect(mockSaveReplays).toHaveBeenCalledTimes(1);
+    const replaySheets = mockSaveReplays.mock.calls[0]![1];
+    expect(replaySheets).toHaveLength(4);
+    expect(replaySheets[0]).toMatchObject({ sheetId: 'p0', ownerId: 'p0', participantIds: ['p0', 'p1', 'p2', 'p3'] });
+    expect(replaySheets[0]!.steps).toHaveLength(8);
   });
 
-  it('시트마다 참가자 수만큼 발표한 뒤 다음 시트로, 마지막 발표가 끝나면 AWARD로 전환한다', async () => {
+  it('시트 1장이 끝날 때만 다음 시트 위치를 보내고, 마지막 시트가 끝나면 AWARD로 전환한다', async () => {
     const ctl = makeStatefulMocks(makeCompletedMode2State(4));
     const game = makeNamespace();
 
     await startMode2Review(game as any, 'ABC123');
 
-    await vi.advanceTimersByTimeAsync(MODE2_REVEAL_SHEET_GAP_MS + MODE2_REVEAL_ENTRY_MS);
-    expect(lastReview(game).live).toMatchObject({ sheetIndex: 0, entryIndex: 1, leadMs: 0 });
+    // 시트 안의 발표 진행은 기기가 직접 재생 — 서버는 그동안 아무것도 보내지 않는다
+    await vi.advanceTimersByTimeAsync(SHEET_MS - 1);
+    expect(emitted(game, 'mode2:review:live')).toHaveLength(0);
 
-    await vi.advanceTimersByTimeAsync(MODE2_REVEAL_ENTRY_MS * 3);
-    expect(lastReview(game).live).toMatchObject({
-      sheetIndex: 1,
-      entryIndex: 0,
-      leadMs: MODE2_REVEAL_SHEET_GAP_MS,
-    });
+    await vi.advanceTimersByTimeAsync(1);
+    expect(emitted(game, 'mode2:review:live').at(-1)).toEqual({ gameId: 'g1', live: { sheetIndex: 1, elapsedMs: 0 } });
+    expect(emitted(game, 'mode2:review')).toHaveLength(1);
     expect(ctl.state.status).toBe('MODE2_REVIEW');
 
-    // 남은 3개 시트 × (테두리 이동 + 4명 발표)
-    await vi.advanceTimersByTimeAsync((MODE2_REVEAL_SHEET_GAP_MS + MODE2_REVEAL_ENTRY_MS * 4) * 3);
+    await vi.advanceTimersByTimeAsync(SHEET_MS * 3);
     expect(ctl.state.status).toBe('AWARD');
-    expect(lastReview(game).live).toBeNull();
+    expect(emitted(game, 'mode2:review:live').at(-1)).toEqual({ gameId: 'g1', live: null });
     expect(game._broadcastEmit).toHaveBeenLastCalledWith('room:state', ctl.state);
   });
 
-  it('재입장한 소켓에는 현재 발표 위치를 다시 보낸다', async () => {
+  it('재입장한 소켓에는 시트 전체와 현재 시트 경과 시간을 다시 보낸다', async () => {
     const ctl = makeStatefulMocks(makeCompletedMode2State(4));
     const game = makeNamespace();
     await startMode2Review(game as any, 'ABC123');
     await vi.advanceTimersByTimeAsync(MODE2_REVEAL_SHEET_GAP_MS + 500);
 
     const socket = { emit: vi.fn() };
-    resendReview(socket as any, ctl.state);
+    await resendReview(socket as any, ctl.state);
 
     expect(socket.emit).toHaveBeenCalledWith(
       'mode2:review',
-      expect.objectContaining({ live: { sheetIndex: 0, entryIndex: 0, leadMs: 0, elapsedMs: 500 } }),
+      expect.objectContaining({ live: { sheetIndex: 0, elapsedMs: MODE2_REVEAL_SHEET_GAP_MS + 500 } }),
     );
+    expect(socket.emit.mock.calls[0]![1].sheets).toHaveLength(4);
   });
 });

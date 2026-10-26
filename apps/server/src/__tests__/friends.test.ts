@@ -199,6 +199,27 @@ describe('getFriends', () => {
     expect(result).toEqual([]);
   });
 
+  it('닉네임 가나다순으로 정렬하고 같은 닉네임은 친구코드순', async () => {
+    const me = { id: 'u1', nickname: '나', friendCode: 'MEMEM', characterId: 'dog' };
+    const friendOf = (id: string, nickname: string, friendCode: string) => ({
+      id: `fs-${id}`,
+      userAId: 'u1',
+      userBId: id,
+      userA: me,
+      userB: { id, nickname, friendCode, characterId: 'cat' },
+    });
+    vi.mocked(prisma.friendship.findMany).mockResolvedValue([
+      friendOf('u2', '하늘', 'AAAAA'),
+      friendOf('u3', 'apple', 'AAAAA'),
+      friendOf('u4', '가방', 'BBBBB'),
+      friendOf('u5', '가방', 'AAAAA'),
+      friendOf('u6', '나비', 'AAAAA'),
+    ] as any);
+
+    const result = await getFriends('u1');
+    expect(result.map(f => f.userId)).toEqual(['u5', 'u4', 'u6', 'u2', 'u3']);
+  });
+
   it('userAId === userId인 경우 userB를 friend로 반환', async () => {
     const friendship = {
       id: 'fs1',

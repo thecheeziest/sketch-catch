@@ -11,8 +11,9 @@ export const replaysRoutes: FastifyPluginAsync = async app => {
     if (!meta) return reply.status(404).send({ error: 'REPLAY_NOT_FOUND' });
     if (!meta.participantIds.includes(req.userId!)) return reply.status(403).send({ error: 'FORBIDDEN' });
 
+    // 저장을 누른 시점에 만든다 (D-10) — 같은 시트의 동시 요청은 한 번만 렌더링된다
     const buf = await getReplayGif(sheetId);
-    if (!buf) return reply.status(404).send({ error: 'GIF_NOT_READY' });
+    if (!buf) return reply.status(404).send({ error: 'REPLAY_EXPIRED' });
 
     return reply.header('content-type', 'image/gif').send(buf);
   });

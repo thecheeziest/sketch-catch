@@ -4,8 +4,9 @@ import { SERVER_EVENT } from '@sketch-catch/shared';
 import { getRoomState, removeRoomFromIndex, saveRoomState } from '../../services/rooms.service.js';
 import { clearRoomTimers } from '../../services/roomTimers.js';
 import { clearRoomChat } from '../../services/chatStore.js';
+import { clearReviewSheets } from '../../services/reviewStore.js';
 import { clearRoomStrokes } from '../../services/strokeStore.js';
-import { ensureHost, resetToLobby } from '../../services/roomRules.js';
+import { compactSlots, ensureHost, resetToLobby } from '../../services/roomRules.js';
 import { redis, setPresence } from '../../db/redis.js';
 import { broadcastPresenceUpdate } from '../presence.namespace.js';
 
@@ -16,7 +17,7 @@ export async function destroyRoom(code: string): Promise<void> {
   clearRoomTimers(code);
   clearRoomChat(code);
   clearRoomStrokes(code);
-  await redis.del(`room:${code}:state`, `room:${code}:password`);
+  await redis.del(`room:${code}:state`, `room:${code}:password`, `room:${code}:review`);
   await removeRoomFromIndex(code);
 }
 
@@ -74,8 +75,11 @@ export async function finishAward(game: GameNamespace, code: string, expectedGam
     await destroyRoom(code);
     return;
   }
+  // 대기실이 열리면 공개식 재전송(resendReview)이 더는 일어나지 않는다 — 시상식 화면은 이미 받은 시트로 다시 보기를 한다
+  await clearReviewSheets(code);
 
   state.players = remaining;
+  compactSlots(state);
   const viewers = new Set(remaining.filter(p => p.inAward).map(p => p.id));
   resetToLobby(state);
   for (const p of remaining) p.inAward = viewers.has(p.id);

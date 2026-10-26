@@ -49,11 +49,8 @@ export function useGameFeedback(): void {
       }
       const review = state.review;
       if (!review || review === previous.review) return;
-      // 정답 공개식: 발표가 넘어갈 때마다 효과음, 실시간 발표가 모두 끝나면 팡파르
-      if (review.live) {
-        const key = `${state.gameId}:${review.live.sheetIndex}:${review.live.entryIndex}:frame`;
-        playFeedback('frame', { key });
-      } else if (previous.review?.live) {
+      // 정답 공개식: 실시간 발표가 모두 끝나면 팡파르 (발표마다 나는 효과음은 RevealStage가 재생 시각에 맞춰 낸다)
+      if (!review.live && previous.review?.live) {
         playFeedback('bestReveal', { key: `${state.gameId}:revealEnd` });
       }
     });

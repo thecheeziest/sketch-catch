@@ -1,32 +1,53 @@
 import { describe, expect, it } from 'vitest';
 import {
   MODE2_REVEAL_DRAW_MS,
-  MODE2_REVEAL_ENTRY_MS,
-  MODE2_REVEAL_LEAD_MS,
+  MODE2_REVEAL_GUESS_MS,
+  MODE2_REVEAL_MOVE_MS,
+  MODE2_REVEAL_OWNER_LEAD_MS,
   MODE2_REVEAL_SHEET_GAP_MS,
-  MODE2_REVEAL_WORD_MS,
+  getRevealPosition,
+  getSheetRevealDurationMs,
 } from '@sketch-catch/shared';
-import { getEntryTiming, getReplayDurationMs, getReplayPosition, typeText } from './revealTimeline';
+import { typeText } from './revealTimeline';
+
+const OWNER_ENTRY_MS = MODE2_REVEAL_OWNER_LEAD_MS + MODE2_REVEAL_DRAW_MS + MODE2_REVEAL_GUESS_MS;
 
 describe('정답 공개식 타임라인', () => {
-  it('발표 1건은 앞말 → 단어 → 스케치 재생 → 여운 순서로 진행된다', () => {
-    expect(getEntryTiming(-1)).toEqual({ phase: 'wait', progress: 0 });
-    expect(getEntryTiming(0)).toEqual({ phase: 'lead', progress: 0 });
-    expect(getEntryTiming(MODE2_REVEAL_LEAD_MS).phase).toBe('word');
-    expect(getEntryTiming(MODE2_REVEAL_LEAD_MS + MODE2_REVEAL_WORD_MS + MODE2_REVEAL_DRAW_MS / 2)).toEqual({
+  it('원조자는 앞말 → 그림 재생 → 다음 사람 정답 순서로, 그림이 끝나자마자 정답 단계로 넘어간다', () => {
+    expect(getRevealPosition(0, 3)).toEqual({ entryIndex: 0, phase: 'wait', progress: 0 });
+    expect(getRevealPosition(MODE2_REVEAL_SHEET_GAP_MS, 3)).toEqual({ entryIndex: 0, phase: 'lead', progress: 0 });
+    const drawStart = MODE2_REVEAL_SHEET_GAP_MS + MODE2_REVEAL_OWNER_LEAD_MS;
+    expect(getRevealPosition(drawStart + MODE2_REVEAL_DRAW_MS / 2, 3)).toEqual({
+      entryIndex: 0,
       phase: 'draw',
       progress: 0.5,
     });
-    expect(getEntryTiming(MODE2_REVEAL_ENTRY_MS + 10_000)).toEqual({ phase: 'hold', progress: 1 });
+    expect(getRevealPosition(drawStart + MODE2_REVEAL_DRAW_MS, 3)).toEqual({
+      entryIndex: 0,
+      phase: 'guess',
+      progress: 0,
+    });
   });
 
-  it('다시 보기는 테두리 이동 대기 후 발표를 차례로 이어 가고 마지막 발표에서 멈춘다', () => {
-    expect(getReplayPosition(0, 4)).toEqual({ entryIndex: 0, entryElapsed: -MODE2_REVEAL_SHEET_GAP_MS });
-    expect(getReplayPosition(MODE2_REVEAL_SHEET_GAP_MS + MODE2_REVEAL_ENTRY_MS + 5, 4)).toEqual({
+  it('맞힌 사람은 상단으로 올라온 뒤 짧은 대기만 하고 바로 그린다', () => {
+    const secondStart = MODE2_REVEAL_SHEET_GAP_MS + OWNER_ENTRY_MS;
+    expect(getRevealPosition(secondStart, 3)).toEqual({ entryIndex: 1, phase: 'lead', progress: 0 });
+    expect(getRevealPosition(secondStart + MODE2_REVEAL_MOVE_MS, 3)).toEqual({
       entryIndex: 1,
-      entryElapsed: 5,
+      phase: 'draw',
+      progress: 0,
     });
-    expect(getReplayPosition(getReplayDurationMs(4) + 1000, 4).entryIndex).toBe(3);
+  });
+
+  it('시트 길이는 테두리 이동 + 발표 합이고, 끝을 넘기면 마지막 발표 완성 장면에 머문다', () => {
+    const entryMs = MODE2_REVEAL_MOVE_MS + MODE2_REVEAL_DRAW_MS + MODE2_REVEAL_GUESS_MS;
+    expect(getSheetRevealDurationMs(3)).toBe(MODE2_REVEAL_SHEET_GAP_MS + OWNER_ENTRY_MS + entryMs * 2);
+    expect(getRevealPosition(getSheetRevealDurationMs(3) + 1000, 3)).toEqual({
+      entryIndex: 2,
+      phase: 'guess',
+      progress: 1,
+    });
+    expect(getRevealPosition(Number.POSITIVE_INFINITY, 3)).toEqual({ entryIndex: 2, phase: 'guess', progress: 1 });
   });
 
   it('타이핑은 한글 음절 단위로 끊고 구간 70%에서 완성된다', () => {

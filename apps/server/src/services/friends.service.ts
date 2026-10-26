@@ -1,6 +1,7 @@
 import { prisma } from '../db/prisma.js';
 import { getPresence, getUserRoom, type PresenceStatus } from '../db/redis.js';
 import { getRoomState, getRoomPassword } from './rooms.service.js';
+import { countSeatedPlayers } from './roomRules.js';
 import type { RoomStatus } from '@sketch-catch/shared';
 
 // 커스텀 에러
@@ -161,7 +162,7 @@ export async function getFriendRoomView(
       if (presenceStatus === 'IN_LOBBY') {
         const storedPw = await getRoomPassword(roomCode);
         const hasPassword = storedPw !== null;
-        const playerCount = roomState.players.filter(p => !p.inAward && !p.left).length;
+        const playerCount = countSeatedPlayers(roomState);
         const playerCountMax = roomState.config.playerCountMax;
         const locked = roomState.locked ?? false;
         room = {
@@ -190,7 +191,7 @@ export async function getFriends(userId: string): Promise<FriendEntry[]> {
     include: { userA: true, userB: true },
   })) as FriendshipWithUsers[];
 
-  return Promise.all(
+  const entries = await Promise.all(
     friendships.map(async f => {
       const friend = f.userAId === userId ? f.userB : f.userA;
       const baseStatus = await getPresence(friend.id);
@@ -207,6 +208,8 @@ export async function getFriends(userId: string): Promise<FriendEntry[]> {
       };
     }),
   );
+  // 어디서 보든 같은 가나다순 — DB 반환 순서는 보장되지 않아 폴링마다 목록이 튈 수 있다
+  return entries.sort((a, b) => a.nickname.localeCompare(b.nickname, 'ko') || a.friendCode.localeCompare(b.friendCode));
 }
 
 export type RequestEntry = {

@@ -193,6 +193,17 @@ describe('mode2', () => {
       current.sheets.forEach((sheet: any) => {
         expect(currentAssignee(initial.players, sheet.ownerIndex, 1).id).toBe(initial.players[sheet.ownerIndex]!.id);
       });
+
+      // 그림이 도착하면 '그림을 맞혀주세요!' 안내 시간이 정답 제한 시간 앞에 붙는다
+      game._broadcastEmit.mockClear();
+      for (const sheet of current.sheets) {
+        const assignee = currentAssignee(initial.players, sheet.ownerIndex, current.step);
+        const socket = { data: { userId: assignee.id }, rooms: new Set(['room:ABC123']) };
+        await handleMode2DrawDone(game as any, socket as any, { sheetId: sheet.sheetId, strokes: makeStroke() });
+      }
+      expect(ctl.state.status).toBe('MODE2_ANSWER_PHASE');
+      const answerPayload = game._broadcastEmit.mock.calls.find(([event]) => event === 'mode2:step')?.[1];
+      expect(answerPayload).toMatchObject({ phase: 'ANSWER', durationSec: 10, remainingMs: 11500, cueMs: 1500 });
     });
 
     it.each([4, 5])('%i명 게임은 마지막 사람의 그림까지 진행한 뒤 MODE2_REVIEW로 전환된다', async playerCount => {

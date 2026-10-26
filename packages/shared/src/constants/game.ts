@@ -51,16 +51,21 @@ export const MODE2_DRAW_SEC = 40;
 export const MODE2_ANSWER_SEC = 10;
 // 그리기 단계 시작 전 '{답안} 그려 주세요!' 안내 노출 시간 — 그리기 제한 시간 앞에 더해진다
 export const MODE2_DRAW_CUE_MS = 2500;
+// 정답 단계 시작 전 '그림을 맞혀주세요!' 안내 노출 시간 — 정답 제한 시간 앞에 더해진다
+export const MODE2_ANSWER_CUE_MS = 1500;
 // 마감 직전에 보낸 제출이 방 작업 줄에서 기다리는 동안 시간 초과로 버려지지 않도록 두는 여유
 export const MODE2_SUBMIT_GRACE_MS = 800;
 
-// 모드 2 정답 공개식 타임라인 — 서버 진행 타이머와 클라이언트 다시 보기가 같은 값을 쓴다.
-// 발표 1건 = 말풍선 앞말("내가 그릴 그림은..") → 단어 공개 → 스케치 과정 재생 → 여운
-export const MODE2_REVEAL_LEAD_MS = 1400;
-export const MODE2_REVEAL_WORD_MS = 1600;
+// 모드 2 정답 공개식 타임라인 — 서버 진행 타이머·앱 재생·GIF가 같은 값을 쓴다 (mode2/revealTimeline.ts).
+// 발표 1건 = 상단 "내가 그린 그림은.. {단어}!" → 스케치 재생 → 하단 다음 사람 "이 그림은.. {정답}!"
+// 시트 원조자의 첫 발표만 앞말을 읽을 시간을 주고, 이후 사람은 하단에서 올라온 뒤 바로 그린다
+export const MODE2_REVEAL_OWNER_LEAD_MS = 2000;
+export const MODE2_REVEAL_MOVE_MS = 800;
 export const MODE2_REVEAL_DRAW_MS = 3600;
-export const MODE2_REVEAL_HOLD_MS = 900;
-export const MODE2_REVEAL_ENTRY_MS =
-  MODE2_REVEAL_LEAD_MS + MODE2_REVEAL_WORD_MS + MODE2_REVEAL_DRAW_MS + MODE2_REVEAL_HOLD_MS;
-// 다음 사람의 발표식으로 넘어갈 때 상단 캐릭터 테두리가 옮겨 가는 동안의 대기
+// 다음 사람이 정답을 말하는 시간 (마지막 그림은 같은 시간만큼 완성 장면을 유지)
+export const MODE2_REVEAL_GUESS_MS = 2000;
+// 다음 시트로 넘어갈 때 상단 캐릭터 테두리가 옮겨 가는 동안의 대기
 export const MODE2_REVEAL_SHEET_GAP_MS = 1200;
+// 공개식 말풍선 앞말 — 앱 화면과 GIF가 같은 문구를 쓴다
+export const MODE2_REVEAL_TOP_LEAD = '내가 그린 그림은..';
+export const MODE2_REVEAL_GUESS_LEAD = '이 그림은..';

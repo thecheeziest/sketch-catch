@@ -150,7 +150,7 @@ export function SlotCard({ player, isMe, cardWidth, isLeft = false, isWaiting = 
         {player.inAward === true && (
           <View style={styles.awardOverlay} pointerEvents="box-none">
             <Text variant="B4" sx={{ color: colors.LIGHT_100, textAlign: 'center' }}>
-              시상 진행 중..
+              시상 중..
             </Text>
             {onNudge !== undefined && (
               <View sx={{ marginTop: spacing.XS }}>

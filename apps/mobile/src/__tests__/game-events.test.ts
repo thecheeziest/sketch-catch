@@ -79,7 +79,7 @@ describe('게임 소켓 이벤트', () => {
     expect(useMode2Store.getState().stepTiming).toEqual({ deadline: Date.now() + 7000, cueUntil: Date.now() });
     const review: Mode2ReviewState = {
       gameId: 'g1',
-      live: { sheetIndex: 0, entryIndex: 0, leadMs: 1200, elapsedMs: 0 },
+      live: { sheetIndex: 0, elapsedMs: 300 },
       sheets: [
         {
           sheetId: 'sheet',
@@ -103,9 +103,18 @@ describe('게임 소켓 이벤트', () => {
     };
     emit('mode2:review', review);
     expect(useMode2Store.getState().review).toEqual(review);
-    expect(useMode2Store.getState().reviewEntryStartAt).toBe(Date.now() + 1200);
+    expect(useMode2Store.getState().reviewSheetStartAt).toBe(Date.now() - 300);
     emit('mode2:review', { ...review, gameId: 'old' });
     expect(useMode2Store.getState().review?.gameId).toBe('g1');
+
+    // 다음 시트 신호는 위치만 바꾸고 이미 받은 시트(그림)는 그대로 둔다
+    emit('mode2:review:live', { gameId: 'g1', live: { sheetIndex: 1, elapsedMs: 0 } });
+    expect(useMode2Store.getState().review?.live).toEqual({ sheetIndex: 1, elapsedMs: 0 });
+    expect(useMode2Store.getState().review?.sheets).toEqual(review.sheets);
+    expect(useMode2Store.getState().reviewSheetStartAt).toBe(Date.now());
+    emit('mode2:review:live', { gameId: 'g1', live: null });
+    expect(useMode2Store.getState().review?.live).toBeNull();
+    expect(useMode2Store.getState().reviewSheetStartAt).toBeNull();
   });
 
   it('재접속 시 받은 현재 라운드 그림으로 관전 캔버스를 교체하고 채팅은 중복 없이 합친다', () => {
