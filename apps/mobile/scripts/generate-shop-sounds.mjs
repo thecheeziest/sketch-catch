@@ -1,88 +1,68 @@
-import { writeFileSync } from 'node:fs';
+import { readFileSync, writeFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 
-// 외부 샘플 없이 합성한다. 같은 seed로 동일한 금속 충돌·천 마찰음을 재생성한다.
-const RATE = 44100;
+// 승인된 미리듣기 WAV만 가져온다. 인자 없이 실행해 확정 음원을 옛 합성음으로 덮어쓰지 않는다.
+const [coinPath, closePath, openPath] = process.argv.slice(2);
+if (!coinPath || !closePath || !openPath) {
+  throw new Error('Usage: node generate-shop-sounds.mjs <coin-1356ms.wav> <close-650ms.wav> <open-650ms.wav>');
+}
 const directory = fileURLToPath(new URL('../assets/audio/', import.meta.url));
-let seed = 82291;
-function random() {
-  seed = (Math.imul(seed, 1664525) + 1013904223) >>> 0;
-  return seed / 4294967296;
+
+function readWave(path, durationMs) {
+  const buffer = readFileSync(path);
+  if (buffer.toString('ascii', 0, 4) !== 'RIFF' || buffer.toString('ascii', 8, 12) !== 'WAVE') {
+    throw new Error(`Not a WAV file: ${path}`);
+  }
+  let format;
+  let pcm;
+  for (let offset = 12; offset + 8 <= buffer.length; ) {
+    const size = buffer.readUInt32LE(offset + 4);
+    const chunk = buffer.subarray(offset + 8, offset + 8 + size);
+    const id = buffer.toString('ascii', offset, offset + 4);
+    if (id === 'fmt ') format = chunk;
+    if (id === 'data') pcm = chunk;
+    offset += 8 + size + (size % 2);
+  }
+  if (!format || !pcm || format.readUInt16LE(0) !== 1 || format.readUInt16LE(14) !== 16) {
+    throw new Error(`Expected PCM 16-bit WAV: ${path}`);
+  }
+  const rate = format.readUInt32LE(4);
+  const channels = format.readUInt16LE(2);
+  const frameSize = channels * 2;
+  const frames = Math.round((rate * durationMs) / 1000);
+  if (pcm.length !== frames * frameSize) throw new Error(`Expected ${durationMs}ms: ${path}`);
+  return { format, pcm, rate, channels, frameSize };
 }
 
-function write(name, samples, peak) {
-  const maximum = samples.reduce((value, sample) => Math.max(value, Math.abs(sample)), 0);
-  const pcm = Buffer.alloc(samples.length * 2);
-  samples.forEach((sample, index) => pcm.writeInt16LE(Math.round((sample / maximum) * peak * 32767), index * 2));
+function writeWave(name, format, pcm) {
   const header = Buffer.alloc(44);
   header.write('RIFF', 0);
   header.writeUInt32LE(36 + pcm.length, 4);
   header.write('WAVEfmt ', 8);
   header.writeUInt32LE(16, 16);
-  header.writeUInt16LE(1, 20);
-  header.writeUInt16LE(1, 22);
-  header.writeUInt32LE(RATE, 24);
-  header.writeUInt32LE(RATE * 2, 28);
-  header.writeUInt16LE(2, 32);
-  header.writeUInt16LE(16, 34);
+  format.copy(header, 20, 0, 16);
   header.write('data', 36);
   header.writeUInt32LE(pcm.length, 40);
   writeFileSync(`${directory}${name}.wav`, Buffer.concat([header, pcm]));
 }
 
-function coins(duration, tail) {
-  const samples = new Float64Array(Math.round(RATE * duration));
-  // 정수 배음이 아닌 공진으로 얇은 금속끼리 부딪치는 질감을 만든다.
-  for (let hit = 0; hit < 64; hit++) {
-    const start = (hit / 64) * duration + random() * 0.012;
-    const frequency = 1800 + random() * 1800;
-    const amplitude = 0.18 + random() * 0.35;
-    for (let i = 0; i < RATE * 0.18; i++) {
-      const t = i / RATE;
-      let index = Math.floor(start * RATE) + i;
-      if (tail && index >= samples.length) break;
-      index %= samples.length;
-      const ring =
-        Math.sin(2 * Math.PI * frequency * t) * Math.exp(-t * 48) +
-        0.5 * Math.sin(2 * Math.PI * frequency * 1.47 * t) * Math.exp(-t * 65) +
-        0.3 * Math.sin(2 * Math.PI * frequency * 2.09 * t) * Math.exp(-t * 85);
-      const impact = (random() * 2 - 1) * Math.exp(-t * 600);
-      samples[index] += amplitude * (ring * Math.min(1, t / 0.0007) + impact * 0.25);
-    }
+// 입력 세 개를 모두 검증한 뒤 적용한다. 원본의 속도·음높이·스테레오를 유지한다.
+const coin = readWave(coinPath, 1356);
+const close = readWave(closePath, 650);
+const open = readWave(openPath, 650);
+const split = Math.round(coin.rate * 0.56) * coin.frameSize;
+const rain = Buffer.from(coin.pcm.subarray(0, split));
+// 로딩 중 반복 경계에만 2ms 페이드. 마지막 낙하음은 승인본의 560~1356ms를 그대로 사용한다.
+const fadeFrames = Math.round(coin.rate * 0.002);
+const totalFrames = rain.length / coin.frameSize;
+for (let frame = 0; frame < fadeFrames; frame++) {
+  const gain = frame / (fadeFrames - 1);
+  for (let channel = 0; channel < coin.channels; channel++) {
+    const offset = (totalFrames - 1 - frame) * coin.frameSize + channel * 2;
+    rain.writeInt16LE(Math.round(rain.readInt16LE(offset) * gain), offset);
   }
-  if (tail) {
-    samples.forEach((sample, i) => {
-      samples[i] = sample * (1 - i / samples.length) ** 1.4;
-    });
-  } else {
-    // 반복 경계의 클릭을 억제하고 대기 중에도 동전 밀도를 유지한다.
-    samples.forEach((sample, i) => {
-      samples[i] = sample * Math.min(1, i / 100, (samples.length - 1 - i) / 100);
-    });
-  }
-  return samples;
 }
-
-function curtain(opening) {
-  const samples = new Float64Array(Math.round(RATE * 0.38));
-  let low = 0;
-  let fabric = 0;
-  for (let i = 0; i < samples.length; i++) {
-    const progress = i / (samples.length - 1);
-    const noise = random() * 2 - 1;
-    low += (noise - low) * 0.07;
-    fabric += (noise - fabric) * (0.22 + progress * 0.16);
-    // 닫기는 처음 힘 있게, 열기는 뒤로 갈수록 펼쳐지는 소리. 화면의 cubic easing과 맞춘다.
-    let envelope = Math.sin(Math.PI * progress) ** 0.7 * (1.5 - progress);
-    if (opening) envelope = Math.sin(Math.PI * progress) ** 0.65 * (0.35 + progress * 1.6);
-    const folds = 0.82 + 0.18 * Math.sin(2 * Math.PI * (14 * progress + progress * progress * 5));
-    const swish = (fabric - low) * 0.85 + low * 0.35;
-    samples[i] = swish * envelope * folds;
-  }
-  return samples;
-}
-
-write('coin-rain', coins(1.12, false), 0.62);
-write('coin-rain-tail', coins(0.796, true), 0.54);
-write('curtain-close', curtain(false), 0.6);
-write('curtain-open', curtain(true), 0.65);
+writeWave('coin-rain', coin.format, rain);
+writeWave('coin-rain-tail', coin.format, coin.pcm.subarray(split));
+writeWave('curtain-close', close.format, close.pcm);
+writeWave('curtain-open', open.format, open.pcm);

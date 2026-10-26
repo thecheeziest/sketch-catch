@@ -58,9 +58,9 @@ export function CurtainTransition({ startCovered, ready, onCovered, onDone, chil
   );
   const progress = useCoverTransition({
     sound: 'curtain',
-    coverMs: 380,
+    coverMs: 650,
     holdMs: 140,
-    revealMs: 380,
+    revealMs: 650,
     coverEasing: Easing.out(Easing.cubic),
     revealEasing: Easing.in(Easing.cubic),
     startCovered,

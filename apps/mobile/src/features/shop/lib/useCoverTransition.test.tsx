@@ -37,7 +37,7 @@ type Props = { sound: 'coins' | 'curtain'; startCovered?: boolean; ready?: boole
 let renderer: ReactTestRenderer | undefined;
 const onDone = vi.fn();
 function Harness(props: Props) {
-  useCoverTransition({ ...props, coverMs: 380, holdMs: 140, revealMs: 380, onDone });
+  useCoverTransition({ ...props, coverMs: 650, holdMs: 140, revealMs: 650, onDone });
   return null;
 }
 function mount(props: Props) {

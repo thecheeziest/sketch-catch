@@ -78,10 +78,10 @@ const durations = {
   fanfare: 1600,
   splashWhoosh: 360,
   splashJingle: 1000,
-  coinRain: 1120,
+  coinRain: 560,
   coinRainTail: 796,
-  curtainClose: 380,
-  curtainOpen: 380,
+  curtainClose: 650,
+  curtainOpen: 650,
 };
 const ui = (sound: keyof typeof soundSources, haptic: Haptic = 'light'): FeedbackDefinition => ({
   sound,
@@ -104,8 +104,8 @@ const action = (sound: keyof typeof soundSources, haptic: Haptic = 'light'): Fee
 export const feedbackDefinitions = {
   coinRain: { sound: 'coinRain', channel: 'transition', priority: 3, duration: Infinity, loop: true },
   coinRainTail: { sound: 'coinRainTail', channel: 'transition', priority: 3, duration: 796 },
-  curtainClose: { sound: 'curtainClose', channel: 'transition', priority: 3, duration: 380 },
-  curtainOpen: { sound: 'curtainOpen', channel: 'transition', priority: 3, duration: 380 },
+  curtainClose: { sound: 'curtainClose', channel: 'transition', priority: 3, duration: 650 },
+  curtainOpen: { sound: 'curtainOpen', channel: 'transition', priority: 3, duration: 650 },
   tap: ui('tap'),
   select: ui('select', 'selection'),
   cancel: ui('cancel', 'soft'),

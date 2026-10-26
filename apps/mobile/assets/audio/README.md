@@ -40,3 +40,15 @@
 - BGM·효과음·햅틱 개별 ON/OFF, BGM/효과음 볼륨을 SecureStore에 저장. 기존 TV 설정 복원 호환.
 - 스플래시·강제 업데이트 중 BGM 없음. 기기 무음 모드 존중, 백그라운드에서 소리와 예약 햅틱 중단, 복귀 시 BGM만 재개.
 - 채팅 수신·펜 스트로크·매초 햅틱·친구 온라인 알림은 반복 피로 때문에 제외. 긴박 BGM 변주 대신 마지막 10초 틱 사용.
+
+
+## 캐치샵·옷장 전환 효과음 (2026-10-22 확정본)
+
+- `coin-rain.wav`: 560ms, stereo PCM 16-bit / 48kHz. 코인 낙하·로딩 중 반복 재생.
+- `coin-rain-tail.wav`: 796ms. 코인이 화면 아래로 빠지기 시작하면 재생. 정상 전환은 합계 1,356ms.
+- 코인 출처: [Jackpot Slot Machine Coin Loop 1 — floraphonic](https://pixabay.com/sound-effects/film-special-effects-jackpot-slot-machine-coin-loop-1-216029/), [Pixabay Content License](https://pixabay.com/service/license-summary/).
+- 승인한 1,356ms 편집본을 560ms/796ms로 분리. 속도·음높이 유지, 반복 구간 끝에만 2ms 페이드 적용.
+- `curtain-close.wav` / `curtain-open.wav`: 각각 650ms, stereo PCM 16-bit / 48kHz. 외부 샘플 없이 독립 합성한 승인본(v2).
+- 커튼은 닫기 650ms → 대기 140ms → 열기 650ms. 최초 옷장 진입은 닫힌 상태이므로 열기음만 재생.
+- Envato의 Swoosh 음원·미리듣기 파일은 포함하지 않음.
+- `scripts/generate-shop-sounds.mjs`는 합성기가 아닌 승인 WAV 가져오기 스크립트. 코인 1,356ms·커튼 닫기/열기 각650ms WAV 경로를 순서대로 전달해야 실행됨. 확정본을 옛 합성음으로 덮어쓰는 기본 실행은 차단.
