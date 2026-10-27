@@ -1,4 +1,4 @@
-import type { Provider } from '@prisma/client';
+import { Prisma, type Provider } from '@prisma/client';
 import { prisma } from '../db/prisma.js';
 import { USER_WITH_ITEMS, type UserWithItems } from '../lib/userPrivate.js';
 import { CHARACTER_IDS } from '@sketch-catch/shared';
@@ -39,6 +39,13 @@ export async function upsertUserByProvider(input: {
   provider: Provider;
   providerId: string;
 }): Promise<{ user: UserWithItems; isNew: boolean }> {
+  if (input.provider === 'APPLE') {
+    const identity = await prisma.appleIdentity.findUnique({
+      where: { providerId: input.providerId },
+      include: { user: { include: USER_WITH_ITEMS } },
+    });
+    if (identity) return { user: identity.user, isNew: false };
+  }
   const existing = await prisma.user.findUnique({
     where: { provider_providerId: { provider: input.provider, providerId: input.providerId } },
     include: USER_WITH_ITEMS,
@@ -46,6 +53,27 @@ export async function upsertUserByProvider(input: {
   if (existing) return { user: existing, isNew: false };
 
   const { nickname, friendCode } = await generateUniqueNicknameCode();
+  if (input.provider === 'APPLE') {
+    try {
+      // 신규 로그인과 기존 계정 연결이 겹치면 식별자 고유 제약으로 한쪽만 확정한다.
+      const identity = await prisma.appleIdentity.create({
+        data: {
+          providerId: input.providerId,
+          user: { create: { ...input, nickname, friendCode, characterId: CHARACTER_IDS[0]! } },
+        },
+        include: { user: { include: USER_WITH_ITEMS } },
+      });
+      return { user: identity.user, isNew: true };
+    } catch (error) {
+      if (!(error instanceof Prisma.PrismaClientKnownRequestError) || error.code !== 'P2002') throw error;
+      const identity = await prisma.appleIdentity.findUnique({
+        where: { providerId: input.providerId },
+        include: { user: { include: USER_WITH_ITEMS } },
+      });
+      if (!identity) throw error;
+      return { user: identity.user, isNew: false };
+    }
+  }
   const created = await prisma.user.create({
     data: {
       provider: input.provider,
@@ -62,7 +90,7 @@ export async function upsertUserByProvider(input: {
 export async function ensureUniqueNicknameCode(
   nickname: string,
   friendCode: string,
-  excludeUserId?: string
+  excludeUserId?: string,
 ): Promise<void> {
   const found = await prisma.user.findFirst({
     where: {

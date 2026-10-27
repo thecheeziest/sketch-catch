@@ -6,6 +6,10 @@ export const kakaoLoginSchema = z.object({
 
 export const appleLoginSchema = z.object({
   identityToken: z.string().min(1),
+  migrationCode: z
+    .string()
+    .regex(/^[a-f0-9]{32}$/)
+    .optional(),
   fullName: z
     .object({
       familyName: z.string().nullable(),
@@ -13,6 +17,12 @@ export const appleLoginSchema = z.object({
     })
     .optional(),
 });
+
+export const appleMigrationCodeSchema = z.object({
+  identityToken: z.string().min(1),
+});
+
+export type AppleMigrationCodeResponse = { code: string; expiresAt: string };
 
 export const refreshSchema = z.object({
   refreshToken: z.string().min(1),

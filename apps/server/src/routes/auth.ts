@@ -9,6 +9,7 @@ import { toUserPrivate } from '../lib/userPrivate.js';
 import { redis } from '../db/redis.js';
 import { logger } from '../lib/logger.js';
 import { env } from '../lib/env.js';
+import { AppleMigrationError, linkAppleMigration } from '../services/appleMigration.service.js';
 
 // 개발 전용 테스트 계정 수 — 모드2 최소 인원(4명)을 기기별로 채울 수 있는 수
 const DEV_TEST_ACCOUNT_COUNT = 4;
@@ -16,7 +17,7 @@ const devLoginSchema = z.object({ slot: z.number().int().min(1).max(DEV_TEST_ACC
 // 카카오 providerId는 숫자 문자열이라 접두사 'dev:'와 겹치지 않는다
 const DEV_PROVIDER_ID_PREFIX = 'dev:';
 
-export const authRoutes: FastifyPluginAsync = async (app) => {
+export const authRoutes: FastifyPluginAsync = async app => {
   app.post('/auth/kakao', async (request, reply) => {
     const parsed = kakaoLoginSchema.safeParse(request.body);
     if (!parsed.success) return reply.status(400).send({ error: 'INVALID_TOKEN' });
@@ -43,6 +44,16 @@ export const authRoutes: FastifyPluginAsync = async (app) => {
     if (!parsed.success) return reply.status(400).send({ error: 'INVALID_TOKEN' });
     try {
       const claims = await verifyAppleToken(parsed.data.identityToken);
+      if (parsed.data.migrationCode) {
+        const user = await linkAppleMigration(parsed.data.migrationCode, claims);
+        const tokens = await signTokens(user.id);
+        await redis.set(`session:${user.id}`, tokens.accessToken);
+        return reply.header('Cache-Control', 'no-store').send({
+          ...tokens,
+          needsOnboarding: false,
+          user: toUserPrivate(user),
+        });
+      }
       const { user, isNew } = await upsertUserByProvider({ provider: 'APPLE', providerId: claims.sub });
       const tokens = await signTokens(user.id);
       await redis.set(`session:${user.id}`, tokens.accessToken);
@@ -53,6 +64,7 @@ export const authRoutes: FastifyPluginAsync = async (app) => {
         user: toUserPrivate(user),
       });
     } catch (err) {
+      if (err instanceof AppleMigrationError) return reply.status(err.statusCode).send({ error: err.code });
       logger.warn({ err }, 'apple token verify failed');
       return reply.status(401).send({ error: 'INVALID_TOKEN' });
     }

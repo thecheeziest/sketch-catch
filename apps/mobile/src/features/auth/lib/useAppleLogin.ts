@@ -3,6 +3,7 @@ import appleAuth from '@invertase/react-native-apple-authentication';
 import { apiPost } from '@/shared/api';
 import { initializeAuthState } from '@/shared/lib';
 import type { UserPrivate } from '@/shared/model';
+import { requestAppleCredentials } from './requestAppleCredentials';
 
 type AppleAuthResponse = {
   accessToken: string;
@@ -18,27 +19,12 @@ export function isAppleLoginCanceled(err: unknown): boolean {
 
 export function useAppleLogin() {
   return useMutation({
-    mutationFn: async () => {
-      const res = await appleAuth.performRequest({
-        requestedOperation: appleAuth.Operation.LOGIN,
-        requestedScopes: [appleAuth.Scope.FULL_NAME, appleAuth.Scope.EMAIL],
-      });
-
-      if (!res.identityToken) {
-        throw new Error('Apple identityToken을 받지 못했습니다');
-      }
-
-      // Pitfall 4: fullName은 최초 로그인 시에만 존재, 이후 null 반환 (Apple OAuth 정책)
-      const fullName = res.fullName
-        ? {
-            familyName: res.fullName.familyName ?? undefined,
-            givenName: res.fullName.givenName ?? undefined,
-          }
-        : undefined;
-
+    retry: false,
+    mutationFn: async (migrationCode?: string) => {
+      const credentials = await requestAppleCredentials();
       const data = await apiPost<AppleAuthResponse>('/auth/apple', {
-        identityToken: res.identityToken,
-        fullName,
+        ...credentials,
+        ...(migrationCode ? { migrationCode } : {}),
       });
 
       return initializeAuthState(data);
