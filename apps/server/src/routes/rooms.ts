@@ -28,6 +28,7 @@ import {
 import { toPlayerProfile } from '../lib/playerProfile.js';
 import { setPresence, setUserRoom } from '../db/redis.js';
 import { runInRoom } from '../services/roomQueue.js';
+import { countSeatedPlayers } from '../services/roomRules.js';
 import { broadcastPresenceUpdate } from '../socket/presence.namespace.js';
 import { prisma } from '../db/prisma.js';
 import { logger } from '../lib/logger.js';
@@ -150,7 +151,7 @@ export const roomsRoutes: FastifyPluginAsync = async (app) => {
       code: state.code,
       title: state.title ?? '게임 방',
       status: state.status,
-      full: state.players.filter(p => !p.inAward && !p.left).length >= state.config.playerCountMax,
+      full: countSeatedPlayers(state) >= state.config.playerCountMax,
     };
     return reply.send(preview);
   });

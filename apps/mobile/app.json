@@ -10,7 +10,7 @@
     "ios": {
       "icon": "./assets/app-icons/04-shooting-star-symbol.png",
       "supportsTablet": false,
-      "bundleIdentifier": "com.sketchcatch.app",
+      "bundleIdentifier": "com.sketchcatch.ios",
       "usesAppleSignIn": true,
       "entitlements": {
         "com.apple.developer.applesignin": ["Default"]
@@ -19,7 +19,7 @@
       "infoPlist": {
         "ITSAppUsesNonExemptEncryption": false
       },
-      "appleTeamId": "8RB2KMFLF7"
+      "appleTeamId": "67ZA24MTS6"
     },
     "android": {
       "adaptiveIcon": {

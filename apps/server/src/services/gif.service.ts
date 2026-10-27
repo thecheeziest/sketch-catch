@@ -8,11 +8,12 @@ import {
   BRUSH_SPRITE,
   BULB_SPRITE,
   MODE2_REVEAL_DRAW_MS,
-  MODE2_REVEAL_HOLD_MS,
-  MODE2_REVEAL_LEAD_MS,
-  MODE2_REVEAL_WORD_MS,
+  MODE2_REVEAL_GUESS_LEAD,
+  MODE2_REVEAL_GUESS_MS,
+  MODE2_REVEAL_MOVE_MS,
+  MODE2_REVEAL_OWNER_LEAD_MS,
+  MODE2_REVEAL_TOP_LEAD,
   PALETTE_SPRITE,
-  QUESTION_SPRITE,
   buildRevealEntries,
   getSpritePixels,
   getSpriteSize,
@@ -34,8 +35,8 @@ const { GIFEncoder, quantize, applyPalette } = require('gifenc') as {
   applyPalette: (data: Uint8Array | Uint8ClampedArray, palette: number[][], format?: string) => Uint8Array;
 };
 
-// 정답 공개식을 앱 화면과 같은 구성(원조자 + 말풍선 / 스케치북 / 맞히는 사람 + 말풍선)으로 GIF에 담는다.
-// 타임라인은 앱 공개식과 같은 shared 상수를 쓴다.
+// 정답 공개식을 앱 화면과 같은 구성(그린 사람 + 말풍선 / 스케치북 / 맞히는 사람 + 말풍선)으로 GIF에 담는다.
+// 타임라인은 앱 공개식과 같은 shared 상수를 쓴다 (시트 사이 테두리 이동 대기는 GIF에 넣지 않는다).
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const FONT_PATH = path.join(__dirname, '../../assets/fonts/Galmuri11.ttf');
@@ -52,8 +53,6 @@ const COLORS = {
   PLACEHOLDER: '#4A3A5C',
 } as const;
 
-const LEAD_OWNER = '내가 그릴 그림은..';
-const LEAD_GUESSER = '이 그림은 아마..';
 const UNKNOWN_TEXT = '???';
 
 const BASE_WIDTH = 360;
@@ -157,6 +156,8 @@ type Scene = {
   guesser: { image: CharacterImage | null; text: string; icon: PixelSpriteData | null } | null;
 };
 
+type Palette = number[][];
+
 export async function revealToGif(opts: RevealToGifOptions): Promise<Buffer> {
   ensureFontRegistered();
 
@@ -171,61 +172,60 @@ export async function revealToGif(opts: RevealToGifOptions): Promise<Buffer> {
     const player = opts.players.find(p => p.id === userId);
     return player ? loadCharacter(player.characterId) : null;
   };
-  const owner = entries[0] ? await imageOf(entries[0].authorId) : null;
-  const ownerFullText = `${LEAD_OWNER} ${entries[0]?.text || UNKNOWN_TEXT}!`;
 
   let frameIndex = 0;
-  const write = (scene: Omit<Scene, 'owner' | 'sway'>, delay: number): void => {
-    renderScene(ctx, layout, { ...scene, owner, sway: frameIndex % 4 < 2 ? -1 : 1 });
-    writeCanvasFrame(enc, ctx, layout.width, layout.height, delay);
+  // palette를 넘기면 프레임마다 색을 다시 뽑지 않는다 — 양자화가 GIF 생성 시간의 대부분이다
+  const write = (scene: Omit<Scene, 'sway'>, delay: number, palette?: Palette): void => {
+    renderScene(ctx, layout, { ...scene, sway: frameIndex % 4 < 2 ? -1 : 1 });
+    writeCanvasFrame(enc, ctx, layout.width, layout.height, delay, palette);
     frameIndex += 1;
   };
 
   for (const [index, entry] of entries.entries()) {
-    const word = entry.text || UNKNOWN_TEXT;
-    const previous = entries[index - 1]?.strokes ?? [];
-    const guesserImage = entry.isOwner ? null : await imageOf(entry.authorId);
-    const guesserFull = entry.isOwner ? null : { image: guesserImage, text: `${LEAD_GUESSER} ${word}!`, icon: null };
+    const owner = await imageOf(entry.authorId);
+    const ownerText = `${MODE2_REVEAL_TOP_LEAD} ${entry.text || UNKNOWN_TEXT}!`;
+    const next = entries[index + 1];
+    const nextGuesser = next
+      ? {
+          image: await imageOf(next.authorId),
+          text: `${MODE2_REVEAL_GUESS_LEAD} ${next.text || UNKNOWN_TEXT}!`,
+          icon: BULB_SPRITE,
+        }
+      : null;
+    const base = { owner, ownerText, guesser: null };
 
-    // ① 앞말 → ② 단어 공개 (맞히는 사람 차례에는 직전 그림을 보며 추측한다)
-    if (entry.isOwner) {
-      write({ ownerText: LEAD_OWNER, strokes: [], emptySketch: false, guesser: null }, MODE2_REVEAL_LEAD_MS);
-      write({ ownerText: ownerFullText, strokes: [], emptySketch: false, guesser: null }, MODE2_REVEAL_WORD_MS);
-    } else {
-      const base = { ownerText: ownerFullText, strokes: previous, emptySketch: previous.length === 0 };
-      write(
-        { ...base, guesser: { image: guesserImage, text: LEAD_GUESSER, icon: QUESTION_SPRITE } },
-        MODE2_REVEAL_LEAD_MS,
-      );
-      write(
-        { ...base, guesser: { image: guesserImage, text: guesserFull!.text, icon: BULB_SPRITE } },
-        MODE2_REVEAL_WORD_MS,
-      );
-    }
+    // ① 상단 앞말 (원조자는 읽을 시간을 주고, 이후 사람은 하단에서 올라온 뒤 바로 그린다)
+    write(
+      { ...base, strokes: [], emptySketch: false },
+      index === 0 ? MODE2_REVEAL_OWNER_LEAD_MS : MODE2_REVEAL_MOVE_MS,
+    );
 
-    // ③ 스케치 과정 재생 → ④ 여운
+    // ② 스케치 과정 재생 → ③ 다음 사람이 정답을 말함 (마지막 그림은 완성 장면 유지)
     if (entry.strokes.length === 0) {
-      write(
-        { ownerText: ownerFullText, strokes: [], emptySketch: true, guesser: guesserFull },
-        MODE2_REVEAL_DRAW_MS + MODE2_REVEAL_HOLD_MS,
-      );
+      write({ ...base, strokes: [], emptySketch: true }, MODE2_REVEAL_DRAW_MS);
+      write({ ...base, strokes: [], emptySketch: true, guesser: nextGuesser }, MODE2_REVEAL_GUESS_MS);
       continue;
     }
+    const finalScene = { ...base, strokes: entry.strokes, emptySketch: false };
+    const palette = scenePalette(ctx, layout, { ...finalScene, sway: 0 });
     const timeline = getStrokeTimeline(entry.strokes);
     const frameCount = Math.max(1, Math.ceil(MODE2_REVEAL_DRAW_MS / (1000 / fps)));
     const frameDelay = Math.round(MODE2_REVEAL_DRAW_MS / frameCount);
     for (let frame = 0; frame < frameCount; frame++) {
       const strokes = sliceStrokesAt(entry.strokes, timeline, (frame + 1) / frameCount);
-      write({ ownerText: ownerFullText, strokes, emptySketch: false, guesser: guesserFull }, frameDelay);
+      write({ ...base, strokes, emptySketch: false }, frameDelay, palette);
     }
-    write(
-      { ownerText: ownerFullText, strokes: entry.strokes, emptySketch: false, guesser: guesserFull },
-      MODE2_REVEAL_HOLD_MS,
-    );
+    write({ ...finalScene, guesser: nextGuesser }, MODE2_REVEAL_GUESS_MS);
   }
 
   enc.finish();
   return Buffer.from(enc.bytes());
+}
+
+// 그림이 다 그려진 장면의 색으로 재생 프레임 전체의 palette를 만든다 (중간 프레임 색은 완성 장면의 부분집합)
+function scenePalette(ctx: SKRSContext2D, layout: Layout, scene: Scene): Palette {
+  renderScene(ctx, layout, scene);
+  return quantize(ctx.getImageData(0, 0, layout.width, layout.height).data, 256);
 }
 
 // Pitfall 2 스모크 테스트 전용 디버그 헬퍼 — GIF 인코딩 없이 말풍선 글자 픽셀만 확인
@@ -249,9 +249,10 @@ function writeCanvasFrame(
   width: number,
   height: number,
   delay: number,
+  sharedPalette?: Palette,
 ): void {
   const { data } = ctx.getImageData(0, 0, width, height);
-  const palette = quantize(data, 256);
+  const palette = sharedPalette ?? quantize(data, 256);
   const indexed = applyPalette(data, palette);
   enc.writeFrame(indexed, width, height, { palette, delay });
 }

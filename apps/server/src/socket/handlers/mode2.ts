@@ -11,6 +11,7 @@ import type {
   Stroke,
 } from '@sketch-catch/shared';
 import {
+  MODE2_ANSWER_CUE_MS,
   MODE2_ANSWER_SEC,
   MODE2_DRAW_CUE_MS,
   MODE2_DRAW_SEC,
@@ -83,10 +84,15 @@ function durationSecForPhase(phase: Mode2Phase): number {
   return MODE2_ANSWER_SEC;
 }
 
-// DRAW는 '그려 주세요' 안내가 끝난 뒤부터 제한 시간이 흐른다
+// DRAW·ANSWER는 '그려 주세요' / '그림을 맞혀주세요' 안내가 끝난 뒤부터 제한 시간이 흐른다
+function cueMsForPhase(phase: Mode2Phase): number {
+  if (phase === 'DRAW') return MODE2_DRAW_CUE_MS;
+  if (phase === 'ANSWER') return MODE2_ANSWER_CUE_MS;
+  return 0;
+}
+
 function stepDurationMs(phase: Mode2Phase): number {
-  const cueMs = phase === 'DRAW' ? MODE2_DRAW_CUE_MS : 0;
-  return cueMs + durationSecForPhase(phase) * 1000;
+  return cueMsForPhase(phase) + durationSecForPhase(phase) * 1000;
 }
 
 export function isMode2Active(status: RoomStatus): boolean {
@@ -113,7 +119,8 @@ function buildStepPayloads(state: RoomState, current: Mode2Current): Mode2Step[]
   const totalSteps = finalStepForPlayerCount(players.length) + 1;
   const elapsedMs = Date.now() - current.startedAt;
   const remainingMs = Math.max(0, stepDurationMs(current.phase) - elapsedMs);
-  const cueMs = current.phase === 'DRAW' ? Math.max(0, MODE2_DRAW_CUE_MS - elapsedMs) : undefined;
+  const cueTotalMs = cueMsForPhase(current.phase);
+  const cueMs = cueTotalMs > 0 ? Math.max(0, cueTotalMs - elapsedMs) : undefined;
   return current.sheets.map(sheet => {
     const assignee = currentAssignee(players, sheet.ownerIndex, current.step);
     return {

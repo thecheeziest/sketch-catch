@@ -14,6 +14,10 @@ import gameover from '@assets/audio/gameover.wav';
 import fanfare from '@assets/audio/fanfare.wav';
 import splashWhoosh from '@assets/audio/splash-whoosh.wav';
 import splashJingle from '@assets/audio/splash-jingle.wav';
+import coinRain from '@assets/audio/coin-rain.wav';
+import coinRainTail from '@assets/audio/coin-rain-tail.wav';
+import curtainClose from '@assets/audio/curtain-close.wav';
+import curtainOpen from '@assets/audio/curtain-open.wav';
 import home from '@assets/audio/bgm-home.m4a';
 import lobby from '@assets/audio/bgm-lobby.m4a';
 import classic from '@assets/audio/bgm-classic.m4a';
@@ -38,13 +42,18 @@ export const soundSources = {
   fanfare,
   splashWhoosh,
   splashJingle,
+  coinRain,
+  coinRainTail,
+  curtainClose,
+  curtainOpen,
 };
 export const musicSources = { home, lobby, classic, relay, review, award };
 export type MusicScene = keyof typeof musicSources;
 type Haptic = 'light' | 'soft' | 'selection' | 'success' | 'error' | 'warning' | 'heavy' | 'tvOn' | 'tvOff';
 type FeedbackDefinition = {
   sound: keyof typeof soundSources;
-  channel: 'ui' | 'game' | 'tv';
+  channel: 'ui' | 'game' | 'tv' | 'transition';
+  loop?: boolean;
   priority: number;
   duration: number;
   haptic?: Haptic;
@@ -69,6 +78,10 @@ const durations = {
   fanfare: 1600,
   splashWhoosh: 360,
   splashJingle: 1000,
+  coinRain: 560,
+  coinRainTail: 796,
+  curtainClose: 650,
+  curtainOpen: 650,
 };
 const ui = (sound: keyof typeof soundSources, haptic: Haptic = 'light'): FeedbackDefinition => ({
   sound,
@@ -89,6 +102,10 @@ const action = (sound: keyof typeof soundSources, haptic: Haptic = 'light'): Fee
 });
 
 export const feedbackDefinitions = {
+  coinRain: { sound: 'coinRain', channel: 'transition', priority: 3, duration: Infinity, loop: true },
+  coinRainTail: { sound: 'coinRainTail', channel: 'transition', priority: 3, duration: 796 },
+  curtainClose: { sound: 'curtainClose', channel: 'transition', priority: 3, duration: 650 },
+  curtainOpen: { sound: 'curtainOpen', channel: 'transition', priority: 3, duration: 650 },
   tap: ui('tap'),
   select: ui('select', 'selection'),
   cancel: ui('cancel', 'soft'),

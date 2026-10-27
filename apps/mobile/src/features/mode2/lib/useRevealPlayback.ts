@@ -1,107 +1,96 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import {
+  MODE2_REVEAL_GUESS_LEAD,
+  MODE2_REVEAL_TOP_LEAD,
   buildRevealEntries,
+  getRevealPosition,
+  getSheetRevealDurationMs,
   getStrokeTimeline,
   sliceStrokesAt,
   type Mode2ReviewState,
   type Mode2RevealEntry,
+  type RevealPhase,
   type Stroke,
 } from '@sketch-catch/shared';
-import { getEntryTiming, getReplayDurationMs, getReplayPosition, typeText, type RevealPhase } from './revealTimeline';
+import { typeText } from './revealTimeline';
 
-export const LEAD_OWNER = '내가 그릴 그림은..';
-export const LEAD_GUESSER = '이 그림은 아마..';
 const UNKNOWN_WORD = '???';
 // 스케치 재생 중 화면 갱신 간격 — 30fps면 손으로 그리는 느낌으로 충분하다
 const FRAME_INTERVAL_MS = 33;
+const NO_STROKES: Stroke[] = [];
 
 export type RevealGuesserScene = { authorId: string; text: string; icon: 'question' | 'bulb' };
 
 export type RevealScene = {
-  sheetIndex: number;
-  ownerId: string | null;
-  ownerText: string;
+  entryIndex: number;
+  painterId: string | null;
+  painterText: string;
   strokes: Stroke[];
   guesser: RevealGuesserScene | null;
   phase: RevealPhase;
 };
 
-// active 동안 현재 시각을 갱신한다 (끝나면 멈춰 배터리를 아낀다).
-// rAF는 120Hz 기기에서 초당 120번 깨어나 걸러내야 하므로, 필요한 간격으로만 깨우는 interval을 쓴다
-function useClock(active: boolean): number {
-  const [now, setNow] = useState(() => Date.now());
-  useEffect(() => {
-    if (!active) return;
-    setNow(Date.now());
-    const timer = setInterval(() => setNow(Date.now()), FRAME_INTERVAL_MS);
-    return () => clearInterval(timer);
-  }, [active]);
-  return now;
-}
+// 재생할 시트 1장과 그 시트가 시작된 기기 시각 (-Infinity면 완성 장면에 멈춘다)
+export type RevealSheetPlayback = { sheetIndex: number; startedAt: number };
 
 function wordOf(entry: Mode2RevealEntry | undefined): string {
   return `${entry?.text || UNKNOWN_WORD}!`;
 }
 
 function playStrokes(entry: Mode2RevealEntry | undefined, progress: number): Stroke[] {
-  if (!entry) return [];
+  if (!entry) return NO_STROKES;
   return sliceStrokesAt(entry.strokes, getStrokeTimeline(entry.strokes), progress);
 }
 
-function buildScene(
-  sheetIndex: number,
-  ownerId: string | null,
-  entries: Mode2RevealEntry[],
-  entryIndex: number,
-  elapsedMs: number,
-): RevealScene {
-  const { phase, progress } = getEntryTiming(elapsedMs);
+// 상단: 지금 그린 사람이 "내가 그린 그림은.. {단어}!" → 그림 재생 → 하단: 다음 사람이 "이 그림은.. {정답}!" → 다음 사람이 상단으로
+function buildScene(entries: Mode2RevealEntry[], sheetElapsedMs: number): RevealScene {
+  const { entryIndex, phase, progress } = getRevealPosition(sheetElapsedMs, entries.length);
   const entry = entries[entryIndex];
-  const ownerFull = `${LEAD_OWNER} ${wordOf(entries[0])}`;
+  const next = entries[entryIndex + 1];
+  const painterFull = `${MODE2_REVEAL_TOP_LEAD} ${wordOf(entry)}`;
+  const base = { entryIndex, painterId: entry?.authorId ?? null, phase };
 
-  if (entryIndex === 0) {
-    const ownerText = (() => {
-      if (phase === 'wait') return '';
-      if (phase === 'lead') return typeText(LEAD_OWNER, progress);
-      if (phase === 'word') return `${LEAD_OWNER} ${typeText(wordOf(entry), progress)}`;
-      return ownerFull;
-    })();
-    const strokes = (() => {
-      if (phase === 'draw') return playStrokes(entry, progress);
-      if (phase === 'hold') return entry?.strokes ?? [];
-      return [];
-    })();
-    return { sheetIndex, ownerId, ownerText, strokes, guesser: null, phase };
-  }
+  if (phase === 'wait') return { ...base, painterText: '', strokes: NO_STROKES, guesser: null };
+  // 원조자만 앞말을 타이핑하고, 하단에서 올라온 사람은 방금 말한 정답을 그대로 들고 온다
+  const painterText = phase === 'lead' && entryIndex === 0 ? typeText(painterFull, progress) : painterFull;
+  if (phase === 'lead') return { ...base, painterText, strokes: NO_STROKES, guesser: null };
+  if (phase === 'draw') return { ...base, painterText, strokes: playStrokes(entry, progress), guesser: null };
 
-  // 맞히는 사람은 직전 그림을 보며 추측하고, 단어가 다 나온 뒤 자기 그림을 처음부터 그려 보인다
-  const previous = entries[entryIndex - 1];
-  const strokes = (() => {
-    if (phase === 'draw') return playStrokes(entry, progress);
-    if (phase === 'hold') return entry?.strokes ?? [];
-    return previous?.strokes ?? [];
-  })();
-  const guesserText = (() => {
-    if (phase === 'lead' || phase === 'wait') return typeText(LEAD_GUESSER, phase === 'wait' ? 0 : progress);
-    if (phase === 'word') return `${LEAD_GUESSER} ${typeText(wordOf(entry), progress)}`;
-    return `${LEAD_GUESSER} ${wordOf(entry)}`;
-  })();
-  const icon = phase === 'lead' || phase === 'wait' ? 'question' : 'bulb';
+  const guessText = typeText(`${MODE2_REVEAL_GUESS_LEAD} ${wordOf(next)}`, progress);
+  const icon = Array.from(guessText).length <= Array.from(MODE2_REVEAL_GUESS_LEAD).length ? 'question' : 'bulb';
   return {
-    sheetIndex,
-    ownerId,
-    ownerText: ownerFull,
-    strokes,
-    guesser: entry ? { authorId: entry.authorId, text: guesserText, icon } : null,
-    phase,
+    ...base,
+    painterText,
+    strokes: entry?.strokes ?? NO_STROKES,
+    guesser: next ? { authorId: next.authorId, text: guessText, icon } : null,
   };
 }
 
-type Replay = { sheetIndex: number; startedAt: number };
+/**
+ * 시트 1장의 장면 — 재생 중에만 시계를 돌린다. 화면 전체가 아니라 재생 영역 컴포넌트에서만 호출해
+ * 30fps 갱신이 채팅 입력 등 다른 UI를 다시 그리지 않게 한다.
+ */
+export function useRevealScene(entries: Mode2RevealEntry[], startedAt: number): RevealScene {
+  const endsAt = startedAt + getSheetRevealDurationMs(entries.length);
+  const [now, setNow] = useState(Date.now);
 
-// 실시간 공개식(서버 진행)과 종료 후 다시 보기(기기 단독 재생)를 같은 장면 계산으로 그린다
-export function useRevealPlayback(review: Mode2ReviewState | null, liveEntryStartAt: number | null) {
-  const [replay, setReplay] = useState<Replay | null>(null);
+  useEffect(() => {
+    setNow(Date.now());
+    if (Date.now() >= endsAt) return undefined;
+    const timer = setInterval(() => {
+      const t = Date.now();
+      setNow(t);
+      if (t >= endsAt) clearInterval(timer);
+    }, FRAME_INTERVAL_MS);
+    return () => clearInterval(timer);
+  }, [endsAt]);
+
+  return buildScene(entries, now - startedAt);
+}
+
+// 실시간 공개식(서버가 시트 단위로 진행)과 종료 후 다시 보기(기기 단독 재생) 중 지금 보여 줄 시트를 고른다
+export function useRevealPlayback(review: Mode2ReviewState | null, liveSheetStartAt: number | null) {
+  const [replay, setReplay] = useState<RevealSheetPlayback | null>(null);
   const sheets = useMemo(() => review?.sheets ?? [], [review?.sheets]);
   const entriesBySheet = useMemo(
     () => sheets.map(sheet => buildRevealEntries(sheet.steps.map(step => step.content))),
@@ -116,43 +105,12 @@ export function useRevealPlayback(review: Mode2ReviewState | null, liveEntryStar
     if (isLive) setReplay(null);
   }, [isLive]);
 
-  const replayEntries = replay ? (entriesBySheet[replay.sheetIndex] ?? []) : [];
-  const [replayClockActive, setReplayClockActive] = useState(false);
-  const now = useClock(isLive || replayClockActive);
-
-  useEffect(() => {
-    if (!replay) {
-      setReplayClockActive(false);
-      return;
-    }
-    setReplayClockActive(true);
-    const remaining = replay.startedAt + getReplayDurationMs(replayEntries.length) - Date.now();
-    const timer = setTimeout(() => setReplayClockActive(false), Math.max(0, remaining) + 100);
-    return () => clearTimeout(timer);
-  }, [replay, replayEntries.length]);
-
-  const scene = ((): RevealScene | null => {
+  const playback = ((): RevealSheetPlayback | null => {
     if (sheets.length === 0) return null;
-    if (live) {
-      const entries = entriesBySheet[live.sheetIndex] ?? [];
-      const ownerId = sheets[live.sheetIndex]?.ownerId ?? null;
-      return buildScene(live.sheetIndex, ownerId, entries, live.entryIndex, now - (liveEntryStartAt ?? now));
-    }
-    if (replay) {
-      const position = getReplayPosition(now - replay.startedAt, replayEntries.length);
-      const ownerId = sheets[replay.sheetIndex]?.ownerId ?? null;
-      return buildScene(replay.sheetIndex, ownerId, replayEntries, position.entryIndex, position.entryElapsed);
-    }
+    if (live) return { sheetIndex: live.sheetIndex, startedAt: liveSheetStartAt ?? Number.NEGATIVE_INFINITY };
+    if (replay) return replay;
     // 실시간 발표가 끝난 직후 — 마지막 시트의 완성 장면을 유지한다
-    const lastIndex = sheets.length - 1;
-    const entries = entriesBySheet[lastIndex] ?? [];
-    return buildScene(
-      lastIndex,
-      sheets[lastIndex]?.ownerId ?? null,
-      entries,
-      Math.max(0, entries.length - 1),
-      Number.POSITIVE_INFINITY,
-    );
+    return { sheetIndex: sheets.length - 1, startedAt: Number.NEGATIVE_INFINITY };
   })();
 
   const startReplay = useCallback(
@@ -163,5 +121,5 @@ export function useRevealPlayback(review: Mode2ReviewState | null, liveEntryStar
     [isFinished],
   );
 
-  return { scene, isLive, isFinished, startReplay };
+  return { playback, entriesBySheet, isLive, isFinished, startReplay };
 }

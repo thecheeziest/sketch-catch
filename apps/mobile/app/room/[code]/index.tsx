@@ -102,11 +102,11 @@ export default function LobbyScreen() {
     (screenWidth - spacing.MD * 2 - spacing.XS * 2 * numColumns - spacing.SM * (numColumns - 1)) / numColumns,
   );
 
-  // 시상식에 남은 방장은 흐리게 표시해 슬롯에 남긴다 (재촉하기 대상)
-  const connectedPlayers = roomState?.players.filter(p => !p.inAward || p.id === roomState.hostId) ?? [];
+  // 게임 순서(slot)대로 앉힌다 — 시상식에 남은 사람도 [시상 중..]으로 자기 자리를 지킨다 (방장은 재촉하기 대상)
+  const seatedPlayers = [...(roomState?.players ?? [])].filter(p => !p.left).sort((a, b) => a.slot - b.slot);
   const slots: SlotItem[] = [
-    ...connectedPlayers,
-    ...Array<null>(Math.max(0, maxPlayers - connectedPlayers.length)).fill(null),
+    ...seatedPlayers,
+    ...Array<null>(Math.max(0, maxPlayers - seatedPlayers.length)).fill(null),
   ];
 
   const me = roomState?.players.find(p => p.id === myId);

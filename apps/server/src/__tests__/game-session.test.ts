@@ -1,9 +1,10 @@
 // 배포 테스트에서 발견된 동시성·게임 세션 문제의 재현 테스트 (docs/RELEASE_QA_ISSUES.md A-1~A-5, R1~R9)
 // rooms.service는 Redis 대신 JSON 직렬화 Map으로 흉내 내고, 핸들러·작업 줄·타이머 레지스트리는 실제 코드를 사용한다.
 import { describe, it, vi, expect, beforeEach, afterEach } from 'vitest';
-import type { RoomState, Player, Mode1RoundCurrent, Mode2ReviewState } from '@sketch-catch/shared';
+import type { RoomState, Player, Mode1RoundCurrent, Mode2ReviewSheet } from '@sketch-catch/shared';
 
 const store = vi.hoisted(() => new Map<string, string>());
+const reviewStore = vi.hoisted(() => new Map<string, Mode2ReviewSheet[]>());
 
 vi.mock('../services/rooms.service.js', () => ({
   getRoomState: vi.fn(async (code: string) => {
@@ -44,7 +45,16 @@ vi.mock('../db/prisma.js', () => ({
   },
 }));
 vi.mock('../socket/presence.namespace.js', () => ({ broadcastPresenceUpdate: vi.fn() }));
-vi.mock('../services/replay.service.js', () => ({ generateSheetGifs: vi.fn().mockResolvedValue(undefined) }));
+vi.mock('../services/replay.service.js', () => ({ saveReplays: vi.fn().mockResolvedValue(undefined) }));
+vi.mock('../services/reviewStore.js', () => ({
+  saveReviewSheets: vi.fn(async (code: string, sheets: Mode2ReviewSheet[]) => {
+    reviewStore.set(code, JSON.parse(JSON.stringify(sheets)) as Mode2ReviewSheet[]);
+  }),
+  getReviewSheets: vi.fn(async (code: string) => reviewStore.get(code) ?? null),
+  clearReviewSheets: vi.fn(async (code: string) => {
+    reviewStore.delete(code);
+  }),
+}));
 vi.mock('../socket/handlers/coinReward.js', () => ({
   settleMode1Rewards: vi.fn().mockResolvedValue(undefined),
   settleMode2Rewards: vi.fn().mockResolvedValue(undefined),
@@ -705,9 +715,11 @@ describe('모드2 콘텐츠 전달', () => {
       }
     }
     expect(readState().status).toBe('MODE2_REVIEW');
-    const review = readState().current as Mode2ReviewState;
-    expect(review.sheets).toHaveLength(4);
-    for (const sheet of review.sheets) {
+    // 그림이 든 시트는 방 상태가 아니라 공개식 저장소에 따로 있다 (room:state를 가볍게 유지)
+    expect(JSON.stringify(readState().current)).not.toContain('strokes');
+    const sheets = reviewStore.get(CODE) ?? [];
+    expect(sheets).toHaveLength(4);
+    for (const sheet of sheets) {
       expect(sheet.steps.map(step => step.content.kind)).toEqual([
         'PROMPT',
         'DRAW',
@@ -726,6 +738,62 @@ describe('모드2 콘텐츠 전달', () => {
         ],
       });
     }
+  });
+});
+
+describe('다시하기 대기실 순서', () => {
+  beforeEach(() => {
+    store.clear();
+    vi.useFakeTimers();
+  });
+  afterEach(() => {
+    clearRoomTimers(CODE);
+    vi.useRealTimers();
+  });
+
+  const slotOrder = () => [...readState().players].sort((a, b) => a.slot - b.slot).map(p => `${p.id}:${p.slot}`);
+
+  it('시상식에서 나가면 그 자리를 지우고 뒷사람이 한 칸씩 당겨지며, 새로 들어온 사람은 맨 뒤에 선다', async () => {
+    seedLobby({
+      players: [makePlayer('A', 0), makePlayer('B', 1), makePlayer('C', 2, { inAward: true }), makePlayer('D', 3)],
+    });
+    const ns = makeNamespace();
+
+    await runInRoom(CODE, () => handleRoomLeave(ns as never, makeSocket('C')));
+    expect(slotOrder()).toEqual(['A:0', 'B:1', 'D:2']);
+
+    await handleRoomJoin(ns as never, makeSocket('E', []) as never, CODE);
+    expect(slotOrder()).toEqual(['A:0', 'B:1', 'D:2', 'E:3']);
+  });
+
+  it('시상식에 남은 사람은 연결이 잠깐 끊겨도 자리를 지키고, 돌아오면 원래 순서로 대기실에 들어온다', async () => {
+    seedLobby({
+      players: [makePlayer('A', 0), makePlayer('B', 1), makePlayer('C', 2, { inAward: true }), makePlayer('D', 3)],
+    });
+    const ns = makeNamespace();
+
+    await runInRoom(CODE, () => handleRoomLeave(ns as never, makeSocket('C'), undefined, { graceful: true }));
+    expect(readState().players.find(p => p.id === 'C')).toMatchObject({ slot: 2, connected: false, inAward: true });
+
+    await handleRoomJoin(ns as never, makeSocket('C', []) as never, CODE, true);
+    await runInRoom(CODE, () => handleRematch(ns as never, makeSocket('C') as never, CODE));
+    expect(slotOrder()).toEqual(['A:0', 'B:1', 'C:2', 'D:3']);
+    expect(readState().players.find(p => p.id === 'C')).toMatchObject({ connected: true });
+    expect(readState().players.find(p => p.id === 'C')?.inAward).toBeFalsy();
+  });
+
+  it('정원은 시상식에 남은 사람의 자리까지 센다', async () => {
+    seedLobby({
+      players: [makePlayer('A', 0), makePlayer('B', 1), makePlayer('C', 2, { inAward: true }), makePlayer('D', 3)],
+      config: { roundCount: 1, drawTimer: 30, answerTimer: 10, categories: ['ANIMAL'], playerCountMax: 4 },
+    });
+    const ns = makeNamespace();
+    const socket = makeSocket('E', []);
+
+    await handleRoomJoin(ns as never, socket as never, CODE);
+
+    expect(socket.emit).toHaveBeenCalledWith('error', expect.objectContaining({ code: 'ROOM_FULL' }));
+    expect(readState().players.map(p => p.id)).not.toContain('E');
   });
 });
 

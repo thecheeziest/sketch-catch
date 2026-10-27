@@ -105,6 +105,7 @@ export function CoinRainTransition({ startCovered, ready, onCovered, onDone, chi
   const picture = useMemo(createCoinPicture, []);
   const coins = useMemo(() => createCoinSpecs(width), [width]);
   const progress = useCoverTransition({
+    sound: 'coins',
     coverMs: COVER_MS,
     holdMs: 0,
     revealMs: REVEAL_MS,

@@ -4,7 +4,13 @@ import { randomUUID } from 'node:crypto';
 import { isGameInProgressStatus, MODE2_PLAYER_MIN, ROOM_PLAYER_MIN, SERVER_EVENT } from '@sketch-catch/shared';
 import { getRoomState, saveRoomState, withRoomLock } from '../../services/rooms.service.js';
 import { PLAYER_PROFILE_SELECT } from '../../lib/playerProfile.js';
-import { computeAllReady, ensureHost, transferHost } from '../../services/roomRules.js';
+import {
+  compactSlots,
+  computeAllReady,
+  countSeatedPlayers,
+  ensureHost,
+  transferHost,
+} from '../../services/roomRules.js';
 import { setPresence, setUserRoom, clearUserRoom, getUserRoom } from '../../db/redis.js';
 import { broadcastPresenceUpdate } from '../presence.namespace.js';
 import { prisma } from '../../db/prisma.js';
@@ -76,7 +82,7 @@ export async function handleRoomJoin(
         return { ok: false, code: 'GAME_IN_PROGRESS', message: '이미 게임이 한창이에요!' };
       }
       // 인원 초과 검사
-      if (state.players.filter(p => !p.inAward).length >= state.config.playerCountMax) {
+      if (countSeatedPlayers(state) >= state.config.playerCountMax) {
         return { ok: false, code: 'ROOM_FULL', message: '방이 꽉 찼어요!' };
       }
 
@@ -130,7 +136,7 @@ export async function handleRoomJoin(
   if (isMode2Active(state.status)) {
     resendCurrentStep(socket, state, userId);
   }
-  resendReview(socket, state);
+  await resendReview(socket, state);
   // 모드1도 동일 — 진행 중 라운드를 이 소켓에만 재전송 (첫 round:start 유실로 화면이 멈추던 문제)
   resendCurrentRound(socket, state, userId);
   // 끊겨 있던 동안의 채팅·그림 — 라운드 재전송 뒤에 보내야 새 라운드 캔버스를 비운 다음 채워진다
@@ -210,6 +216,7 @@ export async function handleRoomStart(game: GameNamespace, socket: GameSocket): 
   const stayingViewers = state.players.filter(p => p.inAward && !p.left);
   state.awardViewers = [...(state.awardViewers ?? []), ...stayingViewers];
   state.players = state.players.filter(p => !p.inAward && !p.left);
+  compactSlots(state);
 
   // 게임 1판의 식별자 발급 — 이후 타이머·이벤트는 이 값으로 지난 게임과 구분된다
   state.gameId = randomUUID();
@@ -240,12 +247,13 @@ export async function handleRoomStart(game: GameNamespace, socket: GameSocket): 
   activePlayers.forEach(p => broadcastPresenceUpdate(p.id, 'IN_GAME'));
 }
 
-// 게임 중 연결이 끊긴 유저는 바로 퇴장시키지 않고 자리를 잠시 비워 둔다 (앱 백그라운드 등).
+// 게임·시상식 중 연결이 끊긴 유저는 바로 퇴장시키지 않고 자리를 잠시 비워 둔다 (앱 백그라운드 등).
+// 시상식에서 나가기를 누르지 않았다면 대기실 순서도 그대로 지켜야 한다.
 // 유예 시간 안에 재입장하면 이어서 하고, 지나면 expireGraceLeave가 퇴장 처리한다. 자리를 비워 뒀으면 true
 function holdSeat(state: RoomState, userId: string): boolean {
-  if (!isGameInProgressStatus(state.status)) return false;
   const player = state.players.find(p => p.id === userId && !p.left);
   if (!player) return false;
+  if (!isGameInProgressStatus(state.status) && player.inAward !== true) return false;
   player.connected = false;
   return true;
 }
@@ -284,9 +292,10 @@ async function leaveRoom(game: GameNamespace, code: string, userId: string, stat
     return;
   }
 
-  // 로비/시상식: 즉시 제거
+  // 로비/시상식: 즉시 제거하고 뒷사람들을 한 칸씩 당긴다
   const departed = state.players.filter(p => p.id === userId);
   state.players = state.players.filter(p => p.id !== userId);
+  compactSlots(state);
 
   if (state.players.every(p => p.left)) {
     await destroyRoom(code);

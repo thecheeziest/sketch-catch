@@ -96,9 +96,9 @@ export type Mode2Step = {
     { kind: 'TEXT'; text: string } | { kind: 'DRAW'; strokes: Stroke[] };
   durationSec: number;
   // 마감까지 남은 시간 (전송 시점 기준). 기기 시계 차이에 흔들리지 않도록 절대 시각 대신 상대값을 보낸다.
-  // DRAW 단계는 '그려 주세요' 안내 시간(cueMs)이 앞에 포함된다
+  // DRAW·ANSWER 단계는 시작 안내 시간(cueMs)이 앞에 포함된다
   remainingMs: number;
-  cueMs?: number; // DRAW 단계 시작 안내 노출 시간 중 남은 시간
+  cueMs?: number; // DRAW·ANSWER 단계 시작 안내 노출 시간 중 남은 시간
   totalSteps: number; // = 2N (참가자마다 정답(원조자는 제시어) + 그림)
 };
 
@@ -108,13 +108,19 @@ export type Mode2ReviewSheet = {
   steps: Array<{ stepIndex: number; phase: Mode2Phase; authorId: string; content: Mode2StepContent }>;
 };
 
-// 실시간 정답 공개식에서 지금 발표 중인 위치. leadMs는 이 발표가 시작되기까지 남은 대기 시간
-// (새 시트의 첫 발표는 상단 테두리가 옮겨 가는 MODE2_REVEAL_SHEET_GAP_MS만큼 늦게 시작한다)
-export type Mode2RevealLive = { sheetIndex: number; entryIndex: number; leadMs: number; elapsedMs: number };
+// 실시간 정답 공개식에서 지금 발표 중인 시트와 그 시트가 시작된 뒤 지난 시간.
+// 시트 안의 발표 순서·단계는 기기가 getRevealPosition으로 직접 계산한다 (서버 신호를 기다리지 않는다)
+export type Mode2RevealLive = { sheetIndex: number; elapsedMs: number };
 
-// 서버 → 클라이언트: 정답 공개식 진행 상태 (mode2:review). live=null이면 실시간 발표가 모두 끝난 상태
+// 서버 → 클라이언트: 정답 공개식 전체 (mode2:review). 시트 그림은 시작·재입장 때만 보낸다. live=null이면 발표 종료
 export type Mode2ReviewState = {
   gameId: string;
   sheets: Mode2ReviewSheet[];
+  live: Mode2RevealLive | null;
+};
+
+// 서버 → 클라이언트: 다음 시트로 넘어가거나 발표가 끝났을 때의 위치만 (mode2:review:live)
+export type Mode2ReviewLiveUpdate = {
+  gameId: string;
   live: Mode2RevealLive | null;
 };

@@ -1,6 +1,8 @@
 import { FeedbackPressable } from '@/shared/ui/FeedbackPressable';
 import { useMe } from '@/features/auth/api';
 import { useLogout } from '@/features/auth/lib';
+import { canIssueAppleMigrationCode } from '@/features/auth/config/appleMigration';
+import { AppleMigrationCodeDialog } from '@/features/auth/ui/AppleMigrationCodeDialog';
 import { useUnregisterPushToken } from '@/features/push/api/useUnregisterPushToken';
 import { usePushPreferenceStore } from '@/features/push/model/usePushPreferenceStore';
 import { DeleteAccountModal } from '@/features/profile/ui';
@@ -20,6 +22,7 @@ export default function SettingsScreen() {
   const logout = useLogout();
   const { data: user } = useMe();
   const [deleteOpen, setDeleteOpen] = useState(false);
+  const [migrationOpen, setMigrationOpen] = useState(false);
   const [notificationsGranted, setNotificationsGranted] = useState(true);
   const soundEnabled = useFeedbackStore(s => s.soundEnabled);
   const soundVolume = useFeedbackStore(s => s.soundVolume);
@@ -195,6 +198,9 @@ export default function SettingsScreen() {
                 }}
               />
               <Button label="회원 탈퇴" color="light" onPress={() => setDeleteOpen(true)} />
+              {canIssueAppleMigrationCode && user.provider === 'APPLE' && (
+                <Button label="Apple 계정 이전 코드" color="secondary" onPress={() => setMigrationOpen(true)} />
+              )}
             </>
           ) : (
             <Button
@@ -209,6 +215,7 @@ export default function SettingsScreen() {
         </View>
       </ScrollView>
       <DeleteAccountModal visible={deleteOpen} onClose={() => setDeleteOpen(false)} />
+      <AppleMigrationCodeDialog visible={migrationOpen} onClose={() => setMigrationOpen(false)} />
     </SafeAreaView>
   );
 }

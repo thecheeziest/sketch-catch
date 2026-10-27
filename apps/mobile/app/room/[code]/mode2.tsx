@@ -2,7 +2,7 @@ import { useCallback, useEffect, useState } from 'react';
 import { Alert, Keyboard, StyleSheet } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useLocalSearchParams, useRouter } from 'expo-router';
-import { CLIENT_EVENT, type Mode2Phase, type Stroke } from '@sketch-catch/shared';
+import { CLIENT_EVENT, MODE2_ANSWER_SEC, type Mode2Phase, type Stroke } from '@sketch-catch/shared';
 import { View } from 'dripsy';
 import { useHardwareBack } from '@/shared/lib';
 import { useTimerFeedback } from '@/shared/lib/useTimerFeedback';
@@ -85,7 +85,7 @@ export default function Mode2Screen() {
     useMode2Store.getState().setMyStrokes([]);
     if (step?.stepIndex === 0) setMyPrompt(null);
     const cueMs = (stepTiming?.cueUntil ?? 0) - Date.now();
-    setCueVisible(step?.phase === 'DRAW' && cueMs > 200);
+    setCueVisible((step?.phase === 'DRAW' || step?.phase === 'ANSWER') && cueMs > 200);
     // stepTiming은 같은 단계 재전송(재입장)에도 바뀌므로 단계 번호 기준으로만 초기화한다
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [stepKey]);
@@ -177,6 +177,10 @@ export default function Mode2Screen() {
     ) : undefined;
 
   const waitingText = WAITING_TEXT[step.phase];
+  // 단계 시작 안내 — 그리기는 그릴 단어, 정답은 그림이 도착했음을 알린다
+  const cueText = isAnswerInput
+    ? { word: '그림을 맞혀주세요!', message: `${MODE2_ANSWER_SEC}초 안에 정답을 입력해요` }
+    : { word: drawWord, message: '그려 주세요!' };
 
   return (
     <SafeAreaView
@@ -230,8 +234,8 @@ export default function Mode2Screen() {
               data={{
                 kind: 'cue',
                 id: `cue-${stepKey}`,
-                word: drawWord,
-                message: '그려 주세요!',
+                word: cueText.word,
+                message: cueText.message,
                 characterId: roomState?.players.find(p => p.id === myId)?.characterId ?? '',
                 durationMs: Math.max(0, stepTiming.cueUntil - Date.now()),
               }}
@@ -253,7 +257,7 @@ export default function Mode2Screen() {
             onSend={handleTextSubmit}
             onChangeText={handleTextChange}
             maxLength={MAX_TEXT_LENGTH}
-            disabled={showWaiting}
+            disabled={showWaiting || cueVisible}
             placeholder={submitted ? '제출 완료! 수정할 수 없어요' : '이 그림은 뭘까요?'}
           />
         )}

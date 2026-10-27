@@ -129,10 +129,11 @@ describe('게임 피드백 연결', () => {
     const review: Mode2ReviewState = {
       gameId: 'g1',
       sheets: [],
-      live: { sheetIndex: 0, entryIndex: 1, leadMs: 0, elapsedMs: 0 },
+      live: { sheetIndex: 0, elapsedMs: 0 },
     };
+    cue.mockClear();
     useMode2Store.setState({ review });
-    expect(cue).toHaveBeenLastCalledWith('frame', { key: 'g1:0:1:frame' });
+    expect(cue).not.toHaveBeenCalled();
     useMode2Store.setState({ review: { ...review, live: null } });
     expect(cue).toHaveBeenLastCalledWith('bestReveal', { key: 'g1:revealEnd' });
   });

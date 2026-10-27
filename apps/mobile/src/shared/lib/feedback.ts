@@ -298,6 +298,7 @@ export function playFeedback(name: FeedbackName, options: FeedbackOptions = {}):
   const result = channels.get('game');
   const covered = definition.channel === 'ui' && result && result.priority >= 8 && result.until > now;
   if (!covered && ready && player?.isLoaded && state.soundEnabled && state.soundVolume > 0) {
+    player.loop = definition.loop ?? false;
     player.volume = state.soundVolume * (definition.volume ?? 1);
     void player
       .seekTo(0)
@@ -323,10 +324,12 @@ export function playFeedback(name: FeedbackName, options: FeedbackOptions = {}):
     hapticTimers.push(setTimeout(emitHaptic, definition.hapticDelay ?? 0));
     if (definition.haptic === 'error') hapticTimers.push(setTimeout(emitHaptic, 110));
   }
-  const expiry = setTimeout(() => {
-    cancelled = true;
-    cancelHaptics();
-    if (channels.get(definition.channel) === entry) channels.delete(definition.channel);
-  }, definition.duration);
+  const expiry = Number.isFinite(definition.duration)
+    ? setTimeout(() => {
+        cancelled = true;
+        cancelHaptics();
+        if (channels.get(definition.channel) === entry) channels.delete(definition.channel);
+      }, definition.duration)
+    : undefined;
   return cancel;
 }

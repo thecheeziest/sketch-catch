@@ -6,10 +6,14 @@ import { Button, SketchbookLoadingSpinner, SocialButton } from '@/shared/ui'
 import { useKakaoLogin, useAppleLogin, useDevLogin, DEV_TEST_SLOTS, isAppleLoginCanceled } from '@/features/auth/lib'
 import { getErrorMessage } from '@/shared/lib'
 import { useToastStore } from '@/shared/model'
+import { useState } from 'react'
+import { canImportAppleAccount } from '@/features/auth/config/appleMigration'
+import { AppleMigrationLoginDialog } from '@/features/auth/ui/AppleMigrationLoginDialog'
 import { colors, icons, spacing, textSizes } from '@/shared/config'
 
 export default function LoginScreen() {
   const router = useRouter()
+  const [migrationOpen, setMigrationOpen] = useState(false)
   const { width: screenWidth } = useWindowDimensions()
   const logoWidth = (screenWidth - spacing.XL * 2) * 0.55
 
@@ -67,6 +71,15 @@ export default function LoginScreen() {
           />
         )}
         {/* 개발 빌드 전용 테스트 계정 로그인 — 릴리스 빌드에서는 렌더되지 않는다 */}
+        {canImportAppleAccount && (
+          <Button
+            label="기존 Apple 계정 가져오기"
+            color="dark"
+            height={40}
+            disabled={isLoggingIn}
+            onPress={() => setMigrationOpen(true)}
+          />
+        )}
         {__DEV__ && (
           <View sx={{ flexDirection: 'row', gap: spacing.XS }}>
             {DEV_TEST_SLOTS.map((slot) => (
@@ -94,6 +107,11 @@ export default function LoginScreen() {
           <Text sx={{ ...textSizes.B2, color: colors.LIGHT_100 }}>로그인하고 있어요...</Text>
         </View>
       )}
+      <AppleMigrationLoginDialog
+        visible={migrationOpen}
+        onClose={() => setMigrationOpen(false)}
+        onSuccess={handleLoginSuccess}
+      />
     </SafeAreaView>
   )
 }

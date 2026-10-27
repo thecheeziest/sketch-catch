@@ -8,6 +8,7 @@ import type {
   ChatMessage,
   Mode2Step,
   Mode2ReviewState,
+  Mode2ReviewLiveUpdate,
   CoinReward,
 } from '../types/game.js';
 import type { StrokeEvent } from '../types/stroke.js';
@@ -66,7 +67,7 @@ export type ServerEvents = {
   'answer:wrong': (payload: { messageId: string; roundIndex: number }) => void; // 오답 제출자 본인에게만 전달
   'mode2:step': (payload: Mode2Step) => void;
   'mode2:review': (payload: Mode2ReviewState) => void;
-  'cookie:ready': (payload: { sheetId: string; gifUrl: string }) => void;
+  'mode2:review:live': (payload: Mode2ReviewLiveUpdate) => void;
   error: (payload: { code: string; message: string }) => void;
 };
 
@@ -121,7 +122,7 @@ export const SERVER_EVENT = {
   ANSWER_WRONG: 'answer:wrong',
   MODE2_STEP: 'mode2:step',
   MODE2_REVIEW: 'mode2:review',
-  COOKIE_READY: 'cookie:ready',
+  MODE2_REVIEW_LIVE: 'mode2:review:live',
   ERROR: 'error',
 } as const satisfies Readonly<Record<string, keyof ServerEvents>>;
 

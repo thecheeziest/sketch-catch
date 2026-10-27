@@ -377,7 +377,7 @@ describe('socket room handlers', () => {
 
       await handleRoomLeave(game as any, socket as any);
 
-      expect(mockRedisDel).toHaveBeenCalledWith('room:ABC123:state', 'room:ABC123:password');
+      expect(mockRedisDel).toHaveBeenCalledWith('room:ABC123:state', 'room:ABC123:password', 'room:ABC123:review');
       expect(removeRoomFromIndex).toHaveBeenCalledWith('ABC123');
       // 빈 방에는 saveRoomState 호출 안 함
       expect(mockSaveRoomState).not.toHaveBeenCalled();

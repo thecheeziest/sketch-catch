@@ -23,15 +23,26 @@ model User {
   backgroundId      String?
   chatColorId       String?
 
-  friendsA     Friendship[]    @relation("FriendshipA")
-  friendsB     Friendship[]    @relation("FriendshipB")
-  sentRequests FriendRequest[] @relation("Sender")
-  recvRequests FriendRequest[] @relation("Receiver")
-  items        UserItem[]
-  coinLedger   CoinLedger[]
+  friendsA        Friendship[]    @relation("FriendshipA")
+  friendsB        Friendship[]    @relation("FriendshipB")
+  sentRequests    FriendRequest[] @relation("Sender")
+  recvRequests    FriendRequest[] @relation("Receiver")
+  items           UserItem[]
+  coinLedger      CoinLedger[]
+  appleIdentities AppleIdentity[]
 
   @@unique([provider, providerId])
   @@unique([nickname, friendCode])
+}
+
+// 배포 팀이 바뀌어도 동일한 사용자·게임 데이터를 유지하기 위한 Apple 로그인 식별자.
+model AppleIdentity {
+  providerId String   @id
+  userId     String
+  createdAt  DateTime @default(now())
+  user       User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
 }
 
 // 보유 아이템 (캐릭터 포함) — 카탈로그는 packages/shared SHOP_ITEMS

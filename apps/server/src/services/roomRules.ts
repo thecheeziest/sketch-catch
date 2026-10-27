@@ -55,6 +55,20 @@ function setHost(state: RoomState, previousHost: Player | undefined, next: Playe
   for (const p of state.players) p.isHost = p.id === next.id;
 }
 
+// 방 정원을 차지하는 인원 — 시상식에 남아 있는 사람도 돌아올 자리를 지켜 둔다 (나가기 전까지)
+export function countSeatedPlayers(state: RoomState): number {
+  return state.players.filter(p => !p.left).length;
+}
+
+// 빠진 자리 없이 0번부터 다시 번호를 매긴다 — 대기실 표시 순서와 출제·시트 순서(slot)가 항상 같게 유지된다
+export function compactSlots(state: RoomState): void {
+  [...state.players]
+    .sort((a, b) => a.slot - b.slot)
+    .forEach((player, index) => {
+      player.slot = index;
+    });
+}
+
 // 게임 1판의 흔적을 지우고 대기실 상태로 되돌린다 (시상식 종료, 게임 시작 실패 공용)
 export function resetToLobby(state: RoomState): void {
   state.status = 'LOBBY';

@@ -2,6 +2,7 @@ import { redis } from '../db/redis.js';
 import type { RoomState, RoomConfig, Player, RoomListItem } from '@sketch-catch/shared';
 import crypto from 'node:crypto';
 import { EMPTY_PROFILE, type PlayerProfile } from '../lib/playerProfile.js';
+import { countSeatedPlayers } from './roomRules.js';
 
 export class RoomNotFoundError extends Error { code = 'ROOM_NOT_FOUND' as const; }
 export class RoomFullError extends Error { code = 'ROOM_FULL' as const; }
@@ -89,7 +90,7 @@ function toRoomListItem(state: RoomState, hasPassword: boolean): RoomListItem {
     title: state.title ?? '게임 방',
     status: state.status === 'LOBBY' ? 'WAITING' : 'PLAYING',
     mode: state.mode,
-    playerCount: state.players.filter(p => !p.inAward && !p.left).length,
+    playerCount: countSeatedPlayers(state),
     playerCountMax: state.config.playerCountMax,
     hasPassword: locked && hasPassword,
     categories: state.config.categories,
@@ -120,9 +121,9 @@ export async function listRooms(): Promise<RoomListItem[]> {
       stale.push(code);
       return;
     }
-    const item = toRoomListItem(JSON.parse(raw) as RoomState, passwords[i] != null);
+    const state = JSON.parse(raw) as RoomState;
     // 전원이 퇴장·시상식 잔류 중인 방은 들어가도 같이 할 사람이 없다
-    if (item.playerCount > 0) items.push(item);
+    if (state.players.some(p => !p.left && !p.inAward)) items.push(toRoomListItem(state, passwords[i] != null));
   });
   if (stale.length > 0) await redis.zrem(ROOM_INDEX_KEY, ...stale);
 
@@ -167,7 +168,7 @@ export async function withRoomLock<T>(code: string, fn: () => Promise<T>): Promi
 }
 
 export async function assertJoinable(state: RoomState, password?: string): Promise<void> {
-  if (state.players.filter(p => !p.inAward && !p.left).length >= state.config.playerCountMax) throw new RoomFullError();
+  if (countSeatedPlayers(state) >= state.config.playerCountMax) throw new RoomFullError();
   if (state.locked) {
     const storedPw = await getRoomPassword(state.code);
     if (storedPw === null) throw new RoomLockedError();
