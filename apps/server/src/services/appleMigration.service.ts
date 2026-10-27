@@ -34,7 +34,17 @@ function codeKey(code: string): string {
 
 export async function issueAppleMigrationCode(userId: string, claims: Claims): Promise<AppleMigrationCodeResponse> {
   if (claims.audience !== migrationBundles().source) throw new AppleMigrationError('MIGRATION_SOURCE_REQUIRED', 403);
-  const identity = await prisma.appleIdentity.findUnique({ where: { providerId: claims.sub } });
+  let identity = await prisma.appleIdentity.findUnique({ where: { providerId: claims.sub } });
+  if (!identity) {
+    const user = await prisma.user.findUnique({ where: { id: userId } });
+    if (user?.provider === 'APPLE' && user.providerId === claims.sub) {
+      identity = await prisma.appleIdentity.upsert({
+        where: { providerId: claims.sub },
+        update: {},
+        create: { providerId: claims.sub, userId },
+      });
+    }
+  }
   if (identity?.userId !== userId) throw new AppleMigrationError('MIGRATION_ACCOUNT_MISMATCH', 403);
 
   const lock = await redis.set(`auth:apple-migration:issue:${userId}`, '1', 'EX', 30, 'NX');

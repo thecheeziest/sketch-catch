@@ -123,6 +123,24 @@ describe('Apple 계정 이전', () => {
     expect(redis.eval).not.toHaveBeenCalled();
   });
 
+  it('배포 도중 만들어져 식별자가 누락된 기존 Apple 계정도 코드를 발급한다', async () => {
+    identities.delete(sourceClaims.sub);
+    vi.mocked(prisma.user.findUnique).mockResolvedValue(oldUser);
+    const result = await issueAppleMigrationCode(oldUser.id, sourceClaims);
+    expect(result.code).toMatch(/^[a-f0-9]{32}$/);
+    expect(identities.get(sourceClaims.sub)).toBe(oldUser.id);
+  });
+
+  it('기존 Apple 로그인에서 누락된 식별자를 복구한다', async () => {
+    identities.delete(sourceClaims.sub);
+    vi.mocked(prisma.user.findUnique).mockResolvedValue(oldUser);
+    await expect(upsertUserByProvider({ provider: 'APPLE', providerId: sourceClaims.sub })).resolves.toMatchObject({
+      isNew: false,
+      user: { id: oldUser.id },
+    });
+    expect(identities.get(sourceClaims.sub)).toBe(oldUser.id);
+  });
+
   it('새 앱에서 기존 계정 이전 코드를 발급할 수 없다', async () => {
     await expect(issueAppleMigrationCode(oldUser.id, targetClaims)).rejects.toMatchObject({
       code: 'MIGRATION_SOURCE_REQUIRED',

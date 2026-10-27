@@ -50,7 +50,19 @@ export async function upsertUserByProvider(input: {
     where: { provider_providerId: { provider: input.provider, providerId: input.providerId } },
     include: USER_WITH_ITEMS,
   });
-  if (existing) return { user: existing, isNew: false };
+  if (existing) {
+    if (input.provider === 'APPLE') {
+      // DB 이전과 서버 교체 사이에 기존 앱에서 가입한 사용자도 식별자를 보완한다.
+      const identity = await prisma.appleIdentity.upsert({
+        where: { providerId: input.providerId },
+        update: {},
+        create: { providerId: input.providerId, userId: existing.id },
+        include: { user: { include: USER_WITH_ITEMS } },
+      });
+      return { user: identity.user, isNew: false };
+    }
+    return { user: existing, isNew: false };
+  }
 
   const { nickname, friendCode } = await generateUniqueNicknameCode();
   if (input.provider === 'APPLE') {
