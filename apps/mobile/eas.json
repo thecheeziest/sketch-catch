@@ -1,10 +1,11 @@
 {
   "cli": {
     "version": ">= 13.0.0",
-    "appVersionSource": "local"
+    "appVersionSource": "remote"
   },
   "build": {
     "development": {
+      "autoIncrement": true,
       "developmentClient": true,
       "distribution": "internal",
       "ios": {
@@ -16,6 +17,7 @@
       "channel": "development"
     },
     "preview": {
+      "autoIncrement": true,
       "distribution": "internal",
       "env": {
         "EXPO_PUBLIC_API_URL": "https://sketch-catch-server.onrender.com",
@@ -29,6 +31,25 @@
       },
       "channel": "test",
       "environment": "preview"
+    },
+    "production": {
+      "autoIncrement": true,
+      "distribution": "store",
+      "env": {
+        "EXPO_PUBLIC_API_URL": "https://sketch-catch-server.onrender.com",
+        "EXPO_PUBLIC_SOCKET_URL": "https://sketch-catch-server.onrender.com"
+      },
+      "ios": {
+        "distribution": "store"
+      },
+      "android": {
+        "buildType": "app-bundle"
+      },
+      "channel": "production",
+      "environment": "production"
     }
+  },
+  "submit": {
+    "production": {}
   }
 }

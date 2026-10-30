@@ -3,7 +3,7 @@
     "name": "SketchCatch",
     "slug": "sketch-catch",
     "scheme": "sketchcatch",
-    "version": "0.0.1",
+    "version": "1.0.0",
     "orientation": "portrait",
     "icon": "./assets/app-icons/04-shooting-star-symbol.png",
     "userInterfaceStyle": "light",
@@ -15,7 +15,7 @@
       "entitlements": {
         "com.apple.developer.applesignin": ["Default"]
       },
-      "buildNumber": "5",
+      "buildNumber": "8",
       "infoPlist": {
         "ITSAppUsesNonExemptEncryption": false
       },
@@ -28,7 +28,7 @@
       },
       "package": "com.sketchcatch.app",
       "googleServicesFile": "./google-services.json",
-      "versionCode": 5
+      "versionCode": 6
     },
     "web": {
       "favicon": "./assets/app-icons/04-shooting-star-symbol.png"
@@ -93,7 +93,8 @@
           "enableBackgroundRecording": false,
           "enableBackgroundPlayback": false
         }
-      ]
+      ],
+      "./plugins/withSceneLifecycle.cjs"
     ],
     "experiments": {
       "typedRoutes": true
@@ -115,10 +116,7 @@
     },
     "updates": {
       "url": "https://u.expo.dev/f6970800-ce5d-414d-880e-dc6bbda29d67",
-      "enabled": true,
-      "requestHeaders": {
-        "expo-channel-name": "test"
-      }
+      "enabled": true
     }
   }
 }
