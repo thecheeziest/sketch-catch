@@ -20,12 +20,9 @@ export function isAppleLoginCanceled(err: unknown): boolean {
 export function useAppleLogin() {
   return useMutation({
     retry: false,
-    mutationFn: async (migrationCode?: string) => {
+    mutationFn: async () => {
       const credentials = await requestAppleCredentials();
-      const data = await apiPost<AppleAuthResponse>('/auth/apple', {
-        ...credentials,
-        ...(migrationCode ? { migrationCode } : {}),
-      });
+      const data = await apiPost<AppleAuthResponse>('/auth/apple', credentials);
 
       return initializeAuthState(data);
     },

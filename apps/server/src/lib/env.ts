@@ -17,8 +17,6 @@ const envSchema = z.object({
     .transform(value => value.split(',').map(bundleId => bundleId.trim()))
     .pipe(z.array(z.string().min(1)).min(1))
     .optional(),
-  APPLE_MIGRATION_SOURCE_BUNDLE_ID: z.string().min(1).optional(),
-  APPLE_MIGRATION_TARGET_BUNDLE_ID: z.string().min(1).optional(),
   JWT_ACCESS_TTL: z.string().default('15m'),
   JWT_REFRESH_TTL: z.string().default('30d'),
   JWT_SECRET: z

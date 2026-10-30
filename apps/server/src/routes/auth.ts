@@ -9,7 +9,6 @@ import { toUserPrivate } from '../lib/userPrivate.js';
 import { redis } from '../db/redis.js';
 import { logger } from '../lib/logger.js';
 import { env } from '../lib/env.js';
-import { AppleMigrationError, linkAppleMigration } from '../services/appleMigration.service.js';
 
 // 개발 전용 테스트 계정 수 — 모드2 최소 인원(4명)을 기기별로 채울 수 있는 수
 const DEV_TEST_ACCOUNT_COUNT = 4;
@@ -44,16 +43,6 @@ export const authRoutes: FastifyPluginAsync = async app => {
     if (!parsed.success) return reply.status(400).send({ error: 'INVALID_TOKEN' });
     try {
       const claims = await verifyAppleToken(parsed.data.identityToken);
-      if (parsed.data.migrationCode) {
-        const user = await linkAppleMigration(parsed.data.migrationCode, claims);
-        const tokens = await signTokens(user.id);
-        await redis.set(`session:${user.id}`, tokens.accessToken);
-        return reply.header('Cache-Control', 'no-store').send({
-          ...tokens,
-          needsOnboarding: false,
-          user: toUserPrivate(user),
-        });
-      }
       const { user, isNew } = await upsertUserByProvider({ provider: 'APPLE', providerId: claims.sub });
       const tokens = await signTokens(user.id);
       await redis.set(`session:${user.id}`, tokens.accessToken);
@@ -64,7 +53,6 @@ export const authRoutes: FastifyPluginAsync = async app => {
         user: toUserPrivate(user),
       });
     } catch (err) {
-      if (err instanceof AppleMigrationError) return reply.status(err.statusCode).send({ error: err.code });
       logger.warn({ err }, 'apple token verify failed');
       return reply.status(401).send({ error: 'INVALID_TOKEN' });
     }

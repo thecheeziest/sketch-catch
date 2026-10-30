@@ -8,7 +8,6 @@ import { connectPrisma, disconnectPrisma } from './db/prisma.js';
 import { connectRedis, disconnectRedis } from './db/redis.js';
 import { healthRoutes } from './routes/health.js';
 import { authRoutes } from './routes/auth.js';
-import { appleMigrationRoutes } from './routes/appleMigration.js';
 import { meRoutes } from './routes/me.js';
 import { shopRoutes } from './routes/shop.js';
 import { friendsRoutes } from './routes/friends.js';
@@ -51,7 +50,6 @@ async function bootstrap(): Promise<void> {
   await app.register(healthRoutes);
   await app.register(appVersionRoutes);
   await app.register(authRoutes);
-  await app.register(appleMigrationRoutes);
   await app.register(meRoutes);
   await app.register(shopRoutes);
   await app.register(friendsRoutes);
