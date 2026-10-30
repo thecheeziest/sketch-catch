@@ -15,7 +15,7 @@
       "entitlements": {
         "com.apple.developer.applesignin": ["Default"]
       },
-      "buildNumber": "8",
+      "buildNumber": "9",
       "infoPlist": {
         "ITSAppUsesNonExemptEncryption": false
       },
@@ -116,7 +116,10 @@
     },
     "updates": {
       "url": "https://u.expo.dev/f6970800-ce5d-414d-880e-dc6bbda29d67",
-      "enabled": true
+      "enabled": true,
+      "requestHeaders": {
+        "expo-channel-name": "test"
+      }
     }
   }
 }
