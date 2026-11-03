@@ -105,6 +105,11 @@ export type FriendEntry = {
   nickname: string;
   friendCode: string;
   characterId: string;
+  // 친구 프로필에 보이는 꾸미기·한마디 (공개 정보만)
+  frameId: string | null;
+  backgroundId: string | null;
+  chatColorId: string | null;
+  statusMessage: string | null;
   presenceStatus: PresenceStatus;
   room?: FriendRoom;
 };
@@ -114,6 +119,10 @@ type FriendUser = {
   nickname: string;
   friendCode: string;
   characterId: string;
+  frameId: string | null;
+  backgroundId: string | null;
+  chatColorId: string | null;
+  statusMessage: string | null;
 };
 
 type FriendshipWithUsers = {
@@ -203,6 +212,10 @@ export async function getFriends(userId: string): Promise<FriendEntry[]> {
         nickname: friend.nickname,
         friendCode: friend.friendCode,
         characterId: friend.characterId,
+        frameId: friend.frameId,
+        backgroundId: friend.backgroundId,
+        chatColorId: friend.chatColorId,
+        statusMessage: friend.statusMessage,
         presenceStatus,
         room,
       };

@@ -21,3 +21,4 @@ export * from './PixelSprite';
 export * from './CoinChip';
 export * from './CosmeticBackground';
 export * from './CosmeticAvatar';
+export * from './UserProfileView';

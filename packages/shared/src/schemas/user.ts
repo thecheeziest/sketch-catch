@@ -59,7 +59,15 @@ export const equipSchema = z.discriminatedUnion('category', [
 ]);
 export type EquipInput = z.infer<typeof equipSchema>;
 
-// PATCH /me/equip-all — 옷장 저장. 바뀐 카테고리만 담아 한 번에 장착한다
+// 프로필 한마디 — 앞뒤 공백 제거, 빈 값은 미설정(null)
+export const STATUS_MESSAGE_MAX = 20;
+export const statusMessageSchema = z
+  .string()
+  .trim()
+  .max(STATUS_MESSAGE_MAX, `한마디는 ${STATUS_MESSAGE_MAX}자까지만 쓸 수 있어요!`)
+  .transform(s => (s === '' ? null : s));
+
+// PATCH /me/equip-all — 옷장 저장. 바뀐 카테고리와 한마디만 담아 한 번에 저장한다
 const cosmeticIdSchema = z.string().min(1).max(40).nullable().optional();
 export const equipAllSchema = z
   .object({
@@ -67,6 +75,7 @@ export const equipAllSchema = z
     FRAME: cosmeticIdSchema,
     BACKGROUND: cosmeticIdSchema,
     CHAT_COLOR: cosmeticIdSchema,
+    statusMessage: statusMessageSchema.nullable().optional(),
   })
   .refine(v => Object.values(v).some(id => id !== undefined), { message: '변경할 항목을 1개 이상 포함해주세요' });
 export type EquipAllInput = z.infer<typeof equipAllSchema>;

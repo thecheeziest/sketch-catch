@@ -20,5 +20,6 @@ export function toUserPrivate(u: UserWithItems): UserPrivate {
     frameId: u.frameId,
     backgroundId: u.backgroundId,
     chatColorId: u.chatColorId,
+    statusMessage: u.statusMessage,
   };
 }

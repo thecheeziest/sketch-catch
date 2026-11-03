@@ -27,6 +27,7 @@ export const ERROR_HANDLERS: Record<string, ErrorAction> = {
   INSUFFICIENT_COINS: { type: 'toast', message: '코인이 부족해요! 게임하고 모아 볼까요?' },
   ALREADY_OWNED: { type: 'toast', message: '이미 가지고 있는 아이템이에요!' },
   ITEM_NOT_OWNED: { type: 'toast', message: '아직 가지고 있지 않은 아이템이에요!' },
+  PROFANITY: { type: 'toast', message: '한마디에 쓸 수 없는 표현이 있어요!' },
   ITEM_NOT_FOUND: { type: 'toast', message: '지금은 살 수 없는 아이템이에요!' },
 };
 

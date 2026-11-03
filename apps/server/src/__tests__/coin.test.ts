@@ -29,6 +29,7 @@ const {
   InsufficientCoinsError,
   ItemNotFoundError,
   ItemNotOwnedError,
+  ProfanityError,
 } = await import('../services/coin.service.js');
 
 const total = (lines: { amount: number }[]): number => lines.reduce((sum, l) => sum + l.amount, 0);
@@ -302,5 +303,19 @@ describe('equipAll', () => {
     await equipAll('u', { FRAME: null });
     expect(db.userItem.findMany).not.toHaveBeenCalled();
     expect(db.user.update.mock.calls[0]![0].data).toEqual({ frameId: null });
+  });
+
+  it('한마디만 바꿔도 보유 확인 없이 저장하고, null이면 지운다', async () => {
+    await equipAll('u', { statusMessage: '안녕!' });
+    expect(db.userItem.findMany).not.toHaveBeenCalled();
+    expect(db.user.update.mock.calls[0]![0].data).toEqual({ statusMessage: '안녕!' });
+
+    await equipAll('u', { statusMessage: null });
+    expect(db.user.update.mock.calls[1]![0].data).toEqual({ statusMessage: null });
+  });
+
+  it('한마디에 비속어가 있으면 아이템도 저장하지 않고 거부', async () => {
+    await expect(equipAll('u', { FRAME: null, statusMessage: '씨발' })).rejects.toBeInstanceOf(ProfanityError);
+    expect(db.user.update).not.toHaveBeenCalled();
   });
 });

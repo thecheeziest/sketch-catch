@@ -236,6 +236,38 @@ describe('getFriends', () => {
     expect(result[0]!.nickname).toBe('유저B');
   });
 
+  it('친구의 꾸미기와 한마디만 공개 정보로 내려준다', async () => {
+    const friendship = {
+      id: 'fs1',
+      userAId: 'u1',
+      userBId: 'u2',
+      userA: { id: 'u1', nickname: '유저A', friendCode: 'AAAAA', characterId: 'dog' },
+      userB: {
+        id: 'u2',
+        nickname: '유저B',
+        friendCode: 'BBBBB',
+        characterId: 'cat',
+        frameId: 'frame_mint',
+        backgroundId: 'bg_dots',
+        chatColorId: null,
+        statusMessage: '반가워요',
+        coins: 999,
+        pushToken: 'secret',
+      },
+    };
+    vi.mocked(prisma.friendship.findMany).mockResolvedValue([friendship] as any);
+
+    const [friend] = await getFriends('u1');
+    expect(friend).toMatchObject({
+      frameId: 'frame_mint',
+      backgroundId: 'bg_dots',
+      chatColorId: null,
+      statusMessage: '반가워요',
+    });
+    expect(friend).not.toHaveProperty('coins');
+    expect(friend).not.toHaveProperty('pushToken');
+  });
+
   it('userBId === userId인 경우 userA를 friend로 반환', async () => {
     const friendship = {
       id: 'fs1',

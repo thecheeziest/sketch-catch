@@ -1,6 +1,6 @@
 import { FeedbackPressable } from '@/shared/ui/FeedbackPressable';
 import { useFriendRequests, useFriends, useRespondRequest, useSentFriendRequests } from '@/features/friends/api';
-import { AddFriendModal, DeleteFriendModal, FriendPasswordModal } from '@/features/friends/ui';
+import { AddFriendModal, DeleteFriendModal, FriendPasswordModal, FriendProfileDialog } from '@/features/friends/ui';
 import { useJoinRoom } from '@/features/room/api';
 import { colors } from '@/shared/config';
 import { handleApiError, usePullToRefresh } from '@/shared/lib';
@@ -45,6 +45,7 @@ export default function FriendsScreen() {
   const [addModalOpen, setAddModalOpen] = useState(false);
   const [deleteTarget, setDeleteTarget] = useState<DeleteTarget | null>(null);
   const [joinTarget, setJoinTarget] = useState<JoinTarget | null>(null);
+  const [profileUserId, setProfileUserId] = useState<string | null>(null);
 
   const queryClient = useQueryClient();
   useFocusEffect(
@@ -61,6 +62,8 @@ export default function FriendsScreen() {
   const friends = friendsQuery.data ?? [];
   const requests = requestsQuery.data ?? [];
   const sentRequests = sentRequestsQuery.data ?? [];
+  // 폴링으로 상태가 바뀌어도 최신 값을 보이도록 id만 들고 목록에서 찾는다 (삭제되면 자동으로 닫힌다)
+  const profileFriend = friends.find(f => f.userId === profileUserId) ?? null;
   const blurTargetRef = useRef<BlurTargetRef>(null);
 
   const { refetch: refetchFriends } = friendsQuery;
@@ -166,6 +169,7 @@ export default function FriendsScreen() {
                 <FriendItem
                   friend={item}
                   index={index}
+                  onPress={() => setProfileUserId(item.userId)}
                   onDelete={() =>
                     setDeleteTarget({
                       friendshipId: item.friendshipId,
@@ -266,6 +270,16 @@ export default function FriendsScreen() {
             />
           </View>
         )}
+
+        <FriendProfileDialog
+          friend={profileFriend}
+          onClose={() => setProfileUserId(null)}
+          onJoin={room => {
+            setProfileUserId(null);
+            handleJoinPress(room);
+          }}
+          isJoining={joinRoom.isPending}
+        />
 
         <AddFriendModal visible={addModalOpen} onClose={() => setAddModalOpen(false)} />
 

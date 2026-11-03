@@ -22,6 +22,8 @@ model User {
   frameId           String?
   backgroundId      String?
   chatColorId       String?
+  // 프로필에 보이는 한마디 — null은 미설정
+  statusMessage     String?
 
   friendsA        Friendship[]    @relation("FriendshipA")
   friendsB        Friendship[]    @relation("FriendshipB")

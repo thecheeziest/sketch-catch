@@ -6,6 +6,7 @@ export const PLAYER_PROFILE_SELECT = {
   frameId: true,
   backgroundId: true,
   chatColorId: true,
+  statusMessage: true,
 } as const;
 
 export type PlayerProfile = {
@@ -15,6 +16,7 @@ export type PlayerProfile = {
   frameId: string | null;
   backgroundId: string | null;
   chatColorId: string | null;
+  statusMessage: string | null;
 };
 
 export function toPlayerProfile(u: PlayerProfile): PlayerProfile {
@@ -25,6 +27,7 @@ export function toPlayerProfile(u: PlayerProfile): PlayerProfile {
     frameId: u.frameId,
     backgroundId: u.backgroundId,
     chatColorId: u.chatColorId,
+    statusMessage: u.statusMessage,
   };
 }
 
@@ -35,4 +38,5 @@ export const EMPTY_PROFILE: PlayerProfile = {
   frameId: null,
   backgroundId: null,
   chatColorId: null,
+  statusMessage: null,
 };

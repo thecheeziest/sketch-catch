@@ -9,6 +9,7 @@ import { StyleSheet } from 'react-native';
 
 type Props = {
   friend: Friend;
+  onPress?: () => void;
   onDelete: () => void;
   onJoin?: () => void;
   isJoining?: boolean;
@@ -46,7 +47,7 @@ const PRESENCE_LABEL: Record<Friend['presenceStatus'], string> = {
 
 const ROW_BG = [`${colors.WHITE}70`, `${colors.PRIMARY_300}70`] as const;
 
-export function FriendItem({ friend, onDelete, onJoin, isJoining, index }: Props) {
+export function FriendItem({ friend, onPress, onDelete, onJoin, isJoining, index }: Props) {
   const imageSource = getCharacterImageSource(friend.characterId);
   const bgColor = index !== undefined ? ROW_BG[index % 2] : 'transparent';
 
@@ -57,27 +58,35 @@ export function FriendItem({ friend, onDelete, onJoin, isJoining, index }: Props
 
   return (
     <View style={[styles.row, { backgroundColor: bgColor }]}>
-      <View
-        sx={{
-          width: 12,
-          height: 12,
-          borderRadius: 6,
-          backgroundColor: PRESENCE_COLOR[friend.presenceStatus],
-        }}
-      />
-      {imageSource !== null ? (
-        <Image source={imageSource} sx={{ width: 40, height: 40 }} resizeMode="contain" />
-      ) : (
-        <View sx={{ width: 40, height: 40, backgroundColor: colors.SECONDARY_400 }} />
-      )}
-      <View sx={{ flex: 1 }}>
-        <Text sx={{ color: colors.LIGHT_100 }}>
-          {friend.nickname}
-        </Text>
-        <Text variant="B4" sx={{ color: PRESENCE_COLOR[friend.presenceStatus] }}>
-          {statusLabel}
-        </Text>
-      </View>
+      <FeedbackPressable
+        onPress={onPress}
+        disabled={!onPress}
+        style={styles.info}
+        accessibilityRole="button"
+        accessibilityLabel={`${friend.nickname} 프로필 보기`}
+      >
+        <View
+          sx={{
+            width: 12,
+            height: 12,
+            borderRadius: 6,
+            backgroundColor: PRESENCE_COLOR[friend.presenceStatus],
+          }}
+        />
+        {imageSource !== null ? (
+          <Image source={imageSource} sx={{ width: 40, height: 40 }} resizeMode="contain" />
+        ) : (
+          <View sx={{ width: 40, height: 40, backgroundColor: colors.SECONDARY_400 }} />
+        )}
+        <View sx={{ flex: 1 }}>
+          <Text sx={{ color: colors.LIGHT_100 }}>
+            {friend.nickname}
+          </Text>
+          <Text variant="B4" sx={{ color: PRESENCE_COLOR[friend.presenceStatus] }}>
+            {statusLabel}
+          </Text>
+        </View>
+      </FeedbackPressable>
       {friend.room?.joinable && onJoin ? (
         <Button label="같이하기" color="secondary" height={32} onPress={onJoin} disabled={isJoining} />
       ) : null}
@@ -94,6 +103,7 @@ export function FriendItem({ friend, onDelete, onJoin, isJoining, index }: Props
 }
 
 const styles = StyleSheet.create({
+  info: { flex: 1, flexDirection: 'row', alignItems: 'center', gap: 12 },
   row: {
     minHeight: 64,
     paddingHorizontal: 16,
