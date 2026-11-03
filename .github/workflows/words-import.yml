@@ -35,6 +35,10 @@ jobs:
       - name: Install dependencies
         run: pnpm install --frozen-lockfile --filter @sketch-catch/server...
 
+      # 적재 스크립트가 공용 패키지의 dist(PROMPT_MAX_LENGTH 등)를 불러온다
+      - name: Build shared package
+        run: pnpm --filter @sketch-catch/shared run build
+
       - name: Generate Prisma Client
         run: pnpm --filter @sketch-catch/server prisma:generate
 
