@@ -18,10 +18,28 @@ type Props = {
 // 왼쪽에 같은 폭의 빈 칸을 둬 오른쪽 슬롯이 있어도 제시어가 가운데에 온다.
 export function WordBar({ word, color, right, sideWidth = SIDE_WIDTH }: Props) {
   return (
-    <View sx={{ height: 40, flexDirection: 'row', alignItems: 'center', paddingHorizontal: 16, backgroundColor: gameSurface.SUBPANEL }}>
-      <View sx={{ width: sideWidth }} />
+    <View
+      sx={{
+        height: 40,
+        flexDirection: 'row',
+        alignItems: 'center',
+        paddingHorizontal: 16,
+        backgroundColor: gameSurface.SUBPANEL,
+      }}
+    >
+      <View sx={{ width: sideWidth > SIDE_WIDTH ? 0 : sideWidth }} />
       <Text
-        sx={{ flex: 1, fontFamily: fontFamily.REGULAR, fontSize: 22, lineHeight: 28, letterSpacing: 2, color, textAlign: 'center' }}
+        sx={{
+          flex: 1,
+          fontFamily: fontFamily.REGULAR,
+          fontSize: 22,
+          lineHeight: 28,
+          letterSpacing: 2,
+          color,
+          textAlign: 'center',
+        }}
+        adjustsFontSizeToFit
+        minimumFontScale={0.35}
         numberOfLines={1}
       >
         {word ?? ''}

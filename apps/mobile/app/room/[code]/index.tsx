@@ -14,6 +14,7 @@ import { useLocalSearchParams, useRouter } from 'expo-router';
 import { useEffect, useRef, useState } from 'react';
 import { type ListRenderItem, Alert, ImageBackground, KeyboardAvoidingView, StyleSheet, useWindowDimensions } from 'react-native';
 import roomBackground from '@assets/room-background.png';
+import { RoomInfoChips } from '@/shared/ui/RoomInfoChips';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 function getNumColumns(maxPlayers: number): number {
@@ -205,6 +206,7 @@ export default function LobbyScreen() {
               marginBottom: spacing.MD,
             }}
           />
+          {roomState && <RoomInfoChips mode={roomState.mode} categories={roomState.config.categories} />}
           {penalty && (
             <View sx={{ marginBottom: spacing.MD }}>
               <PixelFrame borderColor={colors.WARNING_300} borderWidth={2} style={StyleSheet.absoluteFill}>

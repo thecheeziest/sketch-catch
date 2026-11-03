@@ -1,5 +1,5 @@
 import { z } from 'zod';
-import { PENALTY_LOSER_MAX, PENALTY_TEXT_MAX_LENGTH } from '../constants/game.js';
+import { MODE2_PLAYER_MIN, PENALTY_LOSER_MAX, PENALTY_TEXT_MAX_LENGTH } from '../constants/game.js';
 
 // 방 코드: 6자리 영문 대문자/숫자
 export const roomCodeSchema = z
@@ -14,10 +14,11 @@ export const categorySchema = z.enum([
   'PLACE',
   'ACTION',
   'JOB',
-  'PROVERB',
-  'IDIOM',
+  'PERSON',
   'MOVIE',
   'DRAMA',
+  'VARIETY',
+  'ANIMATION',
   'MEME',
   'CUSTOM',
 ]);
@@ -56,9 +57,9 @@ export const createRoomSchema = z
     path: ['password'],
     message: '잠금 방은 비밀번호가 필요해요',
   })
-  .refine((value) => value.mode !== 2 || value.playerCountMax >= 4, {
+  .refine((value) => value.mode !== 2 || value.playerCountMax >= MODE2_PLAYER_MIN, {
     path: ['playerCountMax'],
-    message: '모드 2는 4명 이상 모여야 해요!',
+    message: `모드 2는 ${MODE2_PLAYER_MIN}명 이상 모여야 해요!`,
   })
   .refine((value) => value.penalty === undefined || value.mode === 1, {
     path: ['penalty'],

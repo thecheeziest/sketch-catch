@@ -139,23 +139,22 @@ describe('match.service', () => {
     expect(mockedCreateRoom).not.toHaveBeenCalled();
   });
 
-  it('MATCH-02B: 모드2는 최소 인원 4명 도달 시 카운트다운을 시작한다', async () => {
+  it('MATCH-02B: 모드2는 최소 인원 3명 도달 시 카운트다운을 시작한다', async () => {
     await enqueueMatch('u1', 2);
     await enqueueMatch('u2', 2);
-    await enqueueMatch('u3', 2);
 
     expect(mockedCreateRoom).not.toHaveBeenCalled();
     expect(strings.get('matchlobby:2:deadline')).toBeUndefined();
 
     mockedEmitToUser.mockClear();
-    await enqueueMatch('u4', 2);
+    await enqueueMatch('u3', 2);
 
     const deadline = T0 + 20_000;
-    (['u1', 'u2', 'u3', 'u4'] as const).forEach((id) => {
+    (['u1', 'u2', 'u3'] as const).forEach((id) => {
       expect(mockedEmitToUser).toHaveBeenCalledWith(id, 'match:update', {
         mode: 2,
-        count: 4,
-        min: 4,
+        count: 3,
+        min: 3,
         max: 12,
         deadline,
       });

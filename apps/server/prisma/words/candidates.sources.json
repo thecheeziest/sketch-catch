@@ -1,0 +1,101 @@
+{
+  "checkedAt": "2026-11-03",
+  "status": "사용자 검수 전 후보 - 운영 DB 미반영",
+  "selection": {
+    "person": "한국에서 알려진 방송인·배우·운동선수·가수 200명. 인지도와 그림 표현 가능성은 사용자 검수 대상.",
+    "movie": "1990~2026 한국 영화 170개, 국내 개봉 유명 외국 영화 30개. 시리즈·속편은 정식 제목으로 구분.",
+    "drama": "1990~2026 한국 드라마 200개. 외국 드라마 제외."
+  },
+  "limits": {
+    "recommendedMax": 10,
+    "hardMax": 15,
+    "includesSpaces": true,
+    "over15": "제외",
+    "11to15": "긴 제목 검수 우선"
+  },
+  "references": [
+    {
+      "topic": "인물 인지도 참고",
+      "url": "https://www.gallup.co.kr/dir/GallupReport/GallupReport%2820251217%29_%EC%98%AC%ED%95%B4%EC%9D%98%EC%9D%B8%EB%AC%BC_%ED%83%A4%EB%9F%B0%ED%8A%B8.pdf"
+    },
+    {
+      "topic": "스포츠 인물 참고",
+      "url": "https://www.gallup.co.kr/dir/GallupReport/GallupReport%2820241216%29_%EC%98%AC%ED%95%B4%EC%9D%98%EC%9D%B8%EB%AC%BC_%EC%8A%A4%ED%8F%AC%EC%B8%A0%EC%84%A0%EC%88%98.pdf"
+    },
+    {
+      "topic": "방송인 프로필",
+      "url": "https://www.antenna.co.kr/Antenna"
+    },
+    {
+      "topic": "아이브 공식 프로필",
+      "url": "https://www.starship-ent.com/musician/ive"
+    },
+    {
+      "topic": "1990년대 영화 참고",
+      "url": "https://contents.history.go.kr/front/hm/view.do?levelId=hm_164_0080"
+    },
+    {
+      "topic": "2026 개봉 영화 확인",
+      "url": "https://www.koreanfilm.or.kr/eng/news/boxOffice_Yearly.jsp?mode=BOXOFFICE_YEAR&selectDt=2026"
+    },
+    {
+      "topic": "영화·드라마 제작사 카탈로그",
+      "url": "https://www.cjenm.com/ko/featured-contents/"
+    },
+    {
+      "topic": "구작 드라마 확인",
+      "url": "https://contents.kbs.co.kr/"
+    },
+    {
+      "topic": "SBS 대표 드라마 확인",
+      "url": "https://about.sbs.co.kr/m/history"
+    },
+    {
+      "topic": "2026 넷플릭스 한국 작품 라인업",
+      "url": "https://about.netflix.com/ko/news/next-on-netflix-korea-2026"
+    },
+    {
+      "topic": "배우 공식 프로필",
+      "url": "https://artistcompany.co.kr/pages/artist"
+    },
+    {
+      "topic": "드라마 공식 페이지 확인",
+      "url": "https://tv.jtbc.co.kr/drcha?site_preference=normal"
+    },
+    {
+      "topic": "2026 영화 개봉 확인",
+      "url": "https://www.its-new.co.kr/media/news/news_detail.aspx?branch=movie&seq=665"
+    }
+  ],
+  "referenceNote": "검색한 선정 참고 출처. 전체 600항목 각각의 개별 출처 인증이나 인기 순위를 의미하지 않음.",
+  "review": {
+    "person": {
+      "count": 200,
+      "length11to15": []
+    },
+    "movie": {
+      "count": 200,
+      "length11to15": [
+        "인정사정 볼 것 없다",
+        "내 머리 속의 지우개",
+        "바람과 함께 사라지다",
+        "해적: 바다로 간 산적",
+        "나쁜 녀석들: 더 무비",
+        "다만 악에서 구하소서",
+        "캡틴 아메리카: 윈터 솔져",
+        "가디언즈 오브 갤럭시",
+        "해리 포터와 마법사의 돌",
+        "반지의 제왕: 왕의 귀환"
+      ]
+    },
+    "drama": {
+      "count": 200,
+      "length11to15": [
+        "내 여자친구는 구미호",
+        "이상한 변호사 우영우",
+        "약한영웅 Class 1",
+        "이 사랑 통역 되나요?"
+      ]
+    }
+  }
+}

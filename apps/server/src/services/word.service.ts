@@ -1,6 +1,6 @@
 import { prisma } from '../db/prisma.js';
 import { logger } from '../lib/logger.js';
-import type { Category } from '@sketch-catch/shared';
+import { PROMPT_MAX_LENGTH, type Category } from '@sketch-catch/shared';
 
 const NO_EXCLUDED_WORDS: ReadonlySet<string> = new Set();
 
@@ -14,7 +14,7 @@ export async function pickWord(
     where: { category: { in: cats } },
     select: { word: true, category: true },
   });
-  const available = candidates.filter(c => !excluded.has(c.word));
+  const available = candidates.filter(c => !excluded.has(c.word) && c.word.length <= PROMPT_MAX_LENGTH);
   if (available.length === 0) {
     throw new Error('WORD_POOL_EMPTY');
   }

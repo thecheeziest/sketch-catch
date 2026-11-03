@@ -7,7 +7,7 @@ import type {
   Category,
   RoundStart,
 } from '@sketch-catch/shared';
-import { PROMPT_DURATION_SEC, SERVER_EVENT } from '@sketch-catch/shared';
+import { PROMPT_DURATION_SEC, PROMPT_MAX_LENGTH, SERVER_EVENT } from '@sketch-catch/shared';
 import { getRoomState, saveRoomState } from '../../services/rooms.service.js';
 import { pickRoundWord } from '../../services/word.service.js';
 import { clearRoomTimer, clearRoomTimers, setRoomTimer } from '../../services/roomTimers.js';
@@ -232,7 +232,7 @@ export async function handleCustomPromptSubmit(
   if (current.prompt !== '' || !current.isCustomRound) return;
   if (receivedAt >= current.startedAt + CUSTOM_PROMPT_TIMEOUT_MS) return;
 
-  const prompt = payload.text.trim().slice(0, 20);
+  const prompt = payload.text.trim().slice(0, PROMPT_MAX_LENGTH);
   if (prompt.length === 0) return;
 
   current.prompt = prompt;

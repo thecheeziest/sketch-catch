@@ -3,7 +3,21 @@ import type { Cosmetics, UserPublic } from './user.js';
 
 export type GameMode = 1 | 2;
 
-export type Category = 'ANIMAL' | 'FOOD' | 'OBJECT' | 'NATURE' | 'PLACE' | 'ACTION' | 'JOB' | 'PROVERB' | 'IDIOM' | 'MOVIE' | 'DRAMA' | 'MEME' | 'CUSTOM';
+export type Category =
+  | 'ANIMAL'
+  | 'FOOD'
+  | 'OBJECT'
+  | 'NATURE'
+  | 'PLACE'
+  | 'ACTION'
+  | 'JOB'
+  | 'PERSON'
+  | 'MOVIE'
+  | 'DRAMA'
+  | 'VARIETY'
+  | 'ANIMATION'
+  | 'MEME'
+  | 'CUSTOM';
 
 export type RoomStatus =
   | 'LOBBY'

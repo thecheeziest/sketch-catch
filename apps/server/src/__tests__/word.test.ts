@@ -51,6 +51,14 @@ describe('word service (GAME-03)', () => {
     });
   });
 
+  it('15자 초과 제시어는 추첨하지 않는다', async () => {
+    mockFindMany.mockResolvedValue([
+      { word: '가'.repeat(16), category: 'MOVIE' },
+      { word: '김연아', category: 'PERSON' },
+    ] as never);
+    expect(await pickWord(['PERSON'])).toEqual({ word: '김연아', category: 'PERSON' });
+  });
+
   it('후보가 빈 배열이면 WORD_POOL_EMPTY 에러를 throw한다', async () => {
     mockFindMany.mockResolvedValue([]);
 

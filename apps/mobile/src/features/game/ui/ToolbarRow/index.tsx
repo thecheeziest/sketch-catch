@@ -8,15 +8,9 @@ import { toolbar } from '@/features/game/config';
 import { useGameStore } from '@/features/game/model/useGameStore';
 import { useShallow } from 'zustand/react/shallow';
 import { useStrokeSender } from '@/features/game/api/useStrokeSender';
+import { BrushWidthSlider } from '../BrushWidthSlider';
 import { ColorPicker } from '../ColorPicker';
 import { type FeedbackName } from '@/shared/config/audio';
-
-// 브러시 3단: 실제 stroke width(불변) / 도트 표시 크기(디자인값)
-const WIDTH_OPTIONS = [
-  { width: 3, dotSize: 6, label: '얇게' },
-  { width: 8, dotSize: 12, label: '보통' },
-  { width: 16, dotSize: 19, label: '굵게' },
-] as const;
 
 type LabeledButtonProps = {
   label: string;
@@ -90,45 +84,8 @@ export function ToolbarRow({ realtime = true }: { realtime?: boolean }) {
     <View style={styles.container}>
       <ColorPicker value={eraser ? '' : color} onChange={setColor} />
 
+      <BrushWidthSlider value={width} onChange={setWidth} />
       <View style={styles.toolRow}>
-        <View style={styles.sizeGroup}>
-          {WIDTH_OPTIONS.map(opt => {
-            const isSelected = !eraser && !paint && width === opt.width;
-            return (
-              <FeedbackPressable
-                key={opt.width}
-                onPress={() => {
-                  setWidth(opt.width);
-                  setEraser(false);
-                  setPaint(false);
-                }}
-                accessibilityLabel={`굵기 ${opt.label}`}
-                style={styles.sizeButton}
-              >
-                {isSelected && (
-                  <PixelFrame
-                    borderColor={toolbar.SIZE_BTN_SELECTED_RING}
-                    borderWidth={3}
-                    notchSize={3}
-                    style={StyleSheet.absoluteFill}
-                  >
-                    <View style={[StyleSheet.absoluteFill, { backgroundColor: toolbar.SIZE_BTN_SELECTED_BG }]} />
-                  </PixelFrame>
-                )}
-                {!isSelected && <View style={[StyleSheet.absoluteFill, { backgroundColor: toolbar.SIZE_BTN_BG }]} />}
-                <View
-                  style={{
-                    width: opt.dotSize,
-                    height: opt.dotSize,
-                    borderRadius: opt.dotSize / 2,
-                    backgroundColor: toolbar.SIZE_DOT,
-                  }}
-                />
-              </FeedbackPressable>
-            );
-          })}
-        </View>
-
         <LabeledButton
           label="페인트"
           icon="PAINT"
@@ -180,18 +137,6 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'stretch',
     gap: 6,
-  },
-  sizeGroup: {
-    flexDirection: 'row',
-    gap: 2,
-    padding: 3,
-    backgroundColor: toolbar.SIZE_GROUP_BG,
-  },
-  sizeButton: {
-    width: 32,
-    height: 44,
-    alignItems: 'center',
-    justifyContent: 'center',
   },
   labeledButton: {
     flex: 1,

@@ -10,7 +10,7 @@ import { redis } from '../db/redis.js';
 import { logger } from '../lib/logger.js';
 import { env } from '../lib/env.js';
 
-// 개발 전용 테스트 계정 수 — 모드2 최소 인원(4명)을 기기별로 채울 수 있는 수
+// 개발 전용 테스트 계정 수 — 모드2를 여러 기기에서 검증할 수 있도록 4개 슬롯 제공
 const DEV_TEST_ACCOUNT_COUNT = 4;
 const devLoginSchema = z.object({ slot: z.number().int().min(1).max(DEV_TEST_ACCOUNT_COUNT) });
 // 카카오 providerId는 숫자 문자열이라 접두사 'dev:'와 겹치지 않는다

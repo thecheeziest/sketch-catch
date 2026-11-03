@@ -14,6 +14,32 @@ export const CURATED_FILES: ReadonlyArray<readonly [Category, string]> = [
   ['MEME', 'meme.json'],
 ];
 
+// 검수 후 *.pending.json의 내용을 해당 *.json으로 확정하고 pending은 []로 비운다.
+// 아직 확정 파일이 없으면 해당 카테고리는 변경하지 않는다.
+export const REVIEWABLE_FILES: ReadonlyArray<readonly [Category, string]> = [
+  ['PERSON', 'person.json'],
+  ['MOVIE', 'movie.json'],
+  ['DRAMA', 'drama.json'],
+  ['VARIETY', 'variety.json'],
+  ['ANIMATION', 'animation.json'],
+];
+
+export async function readReviewedList(file: string): Promise<string[] | null> {
+  try {
+    return await readCuratedList(file);
+  } catch (error) {
+    if (error instanceof Error && 'code' in error && error.code === 'ENOENT') return null;
+    throw error;
+  }
+}
+
 export async function readCuratedList(file: string): Promise<string[]> {
-  return JSON.parse(await readFile(new URL(`./${file}`, import.meta.url), 'utf8')) as string[];
+  const list: unknown = JSON.parse(await readFile(new URL(`./${file}`, import.meta.url), 'utf8'));
+  if (
+    !Array.isArray(list) ||
+    !list.every((word): word is string => typeof word === 'string' && word.trim().length > 0)
+  ) {
+    throw new Error(`${file}: 비어 있지 않은 문자열 배열이 필요해요`);
+  }
+  return list;
 }

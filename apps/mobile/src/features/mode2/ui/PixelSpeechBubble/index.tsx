@@ -40,7 +40,7 @@ export function PixelSpeechBubble({
       </PixelFrame>
       <Text
         numberOfLines={numberOfLines}
-        adjustsFontSizeToFit={numberOfLines === 1}
+        adjustsFontSizeToFit
         minimumFontScale={0.6}
         style={[styles.text, { color: textColor }]}
       >

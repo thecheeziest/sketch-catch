@@ -27,7 +27,11 @@ export function useGifDownload() {
       throw new Error(`GIF_DOWNLOAD_FAILED_${httpStatus}`);
     }
 
-    await MediaLibrary.createAssetAsync(uri);
+    try {
+      await MediaLibrary.Asset.create(uri);
+    } finally {
+      await FileSystem.deleteAsync(uri, { idempotent: true });
+    }
   };
 
   return { saveGif };

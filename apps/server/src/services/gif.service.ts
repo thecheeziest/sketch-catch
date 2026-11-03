@@ -183,7 +183,7 @@ export async function revealToGif(opts: RevealToGifOptions): Promise<Buffer> {
 
   for (const [index, entry] of entries.entries()) {
     const owner = await imageOf(entry.authorId);
-    const ownerText = `${MODE2_REVEAL_TOP_LEAD} ${entry.text || UNKNOWN_TEXT}!`;
+    const ownerText = `${opts.players.find(player => player.id === entry.authorId)?.nickname ?? '친구'}${MODE2_REVEAL_TOP_LEAD} ${entry.text || UNKNOWN_TEXT}!`;
     const next = entries[index + 1];
     const nextGuesser = next
       ? {

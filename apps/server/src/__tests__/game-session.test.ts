@@ -713,6 +713,7 @@ describe('모드2 콘텐츠 전달', () => {
           );
         }
       }
+      if (current.phase === 'ANSWER') await vi.advanceTimersByTimeAsync(1500 + 15000 + 800);
     }
     expect(readState().status).toBe('MODE2_REVIEW');
     // 그림이 든 시트는 방 상태가 아니라 공개식 저장소에 따로 있다 (room:state를 가볍게 유지)

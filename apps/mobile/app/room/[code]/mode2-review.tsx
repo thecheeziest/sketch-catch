@@ -146,10 +146,10 @@ export default function Mode2ReviewScreen() {
       <Pressable style={styles.stage} onPress={Keyboard.dismiss} accessible={false}>
         {playback ? (
           <RevealStage
-            key={`${playback.sheetIndex}:${playback.startedAt}`}
             entries={entriesBySheet[playback.sheetIndex] ?? []}
             startedAt={playback.startedAt}
             characterOf={characterOf}
+            nicknameOf={userId => knownPlayer(userId)?.nickname ?? players.find(p => p.id === userId)?.nickname ?? '친구'}
             feedbackKey={isLive ? `${review?.gameId ?? ''}:${playback.sheetIndex}` : undefined}
           />
         ) : (

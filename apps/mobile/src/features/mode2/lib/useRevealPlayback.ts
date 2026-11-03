@@ -42,12 +42,16 @@ function playStrokes(entry: Mode2RevealEntry | undefined, progress: number): Str
   return sliceStrokesAt(entry.strokes, getStrokeTimeline(entry.strokes), progress);
 }
 
-// 상단: 지금 그린 사람이 "내가 그린 그림은.. {단어}!" → 그림 재생 → 하단: 다음 사람이 "이 그림은.. {정답}!" → 다음 사람이 상단으로
-function buildScene(entries: Mode2RevealEntry[], sheetElapsedMs: number): RevealScene {
+// 상단: 지금 그린 사람이 "{닉네임}이 그린 그림은.. {단어}!" → 그림 재생 → 하단: 다음 사람이 "이 그림은.. {정답}!" → 다음 사람이 상단으로
+function buildScene(
+  entries: Mode2RevealEntry[],
+  sheetElapsedMs: number,
+  nicknameOf: (userId: string | null) => string,
+): RevealScene {
   const { entryIndex, phase, progress } = getRevealPosition(sheetElapsedMs, entries.length);
   const entry = entries[entryIndex];
   const next = entries[entryIndex + 1];
-  const painterFull = `${MODE2_REVEAL_TOP_LEAD} ${wordOf(entry)}`;
+  const painterFull = `${nicknameOf(entry?.authorId ?? null)}${MODE2_REVEAL_TOP_LEAD} ${wordOf(entry)}`;
   const base = { entryIndex, painterId: entry?.authorId ?? null, phase };
 
   if (phase === 'wait') return { ...base, painterText: '', strokes: NO_STROKES, guesser: null };
@@ -70,7 +74,11 @@ function buildScene(entries: Mode2RevealEntry[], sheetElapsedMs: number): Reveal
  * 시트 1장의 장면 — 재생 중에만 시계를 돌린다. 화면 전체가 아니라 재생 영역 컴포넌트에서만 호출해
  * 30fps 갱신이 채팅 입력 등 다른 UI를 다시 그리지 않게 한다.
  */
-export function useRevealScene(entries: Mode2RevealEntry[], startedAt: number): RevealScene {
+export function useRevealScene(
+  entries: Mode2RevealEntry[],
+  startedAt: number,
+  nicknameOf: (userId: string | null) => string,
+): RevealScene {
   const endsAt = startedAt + getSheetRevealDurationMs(entries.length);
   const [now, setNow] = useState(Date.now);
 
@@ -85,7 +93,7 @@ export function useRevealScene(entries: Mode2RevealEntry[], startedAt: number): 
     return () => clearInterval(timer);
   }, [endsAt]);
 
-  return buildScene(entries, now - startedAt);
+  return buildScene(entries, Math.max(0, now - startedAt), nicknameOf);
 }
 
 // 실시간 공개식(서버가 시트 단위로 진행)과 종료 후 다시 보기(기기 단독 재생) 중 지금 보여 줄 시트를 고른다
@@ -115,10 +123,10 @@ export function useRevealPlayback(review: Mode2ReviewState | null, liveSheetStar
 
   const startReplay = useCallback(
     (sheetIndex: number): void => {
-      if (!isFinished) return;
+      if (!isFinished || sheetIndex < 0 || sheetIndex >= sheets.length) return;
       setReplay({ sheetIndex, startedAt: Date.now() });
     },
-    [isFinished],
+    [isFinished, sheets.length],
   );
 
   return { playback, entriesBySheet, isLive, isFinished, startReplay };
