@@ -1,5 +1,5 @@
-import { useState } from 'react';
-import { useLocalSearchParams, useRouter } from 'expo-router';
+import { useEffect, useRef, useState } from 'react';
+import { useLocalSearchParams, useNavigation, useRouter } from 'expo-router';
 import { Text, View } from 'dripsy';
 import { StyleSheet, useWindowDimensions } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
@@ -32,6 +32,29 @@ export default function CosmeticsScreen() {
   const { width } = useWindowDimensions();
   const [initialView] = useState(() => parseCosmeticsView(params.view));
   const shop = useShopScreen(initialView);
+  const navigation = useNavigation();
+  type LeaveAction = Parameters<typeof navigation.dispatch>[0];
+  const pendingLeaveRef = useRef<LeaveAction | null>(null);
+  const allowLeaveRef = useRef(false);
+  const { isDirty, openLeave } = shop;
+
+  // 옷장에 저장하지 않은 변경이 있으면 어떤 경로로 나가든(뒤로가기·하드웨어 뒤로·스와이프) 저장 여부를 먼저 묻는다
+  useEffect(() => {
+    return navigation.addListener('beforeRemove', event => {
+      if (allowLeaveRef.current || !isDirty) return;
+      event.preventDefault();
+      pendingLeaveRef.current = event.data.action;
+      openLeave();
+    });
+  }, [navigation, isDirty, openLeave]);
+
+  const leave = (): void => {
+    const action = pendingLeaveRef.current;
+    allowLeaveRef.current = true;
+    if (action) navigation.dispatch(action);
+    else router.back();
+  };
+
   const tileWidth = Math.floor((width - spacing.MD * 2 - GRID_GAP * (COLUMNS - 1)) / COLUMNS);
 
   // 진입 로딩 덮개 — 옷장은 닫힌 커튼, 샵은 쏟아지는 코인 위에 스피너(실패 시 재시도)를 띄운다
@@ -64,7 +87,7 @@ export default function CosmeticsScreen() {
 
   const { user, selection } = shop;
   const isWardrobe = shop.view === 'wardrobe';
-  const dialogItem = shop.dialog && shop.dialog.kind !== 'SAVE' ? shop.dialog.item : null;
+  const dialogItem = shop.dialog && 'item' in shop.dialog ? shop.dialog.item : null;
 
   return (
     <SafeAreaView style={styles.container} edges={['top', 'left', 'right']}>
@@ -110,7 +133,13 @@ export default function CosmeticsScreen() {
         />
       </View>
 
-      <ShopStage nickname={user.nickname} selection={selection} isTrying={shop.isTrying} />
+      <ShopStage
+        nickname={user.nickname}
+        selection={selection}
+        isTrying={shop.isTrying}
+        statusMessage={shop.statusMessage}
+        onChangeStatusMessage={isWardrobe ? shop.setStatusMessage : undefined}
+      />
 
       <View sx={{ paddingVertical: spacing.MD }}>
         <ShopTabs active={shop.tab} onChange={shop.setTab} />
@@ -169,6 +198,34 @@ export default function CosmeticsScreen() {
         buttons={[
           { label: '취소', color: 'dark', onPress: shop.closeDialog, disabled: shop.isSaving },
           { label: '저장', color: 'secondary', onPress: shop.confirmSave, loading: shop.isSaving },
+        ]}
+      />
+
+      <Dialog
+        visible={shop.dialog?.kind === 'LEAVE'}
+        onClose={shop.closeDialog}
+        dismissible={!shop.isSaving}
+        title="나가기 전에 현재 모습을 저장할까요?"
+        buttons={[
+          {
+            label: '취소',
+            color: 'dark',
+            disabled: shop.isSaving,
+            onPress: () => {
+              shop.discardChanges();
+              leave();
+            },
+          },
+          {
+            label: '저장',
+            color: 'secondary',
+            loading: shop.isSaving,
+            onPress: () =>
+              shop.save(
+                () => leave(),
+                () => shop.closeDialog(),
+              ),
+          },
         ]}
       />
 

@@ -2,7 +2,15 @@ import { describe, expect, it } from 'vitest';
 import { getShopItem, getShopItemsByCategory } from '@sketch-catch/shared';
 import { getShopCatalogRows } from './catalog';
 import type { ShopTile } from './useShopScreen';
-import { equippedFirst, getEquipChanges, isInWardrobe, parseCosmeticsView, type Selection } from './wardrobe';
+import {
+  equippedFirst,
+  getEquipChanges,
+  getStatusChange,
+  getWardrobeChanges,
+  isInWardrobe,
+  parseCosmeticsView,
+  type Selection,
+} from './wardrobe';
 
 const EQUIPPED: Selection = { CHARACTER: 'apple', FRAME: null, BACKGROUND: 'bg_dots', CHAT_COLOR: null };
 
@@ -72,5 +80,25 @@ describe('내 옷장', () => {
     expect(rows.filter(row => row.kind === 'character-heading').map(row => row.name)).toEqual(['과일', '동물', '채소']);
     const vegetables = rows.filter(row => row.kind === 'items').at(-1);
     expect(vegetables).toMatchObject({ tiles: [{ key: 'tomato' }, { key: 'carrot' }] });
+  });
+
+  it('한마디는 저장된 값과 다를 때만 변경으로 본다 (빈 값은 미설정)', () => {
+    expect(getStatusChange('안녕', undefined)).toBeUndefined();
+    expect(getStatusChange('안녕', '안녕')).toBeUndefined();
+    expect(getStatusChange('안녕', '  안녕  ')).toBeUndefined();
+    expect(getStatusChange('안녕', '반가워')).toBe('반가워');
+    expect(getStatusChange('안녕', '   ')).toBeNull();
+    expect(getStatusChange(null, '')).toBeUndefined();
+  });
+
+  it('아이템 변경과 한마디 변경 중 하나라도 있으면 저장 요청을 만든다', () => {
+    expect(getWardrobeChanges(EQUIPPED, {}, null, undefined)).toBeNull();
+    expect(getWardrobeChanges(EQUIPPED, {}, '안녕', '안녕')).toBeNull();
+    expect(getWardrobeChanges(EQUIPPED, {}, null, '반가워')).toEqual({ statusMessage: '반가워' });
+    expect(getWardrobeChanges(EQUIPPED, { CHARACTER: 'fox' }, null, undefined)).toEqual({ CHARACTER: 'fox' });
+    expect(getWardrobeChanges(EQUIPPED, { CHARACTER: 'fox' }, '안녕', '')).toEqual({
+      CHARACTER: 'fox',
+      statusMessage: null,
+    });
   });
 });

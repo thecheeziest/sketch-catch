@@ -104,6 +104,7 @@ export async function handleRoomJoin(
         frameId: userRecord?.frameId ?? null,
         backgroundId: userRecord?.backgroundId ?? null,
         chatColorId: userRecord?.chatColorId ?? null,
+        statusMessage: userRecord?.statusMessage ?? null,
         slot,
         isHost: userId === state.hostId,
         isReady: false,

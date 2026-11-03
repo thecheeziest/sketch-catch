@@ -8,11 +8,12 @@ export type UserPublic = {
   characterId: string;
 };
 
-// 장착한 꾸미기 — null은 기본 모습
+// 장착한 꾸미기 + 프로필 한마디 — null은 기본 모습/미설정
 export type Cosmetics = {
   frameId: string | null;
   backgroundId: string | null;
   chatColorId: string | null;
+  statusMessage: string | null;
 };
 
 export type UserPrivate = UserPublic &

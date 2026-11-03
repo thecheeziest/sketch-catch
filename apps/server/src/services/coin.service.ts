@@ -15,6 +15,7 @@ import {
 } from '@sketch-catch/shared';
 import { prisma } from '../db/prisma.js';
 import { USER_WITH_ITEMS, type UserWithItems } from '../lib/userPrivate.js';
+import { profanityFilter } from './profanity.js';
 
 export class ItemNotFoundError extends Error {
   readonly code = 'ITEM_NOT_FOUND';
@@ -27,6 +28,9 @@ export class InsufficientCoinsError extends Error {
 }
 export class ItemNotOwnedError extends Error {
   readonly code = 'ITEM_NOT_OWNED';
+}
+export class ProfanityError extends Error {
+  readonly code = 'PROFANITY';
 }
 
 export function createCoinStats(): CoinStats {
@@ -278,12 +282,19 @@ export async function equipItem(userId: string, input: EquipInput): Promise<User
   return prisma.user.update({ where: { id: userId }, data: equipData(item), include: USER_WITH_ITEMS });
 }
 
-/** 옷장 저장 — 바뀐 카테고리를 모두 검증한 뒤 한 번의 업데이트로 장착한다 (전부 성공하거나 전부 실패) */
+/** 옷장 저장 — 바뀐 카테고리와 한마디를 모두 검증한 뒤 한 번의 업데이트로 저장한다 (전부 성공하거나 전부 실패) */
 export async function equipAll(userId: string, input: EquipAllInput): Promise<UserWithItems> {
+  const { statusMessage, ...categories } = input;
   const data: Prisma.UserUpdateInput = {};
   const itemIds: string[] = [];
-  for (const category of Object.keys(input) as ShopCategory[]) {
-    const itemId = input[category];
+
+  if (statusMessage !== undefined) {
+    if (statusMessage !== null && profanityFilter(statusMessage).matched.length > 0) throw new ProfanityError();
+    data.statusMessage = statusMessage;
+  }
+
+  for (const category of Object.keys(categories) as ShopCategory[]) {
+    const itemId = categories[category];
     if (itemId === undefined) continue;
     if (itemId === null) {
       if (category === 'CHARACTER') throw new ItemNotFoundError();

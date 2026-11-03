@@ -4,7 +4,7 @@ import { useMe } from '@/features/auth/api';
 import { handleApiError } from '@/shared/lib/handleApiError';
 import { playFeedback } from '@/shared/lib/feedback';
 import { useEquipAll, useEquipItem, usePurchaseItem } from '../api/useShopMutations';
-import { equippedFirst, getEquipChanges, isInWardrobe, type CosmeticsView, type Selection } from './wardrobe';
+import { equippedFirst, getWardrobeChanges, isInWardrobe, type CosmeticsView, type Selection } from './wardrobe';
 
 export type ShopTileState = 'EQUIPPED' | 'OWNED' | 'BUYABLE' | 'SHORT';
 
@@ -16,7 +16,7 @@ export type ShopTile = {
   selected: boolean;
 };
 
-export type ShopDialog = { kind: 'PURCHASE' | 'SHORT'; item: ShopItem } | { kind: 'SAVE' } | null;
+export type ShopDialog = { kind: 'PURCHASE' | 'SHORT'; item: ShopItem } | { kind: 'SAVE' } | { kind: 'LEAVE' } | null;
 
 export type CosmeticsTransition = 'curtain' | 'coins';
 
@@ -67,6 +67,8 @@ export function useShopScreen(initialView: CosmeticsView) {
   const [transition, setTransition] = useState<CosmeticsTransition | null>(null);
   const [tab, setTab] = useState<ShopCategory>('CHARACTER');
   const [override, setOverride] = useState<Partial<Selection>>({});
+  // 한마디 입력 중인 값 — undefined면 건드리지 않은 것(저장된 값을 보인다)
+  const [statusDraft, setStatusDraft] = useState<string | undefined>(undefined);
   const [dialog, setDialog] = useState<ShopDialog>(null);
 
   const equipped = useMemo(() => (user ? equippedOf(user) : null), [user]);
@@ -90,7 +92,12 @@ export function useShopScreen(initialView: CosmeticsView) {
   }, [user, equipped, override, tab, view]);
 
   const current = tiles.find(t => t.selected) ?? null;
-  const changes = useMemo(() => (equipped ? getEquipChanges(equipped, override) : null), [equipped, override]);
+  const savedStatus = user?.statusMessage ?? null;
+  const statusMessage = statusDraft ?? savedStatus ?? '';
+  const changes = useMemo(
+    () => (equipped ? getWardrobeChanges(equipped, override, savedStatus, statusDraft) : null),
+    [equipped, override, savedStatus, statusDraft],
+  );
   const isTrying =
     !!user && !!selection && Object.values(selection).some(id => id !== null && !user.ownedItemIds.includes(id));
 
@@ -153,6 +160,7 @@ export function useShopScreen(initialView: CosmeticsView) {
   const onTransitionCovered = (): void => {
     setView(prev => (prev === 'shop' ? 'wardrobe' : 'shop'));
     setOverride({});
+    setStatusDraft(undefined);
     setDialog(null);
   };
 
@@ -160,19 +168,33 @@ export function useShopScreen(initialView: CosmeticsView) {
     if (changes) setDialog({ kind: 'SAVE' });
   };
 
-  const confirmSave = (): void => {
-    if (dialog?.kind !== 'SAVE' || !changes) return;
+  const discardChanges = (): void => {
+    setOverride({});
+    setStatusDraft(undefined);
+  };
+
+  // 변경분 저장 — 성공하면 입어 본 값을 비우고 서버 값을 따른다. 결과는 호출한 쪽이 이어 처리한다
+  const save = (onSuccess: () => void, onFail: () => void): void => {
+    if (!changes) return;
     equipAll.mutate(changes, {
       onSuccess: () => {
         playFeedback('confirm');
-        setDialog(null);
-        setOverride({});
+        discardChanges();
+        onSuccess();
       },
       onError: err => {
-        setDialog(null);
+        onFail();
         handleApiError(err);
       },
     });
+  };
+
+  const confirmSave = (): void => {
+    if (dialog?.kind !== 'SAVE') return;
+    save(
+      () => setDialog(null),
+      () => setDialog(null),
+    );
   };
 
   return {
@@ -203,6 +225,13 @@ export function useShopScreen(initialView: CosmeticsView) {
     confirmPurchase,
     isEquipping: equip.isPending,
     isPurchasing: purchase.isPending,
+    statusMessage,
+    setStatusMessage: setStatusDraft,
+    // 옷장에서 저장하지 않은 변경이 있는지 — 화면을 나갈 때 저장 여부를 묻는다
+    isDirty: view === 'wardrobe' && changes !== null,
+    openLeave: () => setDialog({ kind: 'LEAVE' }),
+    discardChanges,
+    save,
     canSave: changes !== null,
     openSave,
     confirmSave,

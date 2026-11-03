@@ -6,6 +6,7 @@ import {
   InsufficientCoinsError,
   ItemNotFoundError,
   ItemNotOwnedError,
+  ProfanityError,
   equipAll,
   equipItem,
   purchaseItem,
@@ -18,6 +19,7 @@ function sendShopError(reply: FastifyReply, err: unknown, label: string) {
   if (err instanceof AlreadyOwnedError) return reply.status(409).send({ error: err.code });
   if (err instanceof InsufficientCoinsError) return reply.status(402).send({ error: err.code });
   if (err instanceof ItemNotOwnedError) return reply.status(403).send({ error: err.code });
+  if (err instanceof ProfanityError) return reply.status(400).send({ error: err.code });
   logger.error({ err }, `${label} failed`);
   return reply.status(500).send({ error: 'INTERNAL' });
 }

@@ -16,6 +16,10 @@ export type Friend = {
   nickname: string;
   friendCode: string;
   characterId: string;
+  frameId: string | null;
+  backgroundId: string | null;
+  chatColorId: string | null;
+  statusMessage: string | null;
   presenceStatus: PresenceStatus;
   room?: FriendRoom;
 };

@@ -1,4 +1,4 @@
-import { Image, Text, View } from 'dripsy';
+import { Text, View } from 'dripsy';
 import { useState } from 'react';
 import {
   useFriendRequests,
@@ -7,10 +7,10 @@ import {
   useSendFriendRequest,
   useSentFriendRequests,
 } from '@/features/friends/api';
-import { colors, getCharacterImageSource, spacing, textSizes } from '@/shared/config';
+import { colors, spacing, textSizes } from '@/shared/config';
 import { handleApiError } from '@/shared/lib';
 import { useToastStore } from '@/shared/model';
-import { Button, Dialog, type DialogButton } from '@/shared/ui';
+import { Button, Dialog, UserProfileView, type DialogButton } from '@/shared/ui';
 import type { Player } from '@sketch-catch/shared';
 
 type Props = {
@@ -92,8 +92,6 @@ export function PlayerProfileDialog({ player, onClose, onTransferHost }: Props) 
     return [close, { label: '친구 추가', color: 'primary', onPress: handleAddFriend, loading: sendRequest.isPending }];
   })();
 
-  const imageSource = player ? getCharacterImageSource(player.characterId) : null;
-
   if (isConfirmingTransfer && player) {
     return (
       <Dialog visible onClose={handleClose} title="방장 넘기기" buttons={buttons}>
@@ -105,16 +103,16 @@ export function PlayerProfileDialog({ player, onClose, onTransferHost }: Props) 
   return (
     <Dialog visible={player !== null} onClose={handleClose} title="프로필" buttons={buttons}>
       {player && (
-        <View sx={{ alignItems: 'center', gap: spacing.SM, paddingVertical: spacing.SM }}>
-          {imageSource !== null ? (
-            <Image source={imageSource} sx={{ width: 72, height: 72 }} resizeMode="contain" />
-          ) : (
-            <View sx={{ width: 72, height: 72, backgroundColor: colors.SECONDARY_400 }} />
-          )}
-          <Text sx={{ ...textSizes.T3, color: colors.LIGHT_100 }}>
-            {player.nickname}
-            <Text sx={{ color: colors.GRAY }}>#{player.friendCode}</Text>
-          </Text>
+        <View sx={{ alignItems: 'center', gap: spacing.SM }}>
+          <UserProfileView
+            nickname={player.nickname}
+            friendCode={player.friendCode}
+            characterId={player.characterId}
+            frameId={player.frameId}
+            backgroundId={player.backgroundId}
+            chatColorId={player.chatColorId}
+            statusMessage={player.statusMessage}
+          />
           {relation === 'FRIEND' && <Text sx={{ ...textSizes.B4, color: colors.PRIMARY_100 }}>이미 친구예요</Text>}
           {onTransferHost && (
             <View sx={{ alignSelf: 'stretch', marginTop: spacing.XS }}>
