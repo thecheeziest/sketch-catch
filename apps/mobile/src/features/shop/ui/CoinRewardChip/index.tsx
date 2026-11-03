@@ -1,6 +1,6 @@
-import { useEffect, useState } from 'react';
+import { type ComponentRef, useEffect, useRef, useState } from 'react';
 import { Text, View } from 'dripsy';
-import { StyleSheet } from 'react-native';
+import { Modal, Pressable, StyleSheet, useWindowDimensions } from 'react-native';
 import Animated, { FadeIn, FadeOut } from 'react-native-reanimated';
 import type { CoinReward } from '@sketch-catch/shared';
 import { colors, fontFamily, spacing } from '@/shared/config';
@@ -17,6 +17,15 @@ const AUTO_COLLAPSE_MS = 3000;
 // 시상식·공개식 타이틀 옆 획득 코인 칩 — 정산이 도착하면 내역을 3초 펼쳤다 접고, 칩을 누르면 다시 펼친다
 export function CoinRewardChip({ reward }: Props) {
   const [expanded, setExpanded] = useState(true);
+  const anchor = useRef<ComponentRef<typeof View>>(null);
+  const [position, setPosition] = useState({ x: 16, y: 80 });
+  const { width, height } = useWindowDimensions();
+  const measureAnchor = (): void => {
+    anchor.current?.measureInWindow((x, y, _w, h) => setPosition({ x, y: y + h + 10 }));
+  };
+  useEffect(() => {
+    if (expanded) measureAnchor();
+  }, [expanded, width, height]);
 
   useEffect(() => {
     setExpanded(true);
@@ -25,15 +34,36 @@ export function CoinRewardChip({ reward }: Props) {
   }, [reward.gameId]);
 
   return (
-    <View style={styles.anchor}>
+    <View ref={anchor} onLayout={measureAnchor} collapsable={false} style={styles.anchor}>
       <CoinChip
         label={`+${reward.total}`}
         height={28}
         onPress={() => setExpanded(prev => !prev)}
         accessibilityLabel={`이번 판 코인 ${reward.total}개 획득, 내역 ${expanded ? '접기' : '펼치기'}`}
       />
-      {expanded && (
-        <Animated.View entering={FadeIn.duration(140)} exiting={FadeOut.duration(120)} style={styles.popover}>
+      <Modal
+        visible={expanded}
+        transparent
+        animationType="none"
+        statusBarTranslucent
+        onRequestClose={() => setExpanded(false)}
+      >
+        <Pressable
+          style={StyleSheet.absoluteFill}
+          onPress={() => setExpanded(false)}
+          accessibilityLabel="코인 내역 닫기"
+        />
+        <Animated.View
+          entering={FadeIn.duration(140)}
+          exiting={FadeOut.duration(120)}
+          style={[
+            styles.popover,
+            {
+              top: Math.min(position.y, Math.max(16, height - 300)),
+              left: Math.max(16, Math.min(position.x, width - 246)),
+            },
+          ]}
+        >
           <PixelFrame borderColor={colors.WARNING_400} borderWidth={3} style={StyleSheet.absoluteFill}>
             <View style={[StyleSheet.absoluteFill, { backgroundColor: colors.DARK_400 }]} />
           </PixelFrame>
@@ -48,7 +78,9 @@ export function CoinRewardChip({ reward }: Props) {
                   <Text sx={{ fontSize: 13, color: highlight ? colors.WARNING_200 : colors.LIGHT_400 }}>
                     {getRewardLineLabel(line, reward.mode)}
                   </Text>
-                  <Text sx={{ fontSize: 13, color: highlight ? colors.WARNING_200 : colors.LIGHT_100 }}>+{line.amount}</Text>
+                  <Text sx={{ fontSize: 13, color: highlight ? colors.WARNING_200 : colors.LIGHT_100 }}>
+                    +{line.amount}
+                  </Text>
                 </View>
               );
             })}
@@ -60,12 +92,12 @@ export function CoinRewardChip({ reward }: Props) {
             </Text>
           </View>
         </Animated.View>
-      )}
+      </Modal>
     </View>
   );
 }
 
 const styles = StyleSheet.create({
   anchor: { zIndex: 10, elevation: 10 },
-  popover: { position: 'absolute', top: 38, left: 0, width: 230 },
+  popover: { position: 'absolute', width: 230 },
 });

@@ -1,8 +1,9 @@
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { Alert, Keyboard, StyleSheet } from 'react-native';
+import { RoomInfoChips } from '@/shared/ui/RoomInfoChips';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useLocalSearchParams, useRouter } from 'expo-router';
-import { CLIENT_EVENT, MODE2_ANSWER_SEC, type Mode2Phase, type Stroke } from '@sketch-catch/shared';
+import { CLIENT_EVENT, MODE2_ANSWER_SEC, PROMPT_MAX_LENGTH, type Mode2Phase, type Stroke } from '@sketch-catch/shared';
 import { View } from 'dripsy';
 import { useHardwareBack } from '@/shared/lib';
 import { useTimerFeedback } from '@/shared/lib/useTimerFeedback';
@@ -23,7 +24,7 @@ import {
 import { PromptWaitingOverlay } from '@/features/game/ui/PromptWaitingOverlay';
 import { ReferenceCanvas, useDraftSync, useMode2Sender, useMode2Store } from '@/features/mode2';
 
-const MAX_TEXT_LENGTH = 40;
+const MAX_TEXT_LENGTH = PROMPT_MAX_LENGTH;
 const SUBMIT_BUTTON_WIDTH = 64;
 // 마감이 지났는데도 다음 단계가 오지 않으면(네트워크 유실 등) 재입장으로 현재 단계를 다시 받는다
 const STEP_RESYNC_DELAY_MS = 4000;
@@ -57,9 +58,10 @@ export default function Mode2Screen() {
   const step = useMode2Store(s => s.step);
   const stepTiming = useMode2Store(s => s.stepTiming);
   const myStrokesLength = useMode2Store(s => s.myStrokes.length);
-  const { submitPrompt, submitDraw, submitAnswer } = useMode2Sender();
+  const { submitPrompt, submitDraw, submitAnswer, syncDraft: sendDraft } = useMode2Sender();
   const keyboardLayout = useGameKeyboardLayout();
 
+  const latestText = useRef('');
   const stepKey = `${gameId}:${step?.stepIndex ?? -1}`;
   const syncDraft = useDraftSync(step?.sheetId, stepKey);
   const [submitted, setSubmitted] = useState(false);
@@ -82,6 +84,7 @@ export default function Mode2Screen() {
   // 제출되는 것을 막는다 (DrawingCanvas는 key로 remount되지만 store는 유지되므로)
   useEffect(() => {
     setSubmitted(false);
+    latestText.current = '';
     useMode2Store.getState().setMyStrokes([]);
     if (step?.stepIndex === 0) setMyPrompt(null);
     const cueMs = (stepTiming?.cueUntil ?? 0) - Date.now();
@@ -92,12 +95,18 @@ export default function Mode2Screen() {
 
   const isExpired = step != null && timeLeft === 0 && !cueVisible;
   useEffect(() => {
+    if (!isExpired || !step || step.phase === 'DRAW') return;
+    sendDraft(step.sheetId, { text: latestText.current });
+    // 마감·단계별 한 번만 최종 초안을 보낸다.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isExpired, stepKey]);
+  useEffect(() => {
     if (!isExpired || !socket || !code) return;
     const timer = setTimeout(() => socket.emit(CLIENT_EVENT.ROOM_JOIN, { code }), STEP_RESYNC_DELAY_MS);
     return () => clearTimeout(timer);
   }, [isExpired, socket, code, stepKey]);
 
-  useTimerFeedback(timeLeft, `${gameId}:mode2:${step?.stepIndex}`, step != null && !submitted && !cueVisible);
+  useTimerFeedback(timeLeft, `${gameId}:mode2:${step?.stepIndex}`, step != null && (!submitted || step.phase === 'ANSWER') && !cueVisible);
 
   const handleExitAttempt = useCallback((): void => {
     Alert.alert('게임에서 나가기', '게임을 나가면 현재 진행 중인 시트가 비어있는 상태로 처리됩니다. 계속할까요?', [
@@ -124,7 +133,10 @@ export default function Mode2Screen() {
     [syncDraft],
   );
 
-  const handleTextChange = useCallback((text: string): void => syncDraft({ text }), [syncDraft]);
+  const handleTextChange = useCallback((text: string): void => {
+    latestText.current = text;
+    syncDraft({ text });
+  }, [syncDraft]);
   const handleCueDismiss = useCallback((): void => setCueVisible(false), []);
 
   if (!step) {
@@ -135,7 +147,7 @@ export default function Mode2Screen() {
     );
   }
 
-  const showWaiting = submitted || isExpired;
+  const showWaiting = (submitted && step.phase !== 'ANSWER') || isExpired;
   const previousText = step.previousContent?.kind === 'TEXT' ? step.previousContent.text : '';
   const previousStrokes = step.previousContent?.kind === 'DRAW' ? step.previousContent.strokes : [];
   const drawWord = previousText || '???';
@@ -146,7 +158,7 @@ export default function Mode2Screen() {
     if (showWaiting) return false;
     const sent = step.phase === 'PROMPT' ? submitPrompt(step.sheetId, text) : submitAnswer(step.sheetId, text);
     if (!sent) return false;
-    Keyboard.dismiss();
+    if (step.phase !== 'ANSWER') Keyboard.dismiss();
     setSubmitted(true);
     if (step.phase === 'PROMPT') setMyPrompt(text.trim());
     return true;
@@ -195,6 +207,7 @@ export default function Mode2Screen() {
         }}
       >
         <GameHeader
+          roomInfo={roomState ? <RoomInfoChips mode={roomState.mode} categories={roomState.config.categories} /> : undefined}
           roundIndex={Math.floor(step.stepIndex / 2)}
           totalTurns={Math.max(1, step.totalSteps / 2)}
           timeLeft={timeLeft}
@@ -254,11 +267,12 @@ export default function Mode2Screen() {
           <ChatInputBar
             isDrawer={false}
             resetKey={stepKey}
+            clearOnSend={false}
             onSend={handleTextSubmit}
             onChangeText={handleTextChange}
             maxLength={MAX_TEXT_LENGTH}
             disabled={showWaiting || cueVisible}
-            placeholder={submitted ? '제출 완료! 수정할 수 없어요' : '이 그림은 뭘까요?'}
+            placeholder={submitted ? '시간 안에는 답안을 수정할 수 있어요' : '이 그림은 뭘까요?'}
           />
         )}
       </View>
@@ -269,7 +283,7 @@ export default function Mode2Screen() {
         guide="친구들이 이어 그릴 제시어를 입력해 주세요"
         expiredMessage="시간 초과! 입력하던 제시어로 넘어가요."
         placeholder="예: 우주를 나는 고양이"
-        maxLength={MAX_TEXT_LENGTH}
+        maxLength={PROMPT_MAX_LENGTH}
         endsAt={stepTiming?.deadline}
         onChangeText={handleTextChange}
         onSubmit={handleTextSubmit}

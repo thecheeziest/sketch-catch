@@ -203,10 +203,10 @@ describe('mode2', () => {
       }
       expect(ctl.state.status).toBe('MODE2_ANSWER_PHASE');
       const answerPayload = game._broadcastEmit.mock.calls.find(([event]) => event === 'mode2:step')?.[1];
-      expect(answerPayload).toMatchObject({ phase: 'ANSWER', durationSec: 10, remainingMs: 11500, cueMs: 1500 });
+      expect(answerPayload).toMatchObject({ phase: 'ANSWER', durationSec: 15, remainingMs: 16500, cueMs: 1500 });
     });
 
-    it.each([4, 5])('%i명 게임은 마지막 사람의 그림까지 진행한 뒤 MODE2_REVIEW로 전환된다', async playerCount => {
+    it.each([3, 4, 5])('%i명 게임은 마지막 사람의 그림까지 진행한 뒤 MODE2_REVIEW로 전환된다', async playerCount => {
       const initial = makeMode2RoomState(playerCount);
       const ctl = makeStatefulMocks(initial);
       const game = makeNamespace();
@@ -215,6 +215,7 @@ describe('mode2', () => {
 
       async function submitAllForStep() {
         const current = ctl.state.current as any;
+        const wasAnswer = current.phase === 'ANSWER';
         for (const sheet of current.sheets) {
           const assignee = currentAssignee(initial.players, sheet.ownerIndex, current.step);
           const socket = { data: { userId: assignee.id }, rooms: new Set(['room:ABC123']) };
@@ -226,6 +227,7 @@ describe('mode2', () => {
             await handleMode2Answer(game as any, socket as any, { sheetId: sheet.sheetId, text: '멍멍이' });
           }
         }
+        if (wasAnswer) await vi.advanceTimersByTimeAsync(1500 + 15000 + 800);
       }
 
       for (let step = 0; step < playerCount * 2 - 1; step++) {
@@ -311,7 +313,7 @@ describe('mode2', () => {
   });
 
   describe('mode2 입력 검증 (07-REVIEW CR-01) — 클라이언트 입력 절대 신뢰 금지', () => {
-    it('handleMode2Prompt: text가 MAX_TEXT_LENGTH(40)를 넘으면 서버가 잘라서 저장한다', async () => {
+    it('handleMode2Prompt: text가 PROMPT_MAX_LENGTH(15)를 넘으면 서버가 잘라서 저장한다', async () => {
       const initial = makeMode2RoomState(4);
       const ctl = makeStatefulMocks(initial);
       const game = makeNamespace();
@@ -327,7 +329,7 @@ describe('mode2', () => {
       await handleMode2Prompt(game as any, socket as any, { sheetId: sheet.sheetId, text: longText });
 
       const savedSheet = (ctl.state.current as any).sheets.find((s: any) => s.sheetId === sheet.sheetId);
-      expect(savedSheet.steps[0].text).toBe('a'.repeat(40));
+      expect(savedSheet.steps[0].text).toBe('a'.repeat(15));
     });
 
     it('handleMode2Answer: 앞뒤 공백을 trim하고 길이를 제한한다', async () => {
@@ -358,6 +360,27 @@ describe('mode2', () => {
 
       const savedSheet = (ctl.state.current as any).sheets.find((s: any) => s.sheetId === sheet.sheetId);
       expect(savedSheet.steps.at(-1).text).toBe('멍멍이');
+      // 전원이 제출해도 마감까지 남아 수정할 수 있다.
+      for (const item of answerPhase.sheets) {
+        const writer = currentAssignee(initial.players, item.ownerIndex, answerPhase.step);
+        await handleMode2Answer(
+          game as never,
+          { data: { userId: writer.id }, rooms: new Set(['room:ABC123']) },
+          { sheetId: item.sheetId, text: '첫 답안' },
+        );
+      }
+      expect(ctl.state.status).toBe('MODE2_ANSWER_PHASE');
+      await handleMode2Answer(game as never, socket, { sheetId: sheet.sheetId, text: '수정한 답안' });
+      expect(savedSheet.steps.at(-1).text).toBe('수정한 답안');
+      expect(savedSheet.steps).toHaveLength(3);
+      await handleMode2Draft(socket, { sheetId: sheet.sheetId, text: '제출 후 마지막 입력' });
+      await vi.advanceTimersByTimeAsync(1500 + 15000 + 800);
+      expect(ctl.state.status).toBe('MODE2_DRAW_PHASE');
+      expect(savedSheet.steps.at(-1).text).toBe('제출 후 마지막 입력');
+      // 이미 다음 단계로 넘어간 뒤의 지연된 answer 이벤트는 무시한다.
+      const count = savedSheet.steps.length;
+      await handleMode2Answer(game as never, socket, { sheetId: sheet.sheetId, text: '늦은 답안' });
+      expect(savedSheet.steps).toHaveLength(count);
     });
 
     it('handleMode2DrawDone: strokes가 300개를 넘으면 300개로 잘리고, authorId는 클라이언트 값이 아닌 검증된 assignee로 강제된다', async () => {
@@ -468,12 +491,12 @@ describe('mode2', () => {
       expect(leaverSheet.steps[1]).toMatchObject({ kind: 'DRAW', authorId: 'p1', strokes: [] });
     });
 
-    it('활성 인원이 4명 미만이 되면 endGame(INSUFFICIENT_PLAYERS)이 호출되고 시트 처리는 건너뛴다', async () => {
-      const initial = makeMode2RoomState(4);
+    it('활성 인원이 3명 미만이 되면 endGame(INSUFFICIENT_PLAYERS)이 호출되고 시트 처리는 건너뛴다', async () => {
+      const initial = makeMode2RoomState(3);
       const ctl = makeStatefulMocks(initial);
       const game = makeNamespace();
 
-      await startMode2(game as any, 'ABC123'); // step0 PROMPT, 4명
+      await startMode2(game as any, 'ABC123'); // step0 PROMPT, 3명
 
       // 전원 prompt 제출 -> step1 DRAW
       const step0 = ctl.state.current as any;
@@ -504,6 +527,7 @@ describe('mode2', () => {
 
       async function submitAllForStep() {
         const current = ctl.state.current as any;
+        const wasAnswer = current.phase === 'ANSWER';
         for (const sheet of current.sheets) {
           const assignee = currentAssignee(initial.players, sheet.ownerIndex, current.step);
           const socket = { data: { userId: assignee.id }, rooms: new Set(['room:ABC123']) };
@@ -515,6 +539,7 @@ describe('mode2', () => {
             await handleMode2Answer(game as any, socket as any, { sheetId: sheet.sheetId, text: '멍멍이' });
           }
         }
+        if (wasAnswer) await vi.advanceTimersByTimeAsync(1500 + 15000 + 800);
       }
 
       // step0~7 전부 제출 -> REVIEW 진입

@@ -13,6 +13,7 @@ type Props = {
   timeLeft: number;
   /** 없으면 참가자 그리드·상태 범례를 숨긴다 (모드 2) */
   playerGrid?: ReactNode;
+  roomInfo?: ReactNode;
   word: string | null;
   wordColor: string;
   /** 키보드가 올라온 동안 라운드 바·참가자 리스트·범례를 접어 스케치북 영역을 확보한다 */
@@ -41,6 +42,7 @@ export function GameHeader({
   totalTurns,
   timeLeft,
   playerGrid,
+  roomInfo,
   word,
   wordColor,
   collapsed,
@@ -68,6 +70,7 @@ export function GameHeader({
         </View>
       </Collapse>
 
+      {roomInfo != null && <View sx={{ paddingHorizontal: spacing.MD }}>{roomInfo}</View>}
       <WordBar
         word={word}
         color={wordColor}

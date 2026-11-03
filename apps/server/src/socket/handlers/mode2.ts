@@ -13,6 +13,7 @@ import type {
 import {
   MODE2_ANSWER_CUE_MS,
   MODE2_ANSWER_SEC,
+  PROMPT_MAX_LENGTH,
   MODE2_DRAW_CUE_MS,
   MODE2_DRAW_SEC,
   MODE2_PLAYER_MIN,
@@ -56,7 +57,7 @@ export type Mode2Current = {
 const FALLBACK_PROMPT = '자유 그림';
 
 // 클라이언트 입력 절대 신뢰 금지 — mobile MAX_TEXT_LENGTH(mode2.tsx)와 동일한 상한
-const MAX_TEXT_LENGTH = 40;
+const MAX_TEXT_LENGTH = PROMPT_MAX_LENGTH;
 // strokes는 RoomState에 영구 저장되고 GIF 렌더링 입력으로도 쓰이므로 상한 없이는 저장 폭증/렌더링 DoS 위험
 const MAX_STROKES = 300;
 const MAX_POINTS_PER_STROKE = 2000;
@@ -206,7 +207,8 @@ async function assertAssignee(
   const current = state.current as Mode2Current;
   const sheet = current.sheets.find(s => s.sheetId === sheetId);
   if (!sheet) return null;
-  if (current.submitted.includes(sheetId)) return null; // 중복 제출 방지
+  if (current.submitted.includes(sheetId) && current.phase !== 'ANSWER') return null;
+  if (Date.now() > current.startedAt + stepDurationMs(current.phase) + MODE2_SUBMIT_GRACE_MS) return null;
 
   const players = sortedPlayers(state);
   const assignee = currentAssignee(players, sheet.ownerIndex, current.step);
@@ -287,9 +289,9 @@ export async function handleMode2Prompt(
   const code = findRoomCode(socket);
   if (!code) return;
   const ctx = await assertAssignee(code, socket, payload.sheetId);
-  if (!ctx) return;
+  if (!ctx || ctx.current.phase !== 'PROMPT') return;
 
-  const text = sanitizeText(payload.text);
+  const text = sanitizeText(payload.text).slice(0, PROMPT_MAX_LENGTH);
   if (!text) return;
   ctx.sheet.steps.push({ kind: 'PROMPT', authorId: socket.data.userId, text });
   recordMode2Submit(ctx.state, socket.data.userId);
@@ -299,22 +301,29 @@ export async function handleMode2Prompt(
 }
 
 export async function handleMode2Answer(
-  game: GameNamespace,
+  _game: GameNamespace,
   socket: Mode2Socket,
   payload: { sheetId: string; text: string },
 ): Promise<void> {
   const code = findRoomCode(socket);
   if (!code) return;
   const ctx = await assertAssignee(code, socket, payload.sheetId);
-  if (!ctx) return;
+  if (!ctx || ctx.current.phase !== 'ANSWER') return;
 
   const text = sanitizeText(payload.text);
   if (!text) return;
-  ctx.sheet.steps.push({ kind: 'ANSWER', authorId: socket.data.userId, text });
-  recordMode2Submit(ctx.state, socket.data.userId);
-  ctx.current.submitted.push(payload.sheetId);
+  const content: Mode2StepContent = { kind: 'ANSWER', authorId: socket.data.userId, text };
+  if (ctx.current.submitted.includes(payload.sheetId)) {
+    ctx.sheet.steps[ctx.sheet.steps.length - 1] = content;
+  } else {
+    ctx.sheet.steps.push(content);
+    recordMode2Submit(ctx.state, socket.data.userId);
+    ctx.current.submitted.push(payload.sheetId);
+  }
+  ctx.current.drafts ??= {};
+  ctx.current.drafts[payload.sheetId] = { text };
+  // 전원이 제출해도 답안 단계는 마감까지 유지한다. 마지막 입력으로 수정 가능하다.
   await saveRoomState(ctx.state);
-  await checkAllSubmitted(game, code, ctx.current);
 }
 
 export async function handleMode2DrawDone(
@@ -325,7 +334,7 @@ export async function handleMode2DrawDone(
   const code = findRoomCode(socket);
   if (!code) return;
   const ctx = await assertAssignee(code, socket, payload.sheetId);
-  if (!ctx) return;
+  if (!ctx || ctx.current.phase !== 'DRAW') return;
 
   const strokes = sanitizeStrokes(payload.strokes, socket.data.userId);
   if (strokes.length === 0) return;
@@ -355,7 +364,9 @@ export async function handleMode2Draft(
   if (ctx.current.phase === 'DRAW') {
     ctx.current.drafts[payload.sheetId] = { strokes: sanitizeStrokes(payload.strokes, socket.data.userId) };
   } else {
-    ctx.current.drafts[payload.sheetId] = { text: sanitizeText(payload.text) };
+    ctx.current.drafts[payload.sheetId] = {
+      text: sanitizeText(payload.text).slice(0, ctx.current.phase === 'PROMPT' ? PROMPT_MAX_LENGTH : MAX_TEXT_LENGTH),
+    };
   }
   await saveRoomState(ctx.state);
 }
@@ -401,7 +412,14 @@ export async function advanceStep(game: GameNamespace, code: string, expectedGam
 
   // D-08: 미제출 시트는 작성 중이던 초안으로 강제 제출하고 다음 단계로 전환
   for (const sheet of current.sheets) {
-    if (current.submitted.includes(sheet.sheetId)) continue;
+    if (current.submitted.includes(sheet.sheetId)) {
+      const content = sheet.steps[sheet.steps.length - 1];
+      const draft = current.drafts?.[sheet.sheetId];
+      if (current.phase === 'ANSWER' && content?.kind === 'ANSWER' && draft?.text !== undefined) {
+        content.text = draft.text;
+      }
+      continue;
+    }
     const assignee = currentAssignee(players, sheet.ownerIndex, current.step);
     sheet.steps.push(await timeoutContent(state, current, sheet, assignee.id));
   }
@@ -453,7 +471,7 @@ export async function handleMode2PlayerLeft(game: GameNamespace, code: string, u
 
   const activePlayers = state.players.filter(p => !p.left);
 
-  // 텔레스테이션 룰은 최소 4명부터 성립한다.
+  // 이어그리기는 활성 참가자 3명 이상이면 계속한다.
   if (activePlayers.length < MODE2_PLAYER_MIN) {
     await saveRoomState(state);
     game.to(`room:${code}`).emit(SERVER_EVENT.ROOM_STATE, state);

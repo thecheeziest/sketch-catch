@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { StyleSheet, useWindowDimensions } from 'react-native';
 import { Canvas, Path } from '@shopify/react-native-skia';
 import { View } from 'dripsy';
@@ -38,17 +38,11 @@ type Props = {
 
 export function DrawingCanvas({ isDrawer, drawingEnabled = isDrawer, onStrokesChange, onTouchCanvas }: Props) {
   // 채팅·타이머 등 다른 게임 상태가 바뀔 때마다 캔버스가 다시 그려지지 않도록 필요한 필드만 구독한다
-  const { color, width, eraser, paint, remoteStrokes } = useGameStore(
+  const { remoteStrokes } = useGameStore(
     useShallow(s => ({
-      color: s.color,
-      width: s.width,
-      eraser: s.eraser,
-      paint: s.paint,
       remoteStrokes: s.remoteStrokes,
     })),
   );
-  const drawerClearNonce = useGameStore(s => s.drawerClearNonce);
-  const drawerUndoNonce = useGameStore(s => s.drawerUndoNonce);
   const sender = useStrokeSender(isDrawer && !onStrokesChange);
   const myId = useAuthStore(s => s.user?.id) ?? '';
 
@@ -77,86 +71,111 @@ export function DrawingCanvas({ isDrawer, drawingEnabled = isDrawer, onStrokesCh
     startTime: s.startTime - canvasStartedAt.current,
   });
 
-  const getStrokeColor = (): string => (eraser ? '#FFFFFF' : color);
-  const getStrokeWidth = (): number => (eraser ? width * 2 : width);
+  const inputRef = useRef({
+    drawingEnabled,
+    isDrawer,
+    onTouchCanvas,
+    onStrokesChange,
+    sender,
+    toSharedStroke,
+    fallbackW,
+    fallbackH,
+  });
+  inputRef.current = {
+    drawingEnabled,
+    isDrawer,
+    onTouchCanvas,
+    onStrokesChange,
+    sender,
+    toSharedStroke,
+    fallbackW,
+    fallbackH,
+  };
 
-  const pan = Gesture.Pan()
-    .runOnJS(true)
-    .minDistance(0)
-    .onBegin(e => {
-      onTouchCanvas?.();
-      if (!drawingEnabled) return;
-      const cw = canvasSizeRef.current.width || fallbackW;
-      const ch = canvasSizeRef.current.height || fallbackH;
+  const pan = useMemo(
+    () =>
+      Gesture.Pan()
+        .runOnJS(true)
+        .minDistance(0)
+        .onBegin(e => {
+          inputRef.current.onTouchCanvas?.();
+          if (!inputRef.current.drawingEnabled) return;
+          const { color, width, eraser, paint } = useGameStore.getState();
+          const cw = canvasSizeRef.current.width || inputRef.current.fallbackW;
+          const ch = canvasSizeRef.current.height || inputRef.current.fallbackH;
 
-      if (paint) {
-        try {
-          const paintSpans = createPaintSpans(allStrokesRef.current, cw, ch, e.x, e.y, color);
-          if (paintSpans.length === 0) return;
-          const fillStroke: LocalStroke = {
-            strokeId: makeStrokeId(),
-            color,
-            width: 0,
-            startTime: Date.now(),
-            points: [],
-            paintSpans,
+          if (paint) {
+            try {
+              const paintSpans = createPaintSpans(allStrokesRef.current, cw, ch, e.x, e.y, color);
+              if (paintSpans.length === 0) return;
+              const fillStroke: LocalStroke = {
+                strokeId: makeStrokeId(),
+                color,
+                width: 0,
+                startTime: Date.now(),
+                points: [],
+                paintSpans,
+              };
+              allStrokesRef.current = [...allStrokesRef.current, fillStroke];
+              setLocalStrokes(allStrokesRef.current);
+              inputRef.current.sender.fill(fillStroke.strokeId, color, paintSpans);
+              playFeedback('fill');
+              inputRef.current.onStrokesChange?.(allStrokesRef.current.map(inputRef.current.toSharedStroke));
+            } catch (error) {
+              useToastStore
+                .getState()
+                .show(error instanceof Error ? error.message : '페인트를 칠하지 못했어요!', 'error');
+            }
+            return;
+          }
+
+          const strokeId = makeStrokeId();
+          const strokeColor = eraser ? '#FFFFFF' : color;
+          const strokeWidth = eraser ? width * 2 : width;
+
+          const point: Point = {
+            x: e.x / cw,
+            y: e.y / ch,
+            t: Date.now(),
           };
-          allStrokesRef.current = [...allStrokesRef.current, fillStroke];
+          const stroke: LocalStroke = {
+            strokeId,
+            color: strokeColor,
+            width: strokeWidth,
+            startTime: point.t,
+            points: [point],
+          };
+          currentStrokeRef.current = stroke;
+          allStrokesRef.current = [...allStrokesRef.current, stroke];
           setLocalStrokes(allStrokesRef.current);
-          sender.fill(fillStroke.strokeId, color, paintSpans);
-          playFeedback('fill');
-          onStrokesChange?.(allStrokesRef.current.map(toSharedStroke));
-        } catch (error) {
-          useToastStore.getState().show(error instanceof Error ? error.message : '페인트를 칠하지 못했어요!', 'error');
-        }
-        return;
-      }
 
-      const strokeId = makeStrokeId();
-      const strokeColor = getStrokeColor();
-      const strokeWidth = getStrokeWidth();
+          inputRef.current.sender.startStroke(strokeId, strokeColor, strokeWidth);
+          inputRef.current.sender.pushPoint(point);
+        })
+        .onUpdate(e => {
+          if (!inputRef.current.drawingEnabled || !currentStrokeRef.current) return;
+          const cw = canvasSizeRef.current.width || inputRef.current.fallbackW;
+          const ch = canvasSizeRef.current.height || inputRef.current.fallbackH;
 
-      const point: Point = {
-        x: e.x / cw,
-        y: e.y / ch,
-        t: Date.now(),
-      };
-      const stroke: LocalStroke = {
-        strokeId,
-        color: strokeColor,
-        width: strokeWidth,
-        startTime: point.t,
-        points: [point],
-      };
-      currentStrokeRef.current = stroke;
-      allStrokesRef.current = [...allStrokesRef.current, stroke];
-      setLocalStrokes(allStrokesRef.current);
+          const point: Point = {
+            x: e.x / cw,
+            y: e.y / ch,
+            t: Date.now(),
+          };
+          currentStrokeRef.current.points.push(point);
+          // 새 배열 참조로 재렌더 유도 — 렌더에서 points로부터 SkPath를 새로 만든다
+          setLocalStrokes(prev => [...prev]);
 
-      sender.startStroke(strokeId, strokeColor, strokeWidth);
-      sender.pushPoint(point);
-    })
-    .onUpdate(e => {
-      if (!drawingEnabled || paint || !currentStrokeRef.current) return;
-      const cw = canvasSizeRef.current.width || fallbackW;
-      const ch = canvasSizeRef.current.height || fallbackH;
-
-      const point: Point = {
-        x: e.x / cw,
-        y: e.y / ch,
-        t: Date.now(),
-      };
-      currentStrokeRef.current.points.push(point);
-      // 새 배열 참조로 재렌더 유도 — 렌더에서 points로부터 SkPath를 새로 만든다
-      setLocalStrokes(prev => [...prev]);
-
-      sender.pushPoint(point);
-    })
-    .onEnd(() => {
-      if (!isDrawer || paint) return;
-      sender.endStroke();
-      currentStrokeRef.current = null;
-      onStrokesChange?.(allStrokesRef.current.map(toSharedStroke));
-    });
+          inputRef.current.sender.pushPoint(point);
+        })
+        .onEnd(() => {
+          if (!currentStrokeRef.current) return;
+          inputRef.current.sender.endStroke();
+          currentStrokeRef.current = null;
+          inputRef.current.onStrokesChange?.(allStrokesRef.current.map(inputRef.current.toSharedStroke));
+        }),
+    [],
+  );
 
   const handleLayout = useCallback((e: { nativeEvent: { layout: { width: number; height: number } } }) => {
     const { width: w, height: h } = e.nativeEvent.layout;
@@ -178,26 +197,24 @@ export function DrawingCanvas({ isDrawer, drawingEnabled = isDrawer, onStrokesCh
     return p;
   };
 
-  // 출제자: '전체 지우기'/'되돌리기'는 서버 broadcast에서 sender가 제외되므로,
-  // 스토어 nonce를 구독해 로컬 stroke도 함께 정리한다. nonce 0(초기값)에는 무시.
-  useEffect(() => {
-    if (!isDrawer || drawerClearNonce === 0) return;
-    allStrokesRef.current = [];
-    currentStrokeRef.current = null;
-    localPathCache.current.clear();
-    setLocalStrokes([]);
-    onStrokesChange?.([]);
-  }, [isDrawer, drawerClearNonce, onStrokesChange]);
-
-  useEffect(() => {
-    if (!isDrawer || drawerUndoNonce === 0) return;
-    const removed = allStrokesRef.current[allStrokesRef.current.length - 1];
-    if (removed) localPathCache.current.delete(removed.strokeId);
-    allStrokesRef.current = allStrokesRef.current.slice(0, -1);
-    currentStrokeRef.current = null;
-    setLocalStrokes(allStrokesRef.current);
-    onStrokesChange?.(allStrokesRef.current.map(toSharedStroke));
-  }, [isDrawer, drawerUndoNonce, onStrokesChange]);
+  // 클릭 신호가 바뀐 순간에만 처리한다. 리렌더·콜백 변경·이전 단계 nonce로 다시 지우지 않는다.
+  useEffect(
+    () =>
+      useGameStore.subscribe((state, previous) => {
+        if (!inputRef.current.isDrawer) return;
+        const cleared = state.drawerClearNonce !== previous.drawerClearNonce;
+        const undoCount = Math.max(0, state.drawerUndoNonce - previous.drawerUndoNonce);
+        if (!cleared && undoCount === 0) return;
+        inputRef.current.sender.endStroke();
+        const keepCount = cleared ? 0 : Math.max(0, allStrokesRef.current.length - undoCount);
+        for (const stroke of allStrokesRef.current.slice(keepCount)) localPathCache.current.delete(stroke.strokeId);
+        allStrokesRef.current = allStrokesRef.current.slice(0, keepCount);
+        currentStrokeRef.current = null;
+        setLocalStrokes(allStrokesRef.current);
+        inputRef.current.onStrokesChange?.(allStrokesRef.current.map(inputRef.current.toSharedStroke));
+      }),
+    [],
+  );
 
   // 관전자: remoteStrokes를 Skia Path로 변환 (strokeId별 누적 — 매 프레임 재생성 금지).
   // RESEARCH Pitfall 4: strokeId별 Path Map 누적. 단, 경로가 만들어진 캔버스 크기(w/h)를

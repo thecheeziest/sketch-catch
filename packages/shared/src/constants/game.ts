@@ -9,7 +9,8 @@ export const CHAT_BUBBLE_DURATION_MS = 2500; // GAME-02
 // 방
 export const ROOM_CODE_LENGTH = 6;
 export const ROOM_PLAYER_MIN = 3;
-export const MODE2_PLAYER_MIN = 4;
+export const MODE2_PLAYER_MIN = 3;
+export const PROMPT_MAX_LENGTH = 15;
 export const ROOM_PLAYER_MAX = 12;
 
 // 벌칙 (모드 1 전용) — 켜면 스피디한 단판으로 시작하도록 턴·타이머 기본값을 바꿔 준다 (이후 수동 변경 가능)
@@ -48,7 +49,7 @@ export const PROMPT_DURATION_SEC = 30;
 // 모드 2(이어 그리자!) 단계별 제한 시간 — 방 설정과 무관하게 고정
 export const MODE2_PROMPT_SEC = 20;
 export const MODE2_DRAW_SEC = 40;
-export const MODE2_ANSWER_SEC = 10;
+export const MODE2_ANSWER_SEC = 15;
 // 그리기 단계 시작 전 '{답안} 그려 주세요!' 안내 노출 시간 — 그리기 제한 시간 앞에 더해진다
 export const MODE2_DRAW_CUE_MS = 2500;
 // 정답 단계 시작 전 '그림을 맞혀주세요!' 안내 노출 시간 — 정답 제한 시간 앞에 더해진다
@@ -57,7 +58,7 @@ export const MODE2_ANSWER_CUE_MS = 1500;
 export const MODE2_SUBMIT_GRACE_MS = 800;
 
 // 모드 2 정답 공개식 타임라인 — 서버 진행 타이머·앱 재생·GIF가 같은 값을 쓴다 (mode2/revealTimeline.ts).
-// 발표 1건 = 상단 "내가 그린 그림은.. {단어}!" → 스케치 재생 → 하단 다음 사람 "이 그림은.. {정답}!"
+// 발표 1건 = 상단 "{닉네임}이 그린 그림은.. {단어}!" → 스케치 재생 → 하단 다음 사람 "이 그림은.. {정답}!"
 // 시트 원조자의 첫 발표만 앞말을 읽을 시간을 주고, 이후 사람은 하단에서 올라온 뒤 바로 그린다
 export const MODE2_REVEAL_OWNER_LEAD_MS = 2000;
 export const MODE2_REVEAL_MOVE_MS = 800;
@@ -67,5 +68,5 @@ export const MODE2_REVEAL_GUESS_MS = 2000;
 // 다음 시트로 넘어갈 때 상단 캐릭터 테두리가 옮겨 가는 동안의 대기
 export const MODE2_REVEAL_SHEET_GAP_MS = 1200;
 // 공개식 말풍선 앞말 — 앱 화면과 GIF가 같은 문구를 쓴다
-export const MODE2_REVEAL_TOP_LEAD = '내가 그린 그림은..';
+export const MODE2_REVEAL_TOP_LEAD = '이 그린 그림은..';
 export const MODE2_REVEAL_GUESS_LEAD = '이 그림은..';

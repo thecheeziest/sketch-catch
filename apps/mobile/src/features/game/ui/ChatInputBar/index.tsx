@@ -9,6 +9,7 @@ import { toolbar } from '@/features/game/config';
 type Props = {
   isDrawer: boolean;
   resetKey?: string;
+  clearOnSend?: boolean;
   onSend: (text: string) => boolean;
   placeholder?: string;
   /** 라운드 종료 구간(정답/게임오버) — 입력 비활성화 */
@@ -24,6 +25,7 @@ type Props = {
 export function ChatInputBar({
   isDrawer,
   resetKey,
+  clearOnSend = true,
   onSend,
   placeholder = '정답을 입력하세요',
   disabled = false,
@@ -47,7 +49,7 @@ export function ChatInputBar({
 
   const handleSend = (): void => {
     if (!canSend) return;
-    if (onSend(text.trim())) setText('');
+    if (onSend(text.trim()) && clearOnSend) setText('');
   };
 
   return (

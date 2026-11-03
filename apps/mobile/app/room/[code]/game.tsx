@@ -2,6 +2,7 @@ import { useTimerFeedback } from '@/shared/lib/useTimerFeedback';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Alert, Keyboard, StyleSheet } from 'react-native';
 import { Text, View } from 'dripsy';
+import { RoomInfoChips } from '@/shared/ui/RoomInfoChips';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { CLIENT_EVENT } from '@sketch-catch/shared';
@@ -277,6 +278,7 @@ export default function GameScreen() {
         }}
       >
         <GameHeader
+          roomInfo={roomState ? <RoomInfoChips mode={roomState.mode} categories={roomState.config.categories} /> : undefined}
           roundIndex={roundIndex}
           totalTurns={totalTurns}
           timeLeft={timeLeft}

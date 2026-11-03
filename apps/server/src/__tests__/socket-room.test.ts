@@ -298,7 +298,7 @@ describe('socket room handlers', () => {
       expect(vi.mocked(startRound)).toHaveBeenCalledWith(game, 'ABC123', 0);
     });
 
-    it('LBBY-02: 모드2는 4명 미만이면 시작을 거부한다', async () => {
+    it('LBBY-02: 모드2는 3명 미만이면 시작을 거부한다', async () => {
       const state = makeRoomState();
       state.mode = 2;
       state.allReady = true;
@@ -311,7 +311,7 @@ describe('socket room handlers', () => {
 
       expect(socket.emit).toHaveBeenCalledWith(SERVER_EVENT.ERROR, {
         code: 'INSUFFICIENT_PLAYERS',
-        message: '4명 이상 모여야 시작할 수 있어요!',
+        message: '3명 이상 모여야 시작할 수 있어요!',
       });
       expect(mockSaveRoomState).not.toHaveBeenCalled();
     });

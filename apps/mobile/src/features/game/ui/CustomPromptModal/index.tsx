@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { PROMPT_DURATION_SEC } from '@sketch-catch/shared';
+import { PROMPT_DURATION_SEC, PROMPT_MAX_LENGTH } from '@sketch-catch/shared';
 import { Text, View } from 'dripsy';
 import { colors, spacing, textSizes } from '@/shared/config';
 import { Dialog } from '@/shared/ui/Dialog';
@@ -25,7 +25,7 @@ export function CustomPromptModal({
   visible,
   endsAt,
   onSubmit,
-  maxLength = 20,
+  maxLength = PROMPT_MAX_LENGTH,
   title = '제시어를 직접 입력해 주세요',
   guide = '친구들이 맞힐 제시어를 입력해 주세요',
   expiredMessage = '시간 초과! 다음 출제자로 넘어갑니다.',

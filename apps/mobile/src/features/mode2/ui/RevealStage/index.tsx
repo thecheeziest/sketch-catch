@@ -15,6 +15,7 @@ type Props = {
   entries: Mode2RevealEntry[];
   startedAt: number;
   characterOf: (userId: string | null | undefined) => string;
+  nicknameOf: (userId: string | null) => string;
   // 실시간 발표일 때만 — 발표가 넘어갈 때마다 효과음을 낸다 (다시 보기에서는 조용히 재생)
   feedbackKey?: string;
 };
@@ -25,8 +26,8 @@ const GUESSER_AREA_HEIGHT = 112;
 const MOVE_UP = FadeInDown.duration(400).withInitialValues({ transform: [{ translateY: 160 }] });
 
 // 공개식 재생 영역 — 시계(30fps)는 이 컴포넌트 안에서만 돈다
-export function RevealStage({ entries, startedAt, characterOf, feedbackKey }: Props) {
-  const scene = useRevealScene(entries, startedAt);
+export function RevealStage({ entries, startedAt, characterOf, nicknameOf, feedbackKey }: Props) {
+  const scene = useRevealScene(entries, startedAt, nicknameOf);
   const isEntryStart = scene.phase === 'lead';
 
   useEffect(() => {
@@ -42,7 +43,7 @@ export function RevealStage({ entries, startedAt, characterOf, feedbackKey }: Pr
         >
           <RevealPainter characterId={characterOf(scene.painterId)} />
         </Animated.View>
-        <PixelSpeechBubble text={scene.painterText} tail="up" />
+        <PixelSpeechBubble text={scene.painterText} tail="up" numberOfLines={2} />
       </View>
 
       <View sx={{ flex: 1, paddingHorizontal: spacing.MD, paddingVertical: spacing.SM }}>
