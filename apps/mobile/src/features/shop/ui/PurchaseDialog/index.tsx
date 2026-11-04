@@ -5,6 +5,7 @@ import type { ShopItem } from '@sketch-catch/shared';
 import { colors, spacing } from '@/shared/config';
 import { Dialog } from '@/shared/ui/Dialog';
 import { FeedbackPressable } from '@/shared/ui/FeedbackPressable';
+import { Icon } from '@/shared/ui/Icon';
 import { PixelFrame } from '@/shared/ui/PixelFrame';
 import { SHOP_TABS } from '../../lib/useShopScreen';
 import { ShopItemPreview } from '../ShopItemPreview';
@@ -77,6 +78,11 @@ export function PurchaseDialog({ visible, item, coins, characterId, loading, onC
                   style={[StyleSheet.absoluteFill, { backgroundColor: equipAfter ? colors.SECONDARY_300 : colors.DARK_300 }]}
                 />
               </PixelFrame>
+              {equipAfter && (
+                <View style={styles.checkMark}>
+                  <Icon name="CHECK" size={12} color={colors.LIGHT_100} />
+                </View>
+              )}
             </View>
             <Text sx={{ fontSize: 14, color: colors.LIGHT_300 }}>구매 후 바로 장착</Text>
           </FeedbackPressable>
@@ -90,6 +96,7 @@ const styles = StyleSheet.create({
   divider: { height: 2, backgroundColor: colors.DARK_100 },
   checkRow: { alignSelf: 'stretch', minHeight: 44, flexDirection: 'row', alignItems: 'center', gap: 10 },
   checkBox: { width: 20, height: 20 },
+  checkMark: { position: 'absolute', top: 0, right: 0, bottom: 0, left: 0, alignItems: 'center', justifyContent: 'center' },
 });
 
 const sxStyles = {
