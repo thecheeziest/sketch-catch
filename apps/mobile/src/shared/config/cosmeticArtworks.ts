@@ -53,3 +53,19 @@ export const BACKGROUND_ARTWORKS: Record<CosmeticArtwork, number> = {
   arcade: backgrounds_arcade,
   rainbow: backgrounds_rainbow,
 };
+
+// 이미지 폭 대비 테두리 본체(바깥 장식 제외) 폭 — 본체를 일반 테두리와 같은 크기로 맞추는 데 쓴다
+export const FRAME_ARTWORK_BODY_RATIO: Record<CosmeticArtwork, number> = {
+  strawberry: 0.891,
+  soda: 0.826,
+  candy: 0.844,
+  peach: 0.868,
+  clover: 0.83,
+  coin: 0.82,
+  desktop: 0.844,
+  sketch: 0.852,
+  ocean: 0.846,
+  moon: 0.805,
+  arcade: 0.841,
+  rainbow: 0.826,
+};

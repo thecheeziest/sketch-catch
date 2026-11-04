@@ -1,7 +1,7 @@
 import { Image, View } from 'dripsy';
 import { StyleSheet } from 'react-native';
 import { getBackgroundItem, getCharacterImageSource, getFrameDecoSprite, getFrameItem } from '@/shared/config';
-import { FRAME_ARTWORKS } from '@/shared/config/cosmeticArtworks';
+import { FRAME_ARTWORK_BODY_RATIO, FRAME_ARTWORKS } from '@/shared/config/cosmeticArtworks';
 import { CosmeticBackground } from '../CosmeticBackground';
 import { PixelFrame } from '../PixelFrame';
 import { PixelSprite } from '../PixelSprite';
@@ -35,9 +35,12 @@ export function CosmeticAvatar({
   const borderColor = frame?.color ?? defaultBorderColor;
   const imageSource = getCharacterImageSource(characterId);
   const artworkSource = frame?.artwork ? FRAME_ARTWORKS[frame.artwork] : null;
+  // 이미지 테두리는 본체가 size와 같아지도록 키우고, 바깥 장식은 칸 밖으로 삐져나오게 둔다
+  const artworkSize = frame?.artwork ? size / FRAME_ARTWORK_BODY_RATIO[frame.artwork] : size;
+  const artworkInset = (size - artworkSize) / 2;
   // 생성 시안의 투명 여백·두꺼운 장식을 고려해 캐릭터와 배경을 안쪽 창에 맞춘다.
-  const characterSize = Math.round(size * (artworkSource ? 0.59 : CHARACTER_RATIO));
-  const backgroundSize = Math.round(size * (artworkSource ? 0.76 : 1));
+  const characterSize = Math.round(artworkSource ? artworkSize * 0.59 : size * CHARACTER_RATIO);
+  const backgroundSize = Math.round(artworkSource ? artworkSize * 0.76 : size);
   const backgroundInset = (size - backgroundSize) / 2;
   const decoPixel = Math.max(1, Math.round(size / 24));
   const decoSprite = frame?.deco ? getFrameDecoSprite(frame.deco, frame.color) : null;
@@ -110,7 +113,11 @@ export function CosmeticAvatar({
 
       {artworkSource !== null && (
         <View style={StyleSheet.absoluteFill} pointerEvents="none">
-          <Image source={artworkSource} style={{ width: size, height: size }} resizeMode="contain" />
+          <Image
+            source={artworkSource}
+            style={{ position: 'absolute', top: artworkInset, left: artworkInset, width: artworkSize, height: artworkSize }}
+            resizeMode="contain"
+          />
         </View>
       )}
 
