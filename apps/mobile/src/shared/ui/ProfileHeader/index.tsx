@@ -1,8 +1,8 @@
 import { FeedbackPressable } from '@/shared/ui/FeedbackPressable';
-import { Image, Text, View } from 'dripsy'
+import { Text, View } from 'dripsy'
 import { useMe } from '@/features/auth/api';
 import { FriendCodeModal, NicknameModal } from '@/features/profile/ui';
-import { colors, getCharacterImageSource, spacing } from '@/shared/config';
+import { colors, spacing } from '@/shared/config';
 import { copyToClipboard, useNavGuard } from '@/shared/lib';
 import { useAuthStore } from '@/shared/model';
 import { BlurView } from 'expo-blur';
@@ -11,6 +11,7 @@ import { ReactNode, useState } from 'react';
 import { StyleSheet } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { CoinChip } from '../CoinChip';
+import { CosmeticAvatar } from '../CosmeticAvatar';
 import { Icon } from '../Icon';
 
 type Props = {
@@ -55,8 +56,6 @@ export function ProfileHeader({ rightSlot }: Props) {
     );
   }
 
-  const characterSource = getCharacterImageSource(user.characterId);
-
   const handleCopy = (): Promise<void> => copyToClipboard(`${user.nickname}#${user.friendCode}`);
   const openShop = (): void => guardNav(() => router.push({ pathname: '/cosmetics', params: { view: 'shop' } }));
   const openWardrobe = (): void => guardNav(() => router.push({ pathname: '/cosmetics', params: { view: 'wardrobe' } }));
@@ -75,9 +74,14 @@ export function ProfileHeader({ rightSlot }: Props) {
             style={({ pressed }) => [styles.characterBtn, pressed && { opacity: 0.7 }]}
             hitSlop={4}
           >
-            {characterSource && (
-              <Image source={characterSource} sx={{ width: 45, height: 45 }} resizeMode="contain" />
-            )}
+            <CosmeticAvatar
+              characterId={user.characterId}
+              frameId={user.frameId}
+              backgroundId={user.backgroundId}
+              size={45}
+              defaultBorderColor={colors.PRIMARY_400}
+              defaultBackgroundColor={colors.WHITE}
+            />
           </FeedbackPressable>
           <View sx={{ flexDirection: 'row', alignItems: 'center', gap: 4 }}>
             <FeedbackPressable
@@ -140,11 +144,6 @@ const styles = StyleSheet.create({
   characterBtn: {
     width: 45,
     height: 45,
-    backgroundColor: colors.WHITE,
-    borderWidth: 3,
-    borderColor: colors.PRIMARY_400,
-    alignItems: 'center',
-    justifyContent: 'center',
   },
   iconBtn: {
     width: 40,
