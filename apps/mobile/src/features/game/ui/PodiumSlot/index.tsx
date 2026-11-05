@@ -24,6 +24,8 @@ type PodiumPlayer = {
   userId: string;
   nickname: string;
   characterId: string;
+  frameId: string | null;
+  backgroundId: string | null;
   score: number;
   left?: boolean;
   waiting?: boolean;
@@ -204,6 +206,8 @@ export function PodiumSlot({ rank, player, baseCardWidth }: Props) {
     nickname: player.nickname,
     friendCode: '',
     characterId: player.characterId,
+    frameId: player.frameId,
+    backgroundId: player.backgroundId,
     slot: rank,
     isHost: false,
     isReady: false,

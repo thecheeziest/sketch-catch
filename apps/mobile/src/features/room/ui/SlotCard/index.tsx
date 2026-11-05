@@ -1,10 +1,9 @@
 import { FeedbackPressable } from '@/shared/ui/FeedbackPressable';
-import { colors, getCharacterImageSource, spacing, textSizes } from '@/shared/config';
+import { colors, spacing, textSizes } from '@/shared/config';
 import { Badge } from '@/shared/ui/Badge';
 import { CosmeticAvatar } from '@/shared/ui/CosmeticAvatar';
 import { Button } from '@/shared/ui/Button';
 import { Icon } from '@/shared/ui/Icon';
-import { PixelFrame } from '@/shared/ui/PixelFrame';
 import type { Player } from '@sketch-catch/shared';
 import { Text, View } from 'dripsy';
 import { useEffect } from 'react';
@@ -51,7 +50,7 @@ export function SlotCard({ player, isMe, cardWidth, isLeft = false, isWaiting = 
 
   if (player === null) {
     return (
-      <View sx={{ aspectRatio: 0.85, margin: spacing.XS, width: cardWidth }}>
+      <View sx={{ margin: spacing.XS, width: cardWidth, height: cardWidth }}>
         <View
           sx={{
             flex: 1,
@@ -66,20 +65,20 @@ export function SlotCard({ player, isMe, cardWidth, isLeft = false, isWaiting = 
   }
 
   const isHost = player.isHost;
-  const backgroundColor = isLeft ? colors.DARK_100 : player.isReady ? colors.SECONDARY_200 : colors.SECONDARY_100;
-  const borderColor = isLeft
-    ? colors.GRAY
-    : isHost
-      ? colors.PRIMARY_400
-      : isMe
-        ? colors.DARK_100
-        : player.isReady
-          ? colors.DARK_100
-          : colors.GRAY;
-  const borderWidth = isMe ? 3 : 2;
-  const imageSource = getCharacterImageSource(player.characterId);
-  // 좁은 그리드(4열 등)에서 캐릭터 이미지가 카드 높이를 넘겨 닉네임과 겹치지 않도록 카드 폭에 비례
-  const charSize = Math.max(28, Math.min(44, Math.round(cardWidth * 0.5)));
+  const isReady = player.isReady && !isLeft;
+  const backgroundColor = isLeft ? colors.DARK_100 : colors.SECONDARY_100;
+  // 테두리를 장착하지 않았을 때만 쓰는 상태색
+  const borderColor = (() => {
+    if (isLeft) return colors.GRAY;
+    if (isHost) return colors.PRIMARY_400;
+    if (isMe || player.isReady) return colors.DARK_100;
+    return colors.GRAY;
+  })();
+  const statusColor = (() => {
+    if (isLeft) return colors.GRAY;
+    if (isReady) return colors.SECONDARY_200;
+    return colors.LIGHT_300;
+  })();
   const secondaryLabel = (() => {
     if (isLeft) return '나감';
     if (statusLabel !== undefined) return statusLabel;
@@ -87,45 +86,59 @@ export function SlotCard({ player, isMe, cardWidth, isLeft = false, isWaiting = 
     return '대기 중';
   })();
 
-
   return (
     <FeedbackPressable onPress={onPress} disabled={!onPress}>
-    <View sx={{ aspectRatio: 0.85, margin: spacing.XS, width: cardWidth }}>
-      <PixelFrame
-        borderColor={borderColor}
-        borderWidth={borderWidth}
-        style={StyleSheet.absoluteFill}
-      >
-        <View style={[StyleSheet.absoluteFill, { backgroundColor }]} />
-        {isHost && !isLeft && (
-          <View style={styles.badgeContainer}>
-            <Badge label="방장" color={colors.PRIMARY_400} />
-          </View>
-        )}
-        {isLeft && (
-          <View style={[styles.badgeContainer, styles.leftBadge]}>
-            <Icon name="CLOSE" size={14} color={colors.LIGHT_100} />
-          </View>
-        )}
-        <View sx={{ flex: 1, alignItems: 'center', justifyContent: 'center', paddingTop: spacing.XS }}>
-          {imageSource !== null ? (
-            <CosmeticAvatar
-              characterId={player.characterId}
-              frameId={player.frameId}
-              backgroundId={player.backgroundId}
-              size={Math.round(charSize / 0.8)}
-              dimmed={isLeft || isWaiting}
-            />
-          ) : (
-            <View
-              sx={{ width: charSize, height: charSize, backgroundColor: colors.SECONDARY_400 }}
-              style={isLeft || isWaiting ? styles.dimmedImage : undefined}
-            />
+      <View sx={{ margin: spacing.XS, width: cardWidth }}>
+        <View sx={{ width: cardWidth, height: cardWidth }}>
+          <CosmeticAvatar
+            characterId={player.characterId}
+            frameId={player.frameId}
+            backgroundId={player.backgroundId}
+            size={cardWidth}
+            defaultBorderColor={borderColor}
+            defaultBackgroundColor={backgroundColor}
+            backgroundOverlayColor={isReady ? READY_OVERLAY_COLOR : undefined}
+            dimmed={isLeft || isWaiting}
+          />
+          {isHost && !isLeft && (
+            <View style={styles.shineClip} pointerEvents="none">
+              <Animated.View style={[styles.shine, shineStyle]} />
+            </View>
+          )}
+          {isHost && !isLeft && (
+            <View style={styles.badgeContainer}>
+              <Badge label="방장" color={colors.PRIMARY_400} />
+            </View>
+          )}
+          {isLeft && (
+            <View style={[styles.badgeContainer, styles.leftBadge]}>
+              <Icon name="CLOSE" size={14} color={colors.LIGHT_100} />
+            </View>
+          )}
+          {isWaiting && !isLeft && (
+            <View style={styles.awardOverlay} pointerEvents="none">
+              <Text variant="B4" sx={{ color: colors.LIGHT_100, textAlign: 'center' }}>
+                게임 대기 중
+              </Text>
+            </View>
+          )}
+          {/* 시상식에서 아직 [한번 더!]를 누르지 않은 유저 */}
+          {player.inAward === true && (
+            <View style={styles.awardOverlay} pointerEvents="box-none">
+              <Text variant="B4" sx={{ color: colors.LIGHT_100, textAlign: 'center' }}>
+                시상 중..
+              </Text>
+              {onNudge !== undefined && (
+                <View sx={{ marginTop: spacing.XS }}>
+                  <Button label="재촉하기" color="primary" height={26} onPress={onNudge} />
+                </View>
+              )}
+            </View>
           )}
         </View>
-        <View sx={{ paddingHorizontal: spacing.XS, paddingBottom: spacing.XS }}>
+        <View sx={{ paddingTop: spacing.XS }}>
           <Text
-            sx={{ ...textSizes.B3, color: isLeft ? colors.GRAY : player.isReady ? colors.LIGHT_100 : colors.SECONDARY_500, textAlign: 'center' }}
+            sx={{ ...textSizes.B3, color: isLeft ? colors.GRAY : colors.LIGHT_100, textAlign: 'center' }}
             style={isLeft ? styles.strikethrough : undefined}
             numberOfLines={1}
             ellipsizeMode="tail"
@@ -133,37 +146,18 @@ export function SlotCard({ player, isMe, cardWidth, isLeft = false, isWaiting = 
             {player.nickname}
           </Text>
           {!isHost && (
-            <Text variant="B4" sx={{ color: isLeft ? colors.GRAY : player.isReady ? colors.LIGHT_100 : colors.DARK_100, textAlign: 'center' }} numberOfLines={1}>
+            <Text variant="B4" sx={{ color: statusColor, textAlign: 'center' }} numberOfLines={1}>
               {secondaryLabel}
             </Text>
           )}
         </View>
-        {isHost && !isLeft && <Animated.View style={[styles.shine, shineStyle]} pointerEvents="none" />}
-        {isWaiting && !isLeft && (
-          <View style={styles.awardOverlay} pointerEvents="none">
-            <Text variant="B4" sx={{ color: colors.LIGHT_100, textAlign: 'center' }}>
-              게임 대기 중
-            </Text>
-          </View>
-        )}
-        {/* 시상식에서 아직 [한번 더!]를 누르지 않은 유저 */}
-        {player.inAward === true && (
-          <View style={styles.awardOverlay} pointerEvents="box-none">
-            <Text variant="B4" sx={{ color: colors.LIGHT_100, textAlign: 'center' }}>
-              시상 중..
-            </Text>
-            {onNudge !== undefined && (
-              <View sx={{ marginTop: spacing.XS }}>
-                <Button label="재촉하기" color="primary" height={26} onPress={onNudge} />
-              </View>
-            )}
-          </View>
-        )}
-      </PixelFrame>
-    </View>
+      </View>
     </FeedbackPressable>
   );
 }
+
+// 준비 완료 시 배경 위에 덮는 반투명 흰색
+const READY_OVERLAY_COLOR = `${colors.WHITE}73`;
 
 const styles = StyleSheet.create({
   awardOverlay: {
@@ -181,8 +175,8 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
   },
-  dimmedImage: { opacity: 0.35 },
   strikethrough: { textDecorationLine: 'line-through' },
+  shineClip: { ...StyleSheet.absoluteFill, overflow: 'hidden' },
   shine: {
     position: 'absolute',
     top: -60,
@@ -190,6 +184,5 @@ const styles = StyleSheet.create({
     left: 0,
     width: 28,
     backgroundColor: 'rgba(255, 255, 255, 0.28)',
-    zIndex: 2,
   },
 });

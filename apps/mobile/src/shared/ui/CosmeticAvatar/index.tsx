@@ -15,6 +15,8 @@ type Props = {
   defaultBorderColor?: string;
   /** 배경을 장착하지 않았을 때의 칸 색 */
   defaultBackgroundColor?: string;
+  /** 배경 위·캐릭터 아래에 덮는 색 (예: 준비 완료 표시) */
+  backgroundOverlayColor?: string;
   dimmed?: boolean;
 };
 
@@ -28,6 +30,7 @@ export function CosmeticAvatar({
   size,
   defaultBorderColor,
   defaultBackgroundColor,
+  backgroundOverlayColor,
   dimmed = false,
 }: Props) {
   const frame = getFrameItem(frameId);
@@ -47,7 +50,7 @@ export function CosmeticAvatar({
 
   // 배경만 테두리(MaskedView) 안에서 잘라 그리고, 캐릭터는 그 위 별도 레이어에 둔다
   // (MaskedView 안에 캐릭터를 넣으면 배경이 없을 때 위치가 어긋난다)
-  const backgroundLayer = (() => {
+  const baseBackground = (() => {
     if (background) {
       return (
         <View style={StyleSheet.absoluteFill}>
@@ -65,6 +68,15 @@ export function CosmeticAvatar({
     }
     return null;
   })();
+  const backgroundLayer =
+    baseBackground !== null || backgroundOverlayColor !== undefined ? (
+      <>
+        {baseBackground}
+        {backgroundOverlayColor !== undefined && (
+          <View style={[StyleSheet.absoluteFill, { backgroundColor: backgroundOverlayColor }]} />
+        )}
+      </>
+    ) : null;
 
   const framedBackground = (() => {
     if (artworkSource) {

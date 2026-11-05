@@ -63,7 +63,7 @@ describe('방에서 본 유저 모습 기억', () => {
 
     const { roomState: state, knownPlayers } = useRoomStore.getState();
     expect(state?.players.map(p => p.id)).toEqual(['a']);
-    expect(knownPlayers.b).toEqual({ nickname: 'nick-b', characterId: 'dog', chatColorId: null });
+    expect(knownPlayers.b).toEqual({ nickname: 'nick-b', characterId: 'dog', chatColorId: null, frameId: null, backgroundId: null });
   });
 
   it('입장 이벤트로 들어온 유저와 바뀐 캐릭터를 반영한다', () => {
