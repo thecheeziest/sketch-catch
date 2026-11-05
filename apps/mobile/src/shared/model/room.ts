@@ -38,17 +38,32 @@ function isMember(state: RoomState | null): boolean {
 }
 
 // 방에서 한 번이라도 본 유저의 모습 — 나가서 players에서 빠져도 채팅·결과 화면에 캐릭터를 그리기 위해 남겨 둔다
-export type KnownPlayer = { nickname: string; characterId: string; chatColorId: string | null };
+export type KnownPlayer = {
+  nickname: string;
+  characterId: string;
+  chatColorId: string | null;
+  frameId: string | null;
+  backgroundId: string | null;
+};
 
 function rememberPlayers(known: Record<string, KnownPlayer>, players: Player[]): void {
   for (const p of players) {
     const prev = known[p.id];
     const chatColorId = p.chatColorId ?? null;
+    const frameId = p.frameId ?? null;
+    const backgroundId = p.backgroundId ?? null;
     // 값이 같으면 건드리지 않아 room:state마다 구독 화면이 다시 그려지지 않게 한다
-    if (prev && prev.nickname === p.nickname && prev.characterId === p.characterId && prev.chatColorId === chatColorId) {
+    if (
+      prev &&
+      prev.nickname === p.nickname &&
+      prev.characterId === p.characterId &&
+      prev.chatColorId === chatColorId &&
+      prev.frameId === frameId &&
+      prev.backgroundId === backgroundId
+    ) {
       continue;
     }
-    known[p.id] = { nickname: p.nickname, characterId: p.characterId, chatColorId };
+    known[p.id] = { nickname: p.nickname, characterId: p.characterId, chatColorId, frameId, backgroundId };
   }
 }
 

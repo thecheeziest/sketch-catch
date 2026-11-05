@@ -60,6 +60,8 @@ export default function AwardScreen() {
     userId: item.userId,
     nickname: knownPlayer(item.userId)?.nickname ?? item.userId,
     characterId: knownPlayer(item.userId)?.characterId ?? 'cat',
+    frameId: knownPlayer(item.userId)?.frameId ?? null,
+    backgroundId: knownPlayer(item.userId)?.backgroundId ?? null,
     score: item.score,
     left: players.find(p => p.id === item.userId)?.left === true,
     waiting: waitingIds.has(item.userId),
