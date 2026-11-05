@@ -37,3 +37,6 @@ android/app/build
 
 # generated
 apps/server/prisma/migrations/.tmp
+
+# 보관용 산출물 (Git 제외)
+output/
