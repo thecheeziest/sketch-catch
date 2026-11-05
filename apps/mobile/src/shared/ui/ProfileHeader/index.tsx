@@ -80,7 +80,7 @@ export function ProfileHeader({ rightSlot }: Props) {
               backgroundId={user.backgroundId}
               size={45}
               defaultBorderColor={colors.PRIMARY_400}
-              defaultBackgroundColor={colors.WHITE}
+              defaultBackgroundColor={colors.DARK_100}
             />
           </FeedbackPressable>
           <View sx={{ flexDirection: 'row', alignItems: 'center', gap: 4 }}>
