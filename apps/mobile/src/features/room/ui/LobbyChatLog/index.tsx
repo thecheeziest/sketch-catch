@@ -1,5 +1,5 @@
 import { Image, Text, View } from 'dripsy';
-import { type ListRenderItem, StyleSheet } from 'react-native';
+import { type ListRenderItem, Pressable, StyleSheet } from 'react-native';
 import type { ChatMessage } from '@sketch-catch/shared';
 import { colors, fontFamily, getCharacterColor, getCharacterImageSource } from '@/shared/config';
 import { FlatList } from '@/shared/ui';
@@ -13,20 +13,27 @@ type Props = {
   /** 상점에서 산 채팅 글자색 — null이면 기본색 */
   chatColorOf: (message: ChatMessage) => string | null;
   chatStyleOf: (message: ChatMessage) => string | null;
+  /** 말풍선 길게 누르기 (차단·신고) — 내 메시지는 호출부에서 거른다 */
+  onLongPressMessage?: (message: ChatMessage) => void;
 };
 
 const CHIP_SIZE = 16;
 
 // 대기실 채팅 로그 — 왼쪽 상단부터 아래에서 위로 쌓이고, 시간이 지나도 사라지지 않고 스크롤로 이어진다.
 // inverted 리스트라 데이터는 최신이 앞에 오도록 뒤집어 넘긴다.
-export function LobbyChatLog({ messages, characterIdOf, chatColorOf, chatStyleOf }: Props) {
+export function LobbyChatLog({ messages, characterIdOf, chatColorOf, chatStyleOf, onLongPressMessage }: Props) {
   const data = [...messages].reverse();
 
   const renderItem: ListRenderItem<ChatMessage> = ({ item }) => {
     const characterId = characterIdOf(item);
     const imageSource = getCharacterImageSource(characterId);
     return (
-      <View style={styles.row}>
+      <Pressable
+        style={styles.row}
+        disabled={!onLongPressMessage}
+        onLongPress={() => onLongPressMessage?.(item)}
+        accessibilityHint={onLongPressMessage ? '길게 누르면 차단·신고할 수 있어요' : undefined}
+      >
         <PixelFrame borderColor={colors.BLACK} borderWidth={3} style={StyleSheet.absoluteFill}>
           <View style={[StyleSheet.absoluteFill, { backgroundColor: colors.DARK_300 }]} />
         </PixelFrame>
@@ -48,7 +55,7 @@ export function LobbyChatLog({ messages, characterIdOf, chatColorOf, chatStyleOf
             {item.text}
           </CosmeticChatText>
         </View>
-      </View>
+      </Pressable>
     );
   };
 

@@ -20,6 +20,7 @@ import { resendReview } from './mode2-review.js';
 import { destroyRoom, finishAward } from './award.js';
 import { cancelGraceLeave, scheduleGraceLeave } from '../../services/disconnectGrace.js';
 import { createCoinStats } from '../../services/coin.service.js';
+import { getBlockRelatedIds, hasBlockedMember } from '../../services/moderation.service.js';
 
 type GameNamespace = Namespace<ClientEvents, ServerEvents>;
 type GameSocket = Socket<ClientEvents, ServerEvents, Record<string, never>, { userId: string }>;
@@ -46,7 +47,7 @@ async function hasActiveUserSocketInRoom(
 
 type JoinResult =
   | { ok: true; state: RoomState }
-  | { ok: false; code: 'ROOM_NOT_FOUND' | 'ALREADY_LEFT' | 'ROOM_FULL' | 'GAME_IN_PROGRESS'; message: string };
+  | { ok: false; code: 'ROOM_NOT_FOUND' | 'ALREADY_LEFT' | 'ROOM_FULL' | 'GAME_IN_PROGRESS' | 'ROOM_UNAVAILABLE'; message: string };
 
 export async function handleRoomJoin(
   game: GameNamespace,
@@ -85,6 +86,10 @@ export async function handleRoomJoin(
       if (countSeatedPlayers(state) >= state.config.playerCountMax) {
         return { ok: false, code: 'ROOM_FULL', message: '방이 꽉 찼어요!' };
       }
+      // 차단 관계인 사람이 있는 방 — 차단 사실은 드러내지 않는다
+      if (hasBlockedMember(state, await getBlockRelatedIds(userId))) {
+        return { ok: false, code: 'ROOM_UNAVAILABLE', message: '방에 들어갈 수 없어요!' };
+      }
 
       // 사용 중인 slot 번호를 제외한 최소 slot 번호 계산
       const usedSlots = new Set(state.players.map(p => p.slot));
@@ -109,6 +114,7 @@ export async function handleRoomJoin(
         isHost: userId === state.hostId,
         isReady: false,
         connected: true,
+        lobbyJoinedAt: Date.now(),
       });
     }
 

@@ -17,6 +17,7 @@ function getEntryContent(preview: RoomPreview | undefined, error: ApiError | nul
   if (error?.code === 'ROOM_NOT_FOUND') {
     return { title: '방이 사라졌어요', message: '초대받은 방이 이미 없어졌어요.', canEnter: false };
   }
+  if (error?.code === 'ROOM_UNAVAILABLE') return { title: '게임 초대', message: '방에 들어갈 수 없어요!', canEnter: false };
   if (error) return { title: '게임 초대', message: '방 정보를 불러오지 못했어요.', canEnter: false };
   if (!preview) return { title: '게임 초대', message: '방 정보를 불러오고 있어요...', canEnter: false };
   if (preview.status !== 'LOBBY') {

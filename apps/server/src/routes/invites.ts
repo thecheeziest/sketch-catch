@@ -8,6 +8,7 @@ import { sendPush, shouldSend } from '../services/push.service.js';
 import { emitToPresenceUser } from '../socket/presence.namespace.js';
 import { prisma } from '../db/prisma.js';
 import { logger } from '../lib/logger.js';
+import { isBlockedEither } from '../services/moderation.service.js';
 
 const inviteBodySchema = z.object({ target: z.string().min(1) });
 
@@ -39,7 +40,10 @@ export const invitesRoutes: FastifyPluginAsync = async (app) => {
         where: { userAId_userBId: { userAId, userBId } },
         select: { id: true },
       });
-      if (!friendship) return reply.status(403).send({ error: 'NOT_FRIENDS' });
+      // 차단하면 친구 관계도 끊기지만, 서버가 진실의 출처이므로 차단 관계를 따로 한 번 더 막는다
+      if (!friendship || (await isBlockedEither(inviterId, targetId))) {
+        return reply.status(403).send({ error: 'NOT_FRIENDS' });
+      }
 
       // 이미 대기실·게임에 있는 유저는 초대하지 않는다 — 초대를 받아도 반응할 수 없고 방 이동 시 기존 게임이 깨진다
       const targetPresence = await getPresence(bodyParsed.data.target);

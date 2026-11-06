@@ -16,15 +16,16 @@ type Props = {
   index?: number;
 };
 
+// 사람 + 빼기 — 차단(사람 + 금지 기호)과 구분되도록 X 대신 빼기를 쓴다
 const UNFRIEND_SPRITE: PixelSpriteData = {
   rows: [
     '..lll........',
     '.lllll.......',
-    '.lllll..r...r',
-    '..lll....r.r.',
-    '..........r..',
-    '.lllll...r.r.',
-    'lllllll.r...r',
+    '.lllll.......',
+    '..lll........',
+    '........rrrrr',
+    '.lllll..rrrrr',
+    'lllllll......',
     'lllllll......',
     'lllllll......',
   ],

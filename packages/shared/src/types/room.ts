@@ -39,6 +39,8 @@ export type Player = UserPublic &
   left?: boolean; // 게임 중 자발적 퇴장
   // 시상식(AWARD)에 아직 머무는 중 — [한번 더!]를 누르면 false, true인 유저는 다음 게임 참가 명단에서 제외
   inAward?: boolean;
+  // 이번 시상식 이후 대기실에 들어온 시각 — 방장이 나가면 가장 먼저 들어온 사람이 승계한다
+  lobbyJoinedAt?: number;
 };
 
 // 벌칙 설정 — 필드가 없으면 벌칙 없는 방. 모드 1에서만 허용

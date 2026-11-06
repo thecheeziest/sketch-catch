@@ -4,6 +4,7 @@ import { useLogout } from '@/features/auth/lib';
 import { useUnregisterPushToken } from '@/features/push/api/useUnregisterPushToken';
 import { usePushPreferenceStore } from '@/features/push/model/usePushPreferenceStore';
 import { DeleteAccountModal } from '@/features/profile/ui';
+import { BlockedUsersDialog } from '@/features/moderation';
 import { colors, spacing, textSizes } from '@/shared/config';
 import { useFeedbackStore } from '@/shared/model/feedback';
 import { playFeedback } from '@/shared/lib/feedback';
@@ -20,6 +21,7 @@ export default function SettingsScreen() {
   const logout = useLogout();
   const { data: user } = useMe();
   const [deleteOpen, setDeleteOpen] = useState(false);
+  const [blockedOpen, setBlockedOpen] = useState(false);
   const [notificationsGranted, setNotificationsGranted] = useState(true);
   const soundEnabled = useFeedbackStore(s => s.soundEnabled);
   const soundVolume = useFeedbackStore(s => s.soundVolume);
@@ -186,6 +188,7 @@ export default function SettingsScreen() {
           <View sx={sxStyles.divider} />
           {user ? (
             <>
+              <Button label="차단 목록" color="dark" onPress={() => setBlockedOpen(true)} />
               <Button
                 label="로그아웃"
                 color="primary"
@@ -209,6 +212,7 @@ export default function SettingsScreen() {
         </View>
       </ScrollView>
       <DeleteAccountModal visible={deleteOpen} onClose={() => setDeleteOpen(false)} />
+      <BlockedUsersDialog visible={blockedOpen} onClose={() => setBlockedOpen(false)} />
     </SafeAreaView>
   );
 }

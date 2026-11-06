@@ -7,7 +7,6 @@ export type Mode1RoundCurrent = {
   roundIndex: number;
   drawerId: string;
   prompt: string; // 제시어 (서버 전용 — 출제자 외 노출 금지)
-  isCustomRound?: boolean;
   startedAt: number; // 라운드 시작 epoch ms
 };
 
@@ -18,9 +17,6 @@ export type RoundStart = {
   promptForDrawer?: string; // 출제자만 받음
   durationSec: number;
   promptHint?: string;
-  isCustomRound?: boolean;
-  promptInputEndsAt?: number;
-  needsCustomPrompt?: boolean; // 커스텀 정답 모드: 출제자가 직접 제시어를 입력해야 함
 };
 
 export type RoundEnd = {

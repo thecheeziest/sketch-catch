@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
 import { Image, Text, View } from 'dripsy';
-import { StyleSheet } from 'react-native';
+import { Pressable, StyleSheet } from 'react-native';
 import Animated, { FadeInDown, FadeOut, LinearTransition } from 'react-native-reanimated';
 import { fontFamily, getCharacterColor, getCharacterImageSource } from '@/shared/config';
 import { PixelFrame } from '@/shared/ui/PixelFrame';
@@ -9,6 +9,7 @@ import { chatStream } from '@/features/game/config';
 
 export type ChatStreamItem = {
   id: string;
+  userId: string;
   nickname: string;
   text: string;
   characterId: string;
@@ -23,6 +24,8 @@ export type ChatStreamItem = {
 type Props = {
   /** 최근 메시지 목록 — 오래된 것이 앞, 최신이 뒤. 호출부에서 최대 5개로 잘라 전달. */
   items: ChatStreamItem[];
+  /** 말풍선 길게 누르기 (차단·신고). 없으면 말풍선이 터치를 받지 않아 아래 캔버스에 그대로 그릴 수 있다 */
+  onLongPressItem?: (item: ChatStreamItem) => void;
 };
 
 const { AGE_STEPS } = chatStream;
@@ -35,7 +38,7 @@ const CHIP_SIZE = 16;
  * 나이(오래됨)는 불투명 배경 밝기 단계로만 표현한다 — opacity 페이드 금지
  * (흰 캔버스 위에서 글자가 배경과 함께 흰색으로 수렴해 대비가 붕괴).
  */
-export function ChatStream({ items }: Props) {
+export function ChatStream({ items, onLongPressItem }: Props) {
   // 서버 createdAt은 폰 시계와 어긋날 수 있어(폰이 빠르면 말풍선이 아예 안 뜬다) 이 기기가 처음 받은 시각으로 노출 시간을 잰다.
   // 화면 진입 시점에 이미 있던 메시지는 지난 채팅이므로 띄우지 않는다.
   const receivedAtRef = useRef<Map<string, number> | null>(null);
@@ -67,7 +70,7 @@ export function ChatStream({ items }: Props) {
   const visible = items.filter(isAlive);
 
   return (
-    <View pointerEvents="none" style={styles.container}>
+    <View pointerEvents={onLongPressItem ? 'box-none' : 'none'} style={styles.container}>
       {visible.map((item, index) => {
         const ageBg = AGE_STEPS[AGE_STEPS.length - visible.length + index] ?? AGE_STEPS[AGE_STEPS.length - 1];
         // 글자색을 산 메시지는 대비를 지키려고 가장 어두운 단계 배경에 얹는다
@@ -91,43 +94,49 @@ export function ChatStream({ items }: Props) {
             exiting={FadeOut.duration(120)}
             layout={LinearTransition.duration(160)}
           >
-            <PixelFrame borderColor={chatStream.BORDER} borderWidth={3} style={StyleSheet.absoluteFill}>
-              <View style={[StyleSheet.absoluteFill, { backgroundColor: bg }]} />
-            </PixelFrame>
-            <View
-              sx={{
-                flexDirection: 'row',
-                alignItems: 'center',
-                gap: 7,
-                paddingHorizontal: 10,
-                paddingVertical: 7,
-                maxWidth: '100%',
-              }}
+            <Pressable
+              disabled={!onLongPressItem}
+              onLongPress={() => onLongPressItem?.(item)}
+              accessibilityHint={onLongPressItem ? '길게 누르면 차단·신고할 수 있어요' : undefined}
             >
-              {imageSource !== null ? (
-                <Image source={imageSource} sx={{ width: CHIP_SIZE, height: CHIP_SIZE }} resizeMode="contain" />
-              ) : (
-                <View style={[styles.chip, { backgroundColor: getCharacterColor(item.characterId).main }]} />
-              )}
-              <Text
-                sx={{ fontFamily: fontFamily.REGULAR, fontSize: 11, color: nameFg, flexShrink: 0 }}
-                numberOfLines={1}
+              <PixelFrame borderColor={chatStream.BORDER} borderWidth={3} style={StyleSheet.absoluteFill}>
+                <View style={[StyleSheet.absoluteFill, { backgroundColor: bg }]} />
+              </PixelFrame>
+              <View
+                sx={{
+                  flexDirection: 'row',
+                  alignItems: 'center',
+                  gap: 7,
+                  paddingHorizontal: 10,
+                  paddingVertical: 7,
+                  maxWidth: '100%',
+                }}
               >
-                {item.nickname}
-              </Text>
-              {/* 긴 채팅도 말줄임 없이 전체를 보여준다 (최대 30자라 두세 줄 안에서 끝난다) */}
-              <CosmeticChatText
-                itemId={item.isCorrect ? null : item.chatColorId}
-                color={item.chatColorId && hasTextColor ? undefined : fg}
-              >
-                {item.text}
-              </CosmeticChatText>
-              {item.isCorrect && (
-                <Text sx={{ fontFamily: fontFamily.BOLD, fontSize: 11, color: chatStream.CORRECT_FG, flexShrink: 0 }}>
-                  {item.score != null ? `+${item.score}` : '정답'}
+                {imageSource !== null ? (
+                  <Image source={imageSource} sx={{ width: CHIP_SIZE, height: CHIP_SIZE }} resizeMode="contain" />
+                ) : (
+                  <View style={[styles.chip, { backgroundColor: getCharacterColor(item.characterId).main }]} />
+                )}
+                <Text
+                  sx={{ fontFamily: fontFamily.REGULAR, fontSize: 11, color: nameFg, flexShrink: 0 }}
+                  numberOfLines={1}
+                >
+                  {item.nickname}
                 </Text>
-              )}
-            </View>
+                {/* 긴 채팅도 말줄임 없이 전체를 보여준다 (최대 30자라 두세 줄 안에서 끝난다) */}
+                <CosmeticChatText
+                  itemId={item.isCorrect ? null : item.chatColorId}
+                  color={item.chatColorId && hasTextColor ? undefined : fg}
+                >
+                  {item.text}
+                </CosmeticChatText>
+                {item.isCorrect && (
+                  <Text sx={{ fontFamily: fontFamily.BOLD, fontSize: 11, color: chatStream.CORRECT_FG, flexShrink: 0 }}>
+                    {item.score != null ? `+${item.score}` : '정답'}
+                  </Text>
+                )}
+              </View>
+            </Pressable>
           </Animated.View>
         );
       })}

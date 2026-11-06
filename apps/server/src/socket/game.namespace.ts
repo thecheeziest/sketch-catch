@@ -23,8 +23,7 @@ import {
   handleStrokeClear,
   handleStrokeFill,
 } from './handlers/stroke.js';
-import { handleChatSend, handleAnswerAccept } from './handlers/chat.js';
-import { handleCustomPromptSubmit } from './handlers/game.js';
+import { handleChatSend } from './handlers/chat.js';
 import { handleMode2Prompt, handleMode2DrawDone, handleMode2Answer, handleMode2Draft } from './handlers/mode2.js';
 import { handleRematch } from './handlers/award.js';
 
@@ -117,12 +116,6 @@ export function registerGameNamespace(io: Server<ClientEvents, ServerEvents>): v
 
     // GAME-01/MD1-02/MD1-03: 채팅 + 정답 판정
     socket.on('chat:send', payload => inRoom('chat:send', () => handleChatSend(game, socket, payload)));
-    socket.on('answer:accept', payload => inRoom('answer:accept', () => handleAnswerAccept(game, socket, payload)));
-    socket.on('game:custom:prompt', payload => {
-      // 방 작업 줄에서 기다린 시간 때문에 유효한 제출이 시간 초과로 바뀌지 않도록 수신 시각을 보관한다.
-      const receivedAt = Date.now();
-      inRoom('game:custom:prompt', () => handleCustomPromptSubmit(game, socket, payload, receivedAt));
-    });
 
     // MD2-01/02: 모드2 시트 로테이션 — 리터럴 이벤트명 직접 사용 (Phase 4 결정)
     socket.on('mode2:prompt', payload => inRoom('mode2:prompt', () => handleMode2Prompt(game, socket, payload)));

@@ -26,7 +26,7 @@ export function RoomEditModal({ visible, onClose, roomCode }: Props) {
   const [playerCountMax, setPlayerCountMax] = useState(6)
   const [roundCount, setRoundCount] = useState(5)
   const [drawTimer, setDrawTimer] = useState(60)
-  const [categories, setCategories] = useState<Category[]>(['CUSTOM', ...ALL_CATEGORIES])
+  const [categories, setCategories] = useState<Category[]>([...ALL_CATEGORIES])
   const [locked, setLocked] = useState(false)
   const [password, setPassword] = useState('')
   // 이미 잠긴 방은 비밀번호가 서버에 있으므로 비워 두면 기존 비밀번호를 유지한다
@@ -42,7 +42,7 @@ export function RoomEditModal({ visible, onClose, roomCode }: Props) {
       setPlayerCountMax(roomState.config.playerCountMax)
       setRoundCount(roomState.config.roundCount)
       setDrawTimer(roomState.config.drawTimer)
-      setCategories((roomState.config.categories as Category[]) ?? [...ALL_CATEGORIES])
+      setCategories(((roomState.config.categories as Category[]) ?? [...ALL_CATEGORIES]).filter((c) => c !== 'CUSTOM'))
       setLocked(roomState.locked ?? false)
       setPassword('')
       resetPenalty(roomState.config.penalty)

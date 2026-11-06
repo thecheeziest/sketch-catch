@@ -3,6 +3,7 @@ import { getPresence, getUserRoom, type PresenceStatus } from '../db/redis.js';
 import { getRoomState, getRoomPassword } from './rooms.service.js';
 import { countSeatedPlayers } from './roomRules.js';
 import type { RoomStatus } from '@sketch-catch/shared';
+import { isBlockedEither } from './moderation.service.js';
 
 // 커스텀 에러
 export class InvalidFormatError extends Error {
@@ -58,6 +59,8 @@ export async function sendFriendRequest(senderId: string, target: string): Promi
   });
   if (!receiver) throw new UserNotFoundError();
   if (receiver.id === senderId) throw new SelfRequestError();
+  // 차단 관계면 차단 사실을 드러내지 않도록 없는 유저처럼 응답한다
+  if (await isBlockedEither(senderId, receiver.id)) throw new UserNotFoundError();
 
   // 이미 친구인지 확인
   const { userAId, userBId } = normalizeIds(senderId, receiver.id);

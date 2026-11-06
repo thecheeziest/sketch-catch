@@ -35,8 +35,6 @@ export type ClientEvents = {
   'stroke:clear': () => void;
   'stroke:fill': (payload: { strokeId: string; color: string; paintSpans: PaintSpan[] }) => void;
   'chat:send': (payload: { text: string }) => void;
-  'answer:accept': (payload: { messageId: string }) => void;
-  'game:custom:prompt': (payload: { text: string }) => void;
   'mode2:prompt': (payload: { sheetId: string; text: string }) => void;
   'mode2:draw:done': (payload: { sheetId: string; strokes: Stroke[] }) => void; // GIF용 stroke 포함
   'mode2:answer': (payload: { sheetId: string; text: string }) => void;
@@ -96,8 +94,6 @@ export const CLIENT_EVENT = {
   STROKE_UNDO: 'stroke:undo',
   STROKE_CLEAR: 'stroke:clear',
   CHAT_SEND: 'chat:send',
-  ANSWER_ACCEPT: 'answer:accept',
-  GAME_CUSTOM_PROMPT: 'game:custom:prompt',
   MODE2_PROMPT: 'mode2:prompt',
   MODE2_DRAW_DONE: 'mode2:draw:done',
   MODE2_ANSWER: 'mode2:answer',

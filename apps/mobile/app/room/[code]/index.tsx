@@ -2,6 +2,7 @@ import { FeedbackPressable } from '@/shared/ui/FeedbackPressable';
 import { useChatSender } from '@/features/game/api/useChatSender';
 import { ChatInputBar } from '@/features/game/ui';
 import { useRoomChatStore } from '@/features/room/model/useRoomChatStore';
+import { useChatModeration } from '@/features/moderation';
 import { InviteModal, LobbyChatLog, PlayerProfileDialog, RoomEditModal, SlotCard } from '@/features/room/ui';
 import { colors, spacing, textSizes } from '@/shared/config';
 import { useAuthStore, useChatSenderLook, useRoomStore, useToastStore } from '@/shared/model';
@@ -11,7 +12,7 @@ import type { ChatMessage, Player } from '@sketch-catch/shared';
 import { CLIENT_EVENT, MODE2_PLAYER_MIN, ROOM_PLAYER_MIN } from '@sketch-catch/shared';
 import { Text, View } from 'dripsy';
 import { useLocalSearchParams, useRouter } from 'expo-router';
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { type ListRenderItem, Alert, ImageBackground, KeyboardAvoidingView, StyleSheet, useWindowDimensions } from 'react-native';
 import roomBackground from '@assets/room-background.png';
 import { RoomInfoChips } from '@/shared/ui/RoomInfoChips';
@@ -37,7 +38,12 @@ export default function LobbyScreen() {
   const [editVisible, setEditVisible] = useState(false);
   const [inviteOpen, setInviteOpen] = useState(false);
   const [profileTarget, setProfileTarget] = useState<Player | null>(null);
-  const lobbyMessages = useRoomChatStore(s => s.lobbyMessages);
+  const rawLobbyMessages = useRoomChatStore(s => s.lobbyMessages);
+  const { textOf, onLongPressChat } = useChatModeration();
+  const lobbyMessages = useMemo(
+    () => rawLobbyMessages.map(m => ({ ...m, text: textOf(m) })),
+    [rawLobbyMessages, textOf],
+  );
   const { sendChat } = useChatSender();
 
   const goHome = (): void => {
@@ -240,6 +246,7 @@ export default function LobbyScreen() {
           characterIdOf={characterIdOf}
           chatColorOf={chatColorOf}
           chatStyleOf={chatStyleOf}
+          onLongPressMessage={onLongPressChat}
         />
 
         {/* Android도 edge-to-edge라 adjustResize로 창이 줄지 않는다 — 양 플랫폼 모두 padding으로 직접 밀어 올린다 */}

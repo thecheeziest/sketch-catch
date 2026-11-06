@@ -16,6 +16,7 @@ import { invitesRoutes } from './routes/invites.js';
 import { matchRoutes } from './routes/match.js';
 import { replaysRoutes } from './routes/replays.js';
 import { appVersionRoutes } from './routes/appVersion.js';
+import { moderationRoutes } from './routes/moderation.js';
 import { isOutdatedClient } from './lib/appVersion.js';
 import { registerGameNamespace } from './socket/game.namespace.js';
 import { registerPresenceNamespace } from './socket/presence.namespace.js';
@@ -57,6 +58,7 @@ async function bootstrap(): Promise<void> {
   await app.register(invitesRoutes);
   await app.register(matchRoutes);
   await app.register(replaysRoutes);
+  await app.register(moderationRoutes);
 
   await connectPrisma();
   await connectRedis();

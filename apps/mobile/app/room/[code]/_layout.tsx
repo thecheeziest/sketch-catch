@@ -1,6 +1,6 @@
 import { useEffect } from 'react';
 import { Stack, useLocalSearchParams } from 'expo-router';
-import { useRoomStore, useToastStore } from '@/shared/model';
+import { useRoomStore } from '@/shared/model';
 import { useGameStore } from '@/features/game/model/useGameStore';
 import { useRoomChatStore } from '@/features/room/model/useRoomChatStore';
 import { useRoomBackgroundGuard } from '@/features/room/lib';
@@ -22,13 +22,7 @@ export default function RoomCodeLayout() {
     const offMode2 = useMode2Store.getState().registerMode2Listeners();
     const offRoomChat = useRoomChatStore.getState().registerRoomChatListeners();
     const offCoinReward = useCoinRewardStore.getState().registerCoinRewardListeners();
-    // 시상식에 남은 방장에게 대기실 인원의 재촉이 도착하면 상단 토스트로 알린다
-    const socket = useRoomStore.getState().socket;
-    const handleNudged = (): void =>
-      useToastStore.getState().show('친구들이 대기실에서 기다리고 있어요!', 'info', 'top');
-    socket?.on('room:nudged', handleNudged);
     return () => {
-      socket?.off('room:nudged', handleNudged);
       offGame();
       offMode2();
       offRoomChat();

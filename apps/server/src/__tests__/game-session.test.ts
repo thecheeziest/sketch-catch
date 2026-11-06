@@ -35,6 +35,7 @@ vi.mock('../db/redis.js', () => ({
 }));
 vi.mock('../db/prisma.js', () => ({
   prisma: {
+    userBlock: { findMany: vi.fn(async () => []), findFirst: vi.fn(async () => null) },
     user: {
       findUnique: vi.fn(async ({ where }: { where: { id: string } }) => ({
         nickname: where.id,
@@ -65,7 +66,7 @@ const { runInRoom } = await import('../services/roomQueue.js');
 const { handleRoomJoin, handleRoomReady, handleRoomStart, handleRoomLeave, handleRoomNudge, handleRoomHostTransfer } =
   await import('../socket/handlers/room.js');
 const { handleChatSend } = await import('../socket/handlers/chat.js');
-const { handleCustomPromptSubmit, handlePlayerLeft, startRound } = await import('../socket/handlers/game.js');
+const { handlePlayerLeft, startRound } = await import('../socket/handlers/game.js');
 const { startMode2, handleMode2Prompt, handleMode2DrawDone, handleMode2Answer, currentAssignee, sortedPlayers } =
   await import('../socket/handlers/mode2.js');
 const { clearRoomTimers } = await import('../services/roomTimers.js');
@@ -240,6 +241,17 @@ describe('게임 세션·동시성', () => {
     expect(readState().status).toBe('LOBBY');
   });
 
+  it('차단 관계인 사람이 있는 방에는 새로 들어갈 수 없다 (차단 사실은 알리지 않음)', async () => {
+    seedLobby();
+    const { prisma } = await import('../db/prisma.js');
+    vi.mocked(prisma.userBlock.findMany).mockResolvedValueOnce([{ blockerId: 'u2', blockedId: 'u4' }] as never);
+    const blocked = makeSocket('u4', []);
+    await runInRoom(CODE, () => handleRoomJoin(makeNamespace() as never, blocked as never, CODE));
+
+    expect(blocked.emit).toHaveBeenCalledWith('error', { code: 'ROOM_UNAVAILABLE', message: '방에 들어갈 수 없어요!' });
+    expect(readState().players.some(p => p.id === 'u4')).toBe(false);
+  });
+
   it('A-4: 대기실이 아닌 상태에서는 다시 시작할 수 없다', async () => {
     seedLobby();
     const ns = makeNamespace();
@@ -377,6 +389,29 @@ describe('시상식 → 대기실 복귀', () => {
     expect(state.hostId).toBe('u3');
     expect(state.players.find(p => p.id === 'u3')?.isHost).toBe(true);
     expect(state.players.find(p => p.id === 'u2')?.inAward).toBe(true);
+  });
+
+  it('방장이 시상식에 남아 있으면 다른 유저가 나가도 방장은 그대로다', async () => {
+    const ns = makeNamespace();
+    await reachAward(ns);
+    await runInRoom(CODE, () => handleRematch(ns as never, makeSocket('u2')));
+    await runInRoom(CODE, () => handleRematch(ns as never, makeSocket('u3')));
+    await runInRoom(CODE, () => handleRoomLeave(ns as never, makeSocket('u2') as never));
+    const state = readState();
+    expect(state.hostId).toBe('u1');
+    expect(state.players.filter(p => p.isHost).map(p => p.id)).toEqual(['u1']);
+  });
+
+  it('대기실 진입 후 방장이 나가면 게임 순서가 아니라 먼저 한번 더를 누른 유저가 승계한다', async () => {
+    const ns = makeNamespace();
+    await reachAward(ns);
+    await runInRoom(CODE, () => handleRematch(ns as never, makeSocket('u3')));
+    await vi.advanceTimersByTimeAsync(1000);
+    await runInRoom(CODE, () => handleRematch(ns as never, makeSocket('u2')));
+    expect(readState().hostId).toBe('u1');
+
+    await runInRoom(CODE, () => handleRoomLeave(ns as never, makeSocket('u1') as never));
+    expect(readState().hostId).toBe('u3');
   });
 
   it('소켓이 방에서 빠져 있어도 방 코드로 한번 더가 처리되고 방에 다시 연결된다', async () => {
@@ -536,66 +571,6 @@ describe('시상식 → 대기실 복귀', () => {
     expect(state.status).toBe('MODE1_ROUND_START');
     expect(state.gameId).toBeTypeOf('string');
     expect(state.gameId).not.toBe(firstGameId);
-  });
-});
-
-describe('커스텀 제시어 안내', () => {
-  beforeEach(() => {
-    store.clear();
-    vi.clearAllMocks();
-    vi.useFakeTimers();
-  });
-  afterEach(() => vi.useRealTimers());
-  it('출제 대기는 30초이며 제출 후 답안자는 글자 수와 커스텀 여부만 받는다', async () => {
-    seedLobby({ config: { roundCount: 2, drawTimer: 30, answerTimer: 10, categories: ['CUSTOM'], playerCountMax: 6 } });
-    const ns = makeNamespace();
-    await startGame(ns);
-    expect(eventsOf(ns, 'game:round:start')[0]).toMatchObject({ durationSec: 30, needsCustomPrompt: true });
-    await vi.advanceTimersByTimeAsync(10_000);
-    expect(readState().status).toBe('MODE1_ROUND_START');
-    await runInRoom(CODE, () => handleCustomPromptSubmit(ns as never, makeSocket('u1'), { text: '빨간 사과' }));
-    const guesser = [...ns.emitted]
-      .reverse()
-      .find(e => e.event === 'game:round:start' && e.room === 'user:u2')?.payload;
-    // 글자 수는 라운드 시작 때 내려주지 않고, 남은 시간 10초(제출 후 20초)에 game:hint로 공개한다
-    expect(guesser).toMatchObject({ isCustomRound: true, durationSec: 30 });
-    expect(guesser).not.toHaveProperty('promptHint');
-    expect(guesser).toHaveProperty('promptForDrawer', undefined);
-    expect(readState().current).toMatchObject({ prompt: '빨간 사과' });
-    await vi.advanceTimersByTimeAsync(19_999);
-    expect(eventsOf(ns, 'game:hint')).toHaveLength(0);
-    await vi.advanceTimersByTimeAsync(1);
-    expect(eventsOf(ns, 'game:hint')).toEqual([{ gameId: readState().gameId, roundIndex: 0, promptHint: 'ㅇㅇ ㅇㅇ' }]);
-  });
-  it('29초에 제시어를 제출하면 별도의 30초 그림 시간을 보장한다', async () => {
-    seedLobby({ config: { roundCount: 1, drawTimer: 30, answerTimer: 10, categories: ['CUSTOM'], playerCountMax: 6 } });
-    const ns = makeNamespace();
-    await startGame(ns);
-    await vi.advanceTimersByTimeAsync(29_000);
-    await runInRoom(CODE, () => handleCustomPromptSubmit(ns as never, makeSocket('u1'), { text: '고양이' }));
-    await vi.advanceTimersByTimeAsync(29_999);
-    expect(readState().status).toBe('MODE1_ROUND_START');
-    expect(readState().current).toMatchObject({ roundIndex: 0, prompt: '고양이' });
-    await vi.advanceTimersByTimeAsync(1);
-    expect(readState().status).toBe('MODE1_ROUND_END');
-  });
-
-  it('수신 시각이 29초면 방 작업 줄의 처리 지연이 있어도 제출을 인정한다', async () => {
-    seedLobby({ config: { roundCount: 1, drawTimer: 30, answerTimer: 10, categories: ['CUSTOM'], playerCountMax: 6 } });
-    const ns = makeNamespace();
-    await startGame(ns);
-    const startedAt = (readState().current as Mode1RoundCurrent).startedAt;
-    vi.setSystemTime(startedAt + 30_500);
-    await handleCustomPromptSubmit(ns as never, makeSocket('u1'), { text: '고양이' }, startedAt + 29_000);
-    expect(readState().current).toMatchObject({ prompt: '고양이', startedAt: startedAt + 30_500 });
-  });
-
-  it('제시어를 제출하지 않으면 30초 뒤 라운드가 종료된다', async () => {
-    seedLobby({ config: { roundCount: 1, drawTimer: 30, answerTimer: 10, categories: ['CUSTOM'], playerCountMax: 6 } });
-    const ns = makeNamespace();
-    await startGame(ns);
-    await vi.advanceTimersByTimeAsync(30_000);
-    expect(readState().status).toBe('MODE1_ROUND_END');
   });
 });
 

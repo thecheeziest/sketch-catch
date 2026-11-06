@@ -26,6 +26,7 @@ import {
   WrongPasswordError,
 } from '../services/rooms.service.js';
 import { toPlayerProfile } from '../lib/playerProfile.js';
+import { getBlockRelatedIds, hasBlockedMember } from '../services/moderation.service.js';
 import { setPresence, setUserRoom } from '../db/redis.js';
 import { runInRoom } from '../services/roomQueue.js';
 import { countSeatedPlayers } from '../services/roomRules.js';
@@ -146,6 +147,10 @@ export const roomsRoutes: FastifyPluginAsync = async (app) => {
 
     const state = await getRoomState(codeParsed.data);
     if (!state) return reply.status(404).send({ error: 'ROOM_NOT_FOUND' });
+    // 차단 관계인 사람이 있는 방은 초대로도 들어갈 수 없다 — 차단 사실은 드러내지 않는다
+    if (hasBlockedMember(state, await getBlockRelatedIds(req.userId!))) {
+      return reply.status(403).send({ error: 'ROOM_UNAVAILABLE' });
+    }
 
     const preview: RoomPreview = {
       code: state.code,
@@ -156,9 +161,9 @@ export const roomsRoutes: FastifyPluginAsync = async (app) => {
     return reply.send(preview);
   });
 
-  app.get('/rooms', { preHandler: authenticate }, async (_req, reply) => {
+  app.get('/rooms', { preHandler: authenticate }, async (req, reply) => {
     try {
-      return reply.send(await listRooms());
+      return reply.send(await listRooms(await getBlockRelatedIds(req.userId!)));
     } catch (err) {
       logger.error({ err }, 'GET /rooms failed');
       return reply.status(500).send({ error: 'INTERNAL' });
@@ -173,6 +178,9 @@ export const roomsRoutes: FastifyPluginAsync = async (app) => {
     if (!state) return reply.status(404).send({ error: 'ROOM_NOT_FOUND' });
     // 진행 중·시상식 중인 방은 입장 불가 — 소켓 입장 단계에서도 거부하지만 화면 이동 전에 미리 알린다
     if (state.status !== 'LOBBY') return reply.status(409).send({ error: 'GAME_IN_PROGRESS' });
+    if (hasBlockedMember(state, await getBlockRelatedIds(req.userId!))) {
+      return reply.status(403).send({ error: 'ROOM_UNAVAILABLE' });
+    }
 
     const { password } = (req.query as Record<string, string | undefined>);
     try {

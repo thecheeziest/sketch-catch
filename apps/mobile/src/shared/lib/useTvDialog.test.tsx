@@ -44,6 +44,7 @@ vi.mock('react-native', () => {
     },
     Easing: { in: vi.fn(), out: vi.fn(), ease: vi.fn(), quad: vi.fn() },
     Modal: 'Modal',
+    Platform: { OS: 'ios' },
     Pressable: 'Pressable',
     StyleSheet: { create: (styles: unknown) => styles, absoluteFill: {} },
   };

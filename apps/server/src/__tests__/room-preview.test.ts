@@ -2,7 +2,7 @@ import { describe, it, expect, vi, beforeEach } from 'vitest';
 import Fastify from 'fastify';
 import type { RoomState } from '@sketch-catch/shared';
 
-vi.mock('../db/prisma.js', () => ({ prisma: { user: { findUnique: vi.fn() } } }));
+vi.mock('../db/prisma.js', () => ({ prisma: { user: { findUnique: vi.fn() }, userBlock: { findMany: vi.fn(async () => []), findFirst: vi.fn(async () => null) } } }));
 
 vi.mock('../db/redis.js', () => ({
   redis: { get: vi.fn(), set: vi.fn().mockResolvedValue('OK'), del: vi.fn() },

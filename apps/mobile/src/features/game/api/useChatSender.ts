@@ -11,16 +11,5 @@ export function useChatSender() {
     return true;
   };
 
-  const acceptAnswer = (messageId: string): void => {
-    socket?.emit('answer:accept', { messageId });
-  };
-
-  const submitCustomPrompt = (text: string): boolean => {
-    if (!text.trim() || !socket?.connected) return false;
-    socket.emit('game:custom:prompt', { text: text.trim() });
-    playFeedback('promptSubmit');
-    return true;
-  };
-
-  return { sendChat, acceptAnswer, submitCustomPrompt };
+  return { sendChat };
 }

@@ -1,5 +1,5 @@
-import { type ReactNode, useRef } from 'react';
-import { Animated, Modal, Pressable, StyleSheet } from 'react-native';
+import { type ReactNode, useEffect, useRef } from 'react';
+import { Animated, Modal, Platform, Pressable, StyleSheet } from 'react-native';
 import { Text, View } from 'dripsy';
 import { colors, spacing } from '@/shared/config';
 import { useTvDialog } from '@/shared/lib/useTvDialog';
@@ -21,10 +21,18 @@ type Props = {
   children?: ReactNode;
   buttons?: DialogButton[];
   dismissible?: boolean; // false면 백드롭 탭/하드웨어 뒤로가기로 닫히지 않음 (기본 true)
+  // 네이티브 모달까지 완전히 닫힌 뒤 호출 — iOS는 모달이 닫히는 중에 다른 모달을 띄우면 무시되므로 이어서 열 때 쓴다
+  onDismissed?: () => void;
 };
 
-export function Dialog({ visible, onClose, title, children, buttons, dismissible = true }: Props) {
+export function Dialog({ visible, onClose, title, children, buttons, dismissible = true, onDismissed }: Props) {
   const { rendered, closing, dismiss, overlayAnim, scaleXAnim, scaleYAnim, flashAnim } = useTvDialog(visible, onClose);
+  // Android Modal은 onDismiss를 지원하지 않아 렌더가 끝나는 시점을 닫힘 완료로 본다
+  const wasRendered = useRef(rendered);
+  useEffect(() => {
+    if (Platform.OS === 'android' && wasRendered.current && !rendered) onDismissed?.();
+    wasRendered.current = rendered;
+  }, [rendered, onDismissed]);
   // 부모가 선택값·입력값을 지워도 TV가 꺼지는 동안 마지막 화면을 유지한다.
   const content = useRef({ title, children, buttons });
   if (visible && !closing) content.current = { title, children, buttons };
@@ -36,6 +44,7 @@ export function Dialog({ visible, onClose, title, children, buttons, dismissible
       transparent
       animationType="none"
       onRequestClose={dismissible ? dismiss : () => {}}
+      onDismiss={onDismissed}
       statusBarTranslucent
     >
       <Animated.View style={[StyleSheet.absoluteFill, styles.overlay, { opacity: overlayAnim }]} pointerEvents="none" />

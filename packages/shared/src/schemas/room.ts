@@ -24,7 +24,11 @@ export const categorySchema = z.enum([
 ]);
 
 // 방에서 쓰는 제시어 카테고리 — 최소 1개는 선택해야 한다 (방 생성·설정 변경 공통)
-export const roomCategoriesSchema = z.array(categorySchema).min(1, '카테고리를 1개 이상 골라 주세요');
+// CUSTOM(직접 출제)은 없어졌다 — 업데이트 전 앱이 보내도 걸러 내고, 남은 카테고리로 검사한다
+export const roomCategoriesSchema = z
+  .array(categorySchema)
+  .transform(categories => categories.filter(category => category !== 'CUSTOM'))
+  .refine(categories => categories.length > 0, '카테고리를 1개 이상 골라 주세요');
 
 // 방 비밀번호 — 잠금 방은 반드시 있어야 한다 (방 생성·설정 변경 공통). 초대 입장만 비밀번호 없이 들어온다
 export const roomPasswordSchema = z.string().trim().min(1, '비밀번호를 입력해 주세요').max(20);

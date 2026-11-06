@@ -4,7 +4,7 @@ import { SERVER_EVENT } from '@sketch-catch/shared';
 import { randomUUID } from 'node:crypto';
 import { getRoomState } from '../../services/rooms.service.js';
 import { profanityFilter } from '../../services/profanity.js';
-import { findMessage, rememberMessage } from '../../services/chatStore.js';
+import { rememberForReport, rememberMessage } from '../../services/chatStore.js';
 import { endRound } from './game.js';
 
 type GameNamespace = Namespace<ClientEvents, ServerEvents>;
@@ -58,6 +58,7 @@ export async function handleChatSend(
         createdAt: Date.now(),
         channel,
       };
+      rememberForReport(code, msg);
       const audience =
         channel === 'AWARD'
           ? [...state.players.filter(p => p.inAward === true), ...awardViewers]
@@ -99,8 +100,9 @@ export async function handleChatSend(
     createdAt: Date.now(),
   };
 
-  // answer:accept 조회용 저장 — 방·라운드 단위
+  // 재접속 동기화용 저장 — 방 단위
   rememberMessage(code, msg, current.roundIndex);
+  rememberForReport(code, msg);
 
   // chat:message broadcast (발신자 포함 — 본인 말풍선도 표시)
   game.to(`room:${code}`).emit(SERVER_EVENT.CHAT_MESSAGE, msg);
@@ -116,34 +118,4 @@ export async function handleChatSend(
     // roundIndex를 함께 보내 클라이언트가 라운드 전환 후 도착한 응답(이전 라운드 오답)을 구분하게 한다.
     socket.emit(SERVER_EVENT.ANSWER_WRONG, { messageId: msg.id, roundIndex: current.roundIndex });
   }
-}
-
-export async function handleAnswerAccept(
-  game: GameNamespace,
-  socket: GameSocket,
-  payload: { messageId: string },
-): Promise<void> {
-  const roomName = Array.from(socket.rooms).find((r) => r.startsWith('room:'));
-  if (!roomName) return;
-  const code = roomName.replace('room:', '');
-
-  const state = await getRoomState(code);
-  if (!state || state.status !== 'MODE1_ROUND_START') return;
-
-  const current = state.current as Mode1RoundCurrent | null;
-  if (!current) return;
-
-  // MD1-03: 출제자만 수동 인정 가능
-  if (socket.data.userId !== current.drawerId) return;
-
-  const stored = findMessage(code, payload.messageId);
-  // 없거나, 지난 라운드 메시지거나, 출제자 자기 인정 방지
-  if (!stored || stored.roundIndex !== current.roundIndex) return;
-  const msg = stored.msg;
-  if (msg.userId === current.drawerId) return;
-
-  game
-    .to(`room:${code}`)
-    .emit(SERVER_EVENT.CHAT_CORRECT, { gameId: state.gameId ?? '', userId: msg.userId, messageId: msg.id });
-  await endRound(game, code, current.roundIndex, msg.userId, Date.now() - current.startedAt);
 }

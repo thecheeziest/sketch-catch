@@ -11,3 +11,4 @@ export * from './LobbyChatLog';
 export * from './RoomListCard';
 export * from './PenaltyField';
 export * from './RoomResyncOverlay';
+export * from './HostNudgeDialog';

@@ -7,7 +7,7 @@ import type {
   Category,
   RoundStart,
 } from '@sketch-catch/shared';
-import { PROMPT_DURATION_SEC, PROMPT_MAX_LENGTH, SERVER_EVENT } from '@sketch-catch/shared';
+import { SERVER_EVENT } from '@sketch-catch/shared';
 import { getRoomState, saveRoomState } from '../../services/rooms.service.js';
 import { pickRoundWord } from '../../services/word.service.js';
 import { clearRoomTimer, clearRoomTimers, setRoomTimer } from '../../services/roomTimers.js';
@@ -19,15 +19,16 @@ import { judgePenaltyLosers } from '../../services/penalty.js';
 import { beginAward } from './award.js';
 import { settleMode1Rewards } from './coinReward.js';
 
-// 선택된 카테고리 중 이번 라운드에 사용할 카테고리 1개를 균등 랜덤 선택 (CUSTOM도 동일 확률의 후보)
+// 선택된 카테고리 중 이번 라운드에 사용할 카테고리 1개를 균등 랜덤 선택
+// CUSTOM(직접 출제)은 없어졌다 — 업데이트 전에 만든 방에 남아 있어도 후보에서 뺀다
 function pickRoundCategory(categories: Category[]): Category {
-  if (categories.length === 0) return 'ANIMAL';
-  return categories[Math.floor(Math.random() * categories.length)]!;
+  const wordCategories = categories.filter(c => c !== 'CUSTOM');
+  if (wordCategories.length === 0) return 'ANIMAL';
+  return wordCategories[Math.floor(Math.random() * wordCategories.length)]!;
 }
 
 type GameNamespace = Namespace<ClientEvents, ServerEvents>;
 
-const CUSTOM_PROMPT_TIMEOUT_MS = PROMPT_DURATION_SEC * 1000;
 const NEXT_ROUND_DELAY_MS = 5000;
 // 남은 시간이 이 값에 도달하면 맞히는 사람에게 제시어 글자 수를 공개한다 (방 타이머가 30초든 60초든 동일)
 const HINT_REVEAL_REMAINING_SEC = 10;
@@ -37,7 +38,7 @@ function toPromptHint(prompt: string): string {
   return prompt.replace(/[^ ]/gu, 'ㅇ');
 }
 
-// 라운드 시작(또는 커스텀 제시어 제출) 시점에 글자 수 공개 시각을 예약한다
+// 라운드 시작 시점에 글자 수 공개 시각을 예약한다
 function scheduleHint(
   game: GameNamespace,
   code: string,
@@ -137,35 +138,6 @@ export async function startRound(
   const roundCategory = pickRoundCategory(state.config.categories);
   const roomName = `room:${code}`;
 
-  if (roundCategory === 'CUSTOM') {
-    // 커스텀 모드: 제시어 없이 시작, 출제자가 30초 내 직접 입력
-    state.status = 'MODE1_ROUND_START';
-    state.current = {
-      roundIndex,
-      drawerId,
-      prompt: '',
-      isCustomRound: true,
-      startedAt: Date.now(),
-    } satisfies Mode1RoundCurrent;
-    await saveRoomState(state);
-
-    if (isFirstRound) game.to(roomName).emit(SERVER_EVENT.ROOM_STATE, state);
-    game.to(roomName).emit('game:round:start', {
-      gameId: gameId ?? '',
-      roundIndex,
-      drawerId,
-      durationSec: PROMPT_DURATION_SEC,
-      isCustomRound: true,
-      promptInputEndsAt: Date.now() + CUSTOM_PROMPT_TIMEOUT_MS,
-      needsCustomPrompt: true,
-    });
-
-    setRoomTimer(code, 'round', CUSTOM_PROMPT_TIMEOUT_MS, () =>
-      handleCustomPromptTimeout(game, code, gameId, roundIndex, drawerId),
-    );
-    return true;
-  }
-
   const picked = await pickRoundWord(roundCategory, state.config.categories, state.usedWords);
   if (!picked) {
     await abortGame(game, state);
@@ -184,7 +156,6 @@ export async function startRound(
       roundIndex,
       drawerId,
       promptForDrawer: player.id === drawerId ? picked.word : undefined,
-      isCustomRound: false,
       durationSec: state.config.drawTimer,
     });
   }
@@ -194,69 +165,6 @@ export async function startRound(
   );
   scheduleHint(game, code, gameId, roundIndex, state.config.drawTimer);
   return true;
-}
-
-// 커스텀 제시어 30초 초과 → 출제자 점수 차감 후 다음 턴
-async function handleCustomPromptTimeout(
-  game: GameNamespace,
-  code: string,
-  gameId: string | undefined,
-  roundIndex: number,
-  drawerId: string,
-): Promise<void> {
-  const state = await getRoomState(code);
-  if (!state || state.gameId !== gameId || state.status !== 'MODE1_ROUND_START') return;
-  const current = state.current as Mode1RoundCurrent | null;
-  if (!current || current.roundIndex !== roundIndex || current.prompt !== '') return;
-
-  state.scoreboard[drawerId] = (state.scoreboard[drawerId] ?? 0) - 100;
-  await saveRoomState(state);
-  await endRound(game, code, roundIndex, null, undefined, gameId);
-}
-
-export async function handleCustomPromptSubmit(
-  game: GameNamespace,
-  socket: { rooms: Set<string>; data: { userId: string } },
-  payload: { text: string },
-  receivedAt = Date.now(),
-): Promise<void> {
-  const roomName = Array.from(socket.rooms).find(r => r.startsWith('room:'));
-  if (!roomName) return;
-  const code = roomName.replace('room:', '');
-
-  const state = await getRoomState(code);
-  if (!state || state.status !== 'MODE1_ROUND_START') return;
-
-  const current = state.current as Mode1RoundCurrent | null;
-  if (!current || current.drawerId !== socket.data.userId) return;
-  if (current.prompt !== '' || !current.isCustomRound) return;
-  if (receivedAt >= current.startedAt + CUSTOM_PROMPT_TIMEOUT_MS) return;
-
-  const prompt = payload.text.trim().slice(0, PROMPT_MAX_LENGTH);
-  if (prompt.length === 0) return;
-
-  current.prompt = prompt;
-  current.startedAt = Date.now();
-  await saveRoomState(state);
-
-  const gameId = state.gameId;
-  // 출제자에게만 실제 제시어 전달
-  for (const player of state.players.filter(p => !p.left)) {
-    game.to(`user:${player.id}`).emit('game:round:start', {
-      gameId: gameId ?? '',
-      roundIndex: current.roundIndex,
-      drawerId: current.drawerId,
-      promptForDrawer: player.id === current.drawerId ? prompt : undefined,
-      isCustomRound: true,
-      durationSec: state.config.drawTimer,
-    });
-  }
-
-  // 커스텀 제시어 대기 타이머를 그림 타이머로 교체
-  setRoomTimer(code, 'round', state.config.drawTimer * 1000, () =>
-    endRound(game, code, current.roundIndex, null, undefined, gameId),
-  );
-  scheduleHint(game, code, gameId, current.roundIndex, state.config.drawTimer);
 }
 
 // 진행 중 라운드에 (재)입장한 소켓에만 현재 라운드를 다시 보낸다 — 화면 전환 중 첫 round:start를
@@ -270,22 +178,17 @@ export function resendCurrentRound(
   const current = state.current as Mode1RoundCurrent | null;
   if (!current) return;
 
-  const needsCustomPrompt = current.prompt === '';
   const elapsedSec = Math.floor((Date.now() - current.startedAt) / 1000);
   const remainingSec = Math.max(0, state.config.drawTimer - elapsedSec);
   const payload: RoundStart = {
     gameId: state.gameId ?? '',
     roundIndex: current.roundIndex,
     drawerId: current.drawerId,
-    durationSec: needsCustomPrompt ? Math.max(0, PROMPT_DURATION_SEC - elapsedSec) : remainingSec,
-    isCustomRound: current.isCustomRound === true,
-    promptInputEndsAt: needsCustomPrompt ? current.startedAt + CUSTOM_PROMPT_TIMEOUT_MS : undefined,
+    durationSec: remainingSec,
   };
   // 재접속한 시점에 이미 글자 수 공개 시각이 지났다면 함께 내려준다
-  if (!needsCustomPrompt && remainingSec <= HINT_REVEAL_REMAINING_SEC)
-    payload.promptHint = toPromptHint(current.prompt);
-  if (needsCustomPrompt) payload.needsCustomPrompt = true;
-  if (!needsCustomPrompt && current.drawerId === userId) payload.promptForDrawer = current.prompt;
+  if (remainingSec <= HINT_REVEAL_REMAINING_SEC) payload.promptHint = toPromptHint(current.prompt);
+  if (current.drawerId === userId) payload.promptForDrawer = current.prompt;
   socket.emit('game:round:start', payload);
 }
 

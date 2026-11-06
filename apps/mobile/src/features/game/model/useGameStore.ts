@@ -44,12 +44,6 @@ type GameStore = {
   round: { roundIndex: number; drawerId: string; durationSec: number; endsAt: number } | null;
   promptForDrawer: string | null;
   promptHint: string | null;
-  needsCustomPrompt: boolean;
-  waitingForPrompt: boolean;
-  promptInputEndsAt: number | null;
-  // 이번 라운드가 출제자가 직접 제시어를 입력하는 커스텀 라운드인지 여부
-  // (프리셋 제시어 라운드에선 '정답 인정' 수동 버튼을 노출하지 않는다)
-  isCustomRound: boolean;
   remoteStrokes: RemoteStroke[];
   chatMessages: ChatMessage[];
   correct: { userId: string; messageId: string } | null;
@@ -85,10 +79,6 @@ export const useGameStore = create<GameStore>()(
     round: null,
     promptForDrawer: null,
     promptHint: null,
-    needsCustomPrompt: false,
-    waitingForPrompt: false,
-    promptInputEndsAt: null,
-    isCustomRound: false,
     remoteStrokes: [],
     chatMessages: [],
     correct: null,
@@ -146,8 +136,7 @@ export const useGameStore = create<GameStore>()(
       const handleRoundStart = (payload: RoundStart): void => {
         if (!isCurrentGame(payload.gameId)) return;
         set(st => {
-          // 커스텀 라운드는 제시어 입력 전/후 두 번의 round:start를 같은 roundIndex로 보낸다.
-          // 새 라운드 진입 시점에만 커스텀 여부를 확정하고, 후속 재전송에선 유지한다.
+          // 재입장 시 같은 roundIndex로 round:start가 다시 올 수 있다 — 새 라운드일 때만 이전 라운드 흔적을 지운다
           const isNewRound = st.round?.roundIndex !== payload.roundIndex;
           st.round = {
             roundIndex: payload.roundIndex,
@@ -156,25 +145,15 @@ export const useGameStore = create<GameStore>()(
             endsAt: Date.now() + payload.durationSec * 1000,
           };
           if (isNewRound) {
-            st.isCustomRound = payload.isCustomRound ?? payload.needsCustomPrompt === true;
             // 새 라운드 진입 — 직전 라운드의 정답/오답/결과 오버레이 데이터를 정리한다
             // (결과 오버레이·정답 공개·입력창 상태는 이 값들을 기준으로 삼는다).
             st.correct = null;
             st.wrongAnswer = null;
             st.roundResult = null;
           }
-          st.waitingForPrompt = payload.needsCustomPrompt === true;
-          st.promptInputEndsAt = payload.promptInputEndsAt ?? null;
-          if (payload.drawerId === myId) {
-            st.promptForDrawer = payload.promptForDrawer ?? null;
-            // 커스텀 모드: 제시어 입력 전 첫 game:round:start 이벤트
-            st.needsCustomPrompt = payload.needsCustomPrompt === true && !payload.promptForDrawer;
-          } else {
-            st.promptForDrawer = null;
-            st.needsCustomPrompt = false;
-          }
+          st.promptForDrawer = payload.drawerId === myId ? (payload.promptForDrawer ?? null) : null;
           st.promptHint = payload.promptHint ?? null;
-          // 커스텀 모드: 서버가 제시어를 받은 뒤 다시 game:round:start를 보낼 때 캔버스 유지
+          // 같은 라운드 재전송이면 캔버스 유지
           if (isNewRound) {
             st.remoteStrokes = [];
           }
@@ -332,10 +311,6 @@ export const useGameStore = create<GameStore>()(
         st.round = null;
         st.promptForDrawer = null;
         st.promptHint = null;
-        st.needsCustomPrompt = false;
-        st.waitingForPrompt = false;
-        st.promptInputEndsAt = null;
-        st.isCustomRound = false;
         st.remoteStrokes = [];
         st.chatMessages = [];
         st.correct = null;

@@ -11,6 +11,8 @@ export function useAwardSession(code: string) {
   const userId = useAuthStore(s => s.user?.id);
   const [rematching, setRematching] = useState(false);
   const [rematchError, setRematchError] = useState<string | null>(null);
+  // 시상식에 남은 방장에게 대기실 인원이 보낸 재촉 — 입장하기/나가기 모달로 묻는다
+  const [isNudged, setIsNudged] = useState(false);
   const decidedRef = useRef(false);
   const pendingRef = useRef(false);
 
@@ -64,15 +66,20 @@ export function useAwardSession(code: string) {
     const onRemoved = (payload: { code: string }): void => {
       if (payload.code === code) exit();
     };
+    const onNudged = (): void => {
+      if (!decidedRef.current) setIsNudged(true);
+    };
     socket?.on('room:state', onState);
     socket?.on('error', onError);
     socket?.on('room:removed', onRemoved);
     socket?.on('disconnect', onDisconnect);
+    socket?.on('room:nudged', onNudged);
     return () => {
       socket?.off('room:state', onState);
       socket?.off('error', onError);
       socket?.off('room:removed', onRemoved);
       socket?.off('disconnect', onDisconnect);
+      socket?.off('room:nudged', onNudged);
     };
   }, [socket, code, userId, router, exit]);
 
@@ -86,5 +93,7 @@ export function useAwardSession(code: string) {
     return () => clearTimeout(timeout);
   }, [rematching]);
 
-  return { rematch, exit, rematching, rematchError };
+  const dismissNudge = useCallback((): void => setIsNudged(false), []);
+
+  return { rematch, exit, rematching, rematchError, isNudged, dismissNudge };
 }

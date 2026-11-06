@@ -12,6 +12,8 @@ import { useChatSender } from '@/features/game/api/useChatSender';
 import { ChatInputBar, ChatStream } from '@/features/game/ui';
 import { useRoomChatStore } from '@/features/room/model/useRoomChatStore';
 import { useAwardSession } from '@/features/room/lib';
+import { HostNudgeDialog } from '@/features/room/ui';
+import { useChatModeration } from '@/features/moderation';
 import { CoinRewardChip, useCoinRewardStore } from '@/features/shop';
 import { useGifDownload, useMode2Store } from '@/features/mode2';
 import { useRevealPlayback } from '@/features/mode2/lib/useRevealPlayback';
@@ -32,7 +34,7 @@ export default function Mode2ReviewScreen() {
   const coinReward = useCoinRewardStore(s => s.reward);
   const { sendChat } = useChatSender();
   const { saveGif } = useGifDownload();
-  const { rematch, exit, rematching, rematchError } = useAwardSession(code ?? '');
+  const { rematch, exit, rematching, rematchError, isNudged, dismissNudge } = useAwardSession(code ?? '');
   const { playback, entriesBySheet, isLive, isFinished, startReplay } = useRevealPlayback(review, reviewSheetStartAt);
 
   const [guideVisible, setGuideVisible] = useState(false);
@@ -98,16 +100,18 @@ export default function Mode2ReviewScreen() {
   };
 
   // 채팅 스트림 — 게임 진행 중과 동일하게 우상단에 말풍선으로 표시 (정답 판정 없는 자유 채팅)
+  const { textOf, onLongPressChat } = useChatModeration();
   const streamItems = useMemo(
     () =>
       chatMessages.slice(-5).map(m => ({
         id: m.id,
+        userId: m.userId,
         nickname: m.nickname,
-        text: m.text,
+        text: textOf(m),
         ...chatSenderLook(m),
         isCorrect: false,
       })),
-    [chatMessages, chatSenderLook],
+    [chatMessages, chatSenderLook, textOf],
   );
 
   return (
@@ -159,7 +163,7 @@ export default function Mode2ReviewScreen() {
         )}
 
         {/* 채팅 말풍선 — 게임 진행 화면과 동일하게 우상단에 겹쳐 표시 */}
-        <ChatStream items={streamItems} />
+        <ChatStream items={streamItems} onLongPressItem={onLongPressChat} />
         {guideVisible && !isLive && <ReplayGuideTooltip onClose={() => setGuideVisible(false)} />}
       </Pressable>
 
@@ -178,6 +182,7 @@ export default function Mode2ReviewScreen() {
         title={rematchError ?? ''}
         buttons={[{ label: '홈으로', color: 'primary', onPress: exit }]}
       />
+      <HostNudgeDialog visible={isNudged && canRematch} onClose={dismissNudge} onEnter={rematch} onExit={exit} />
     </SafeAreaView>
   );
 }

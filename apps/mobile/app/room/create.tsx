@@ -24,7 +24,7 @@ export default function RoomCreateScreen() {
   const [playerCountMax, setPlayerCountMax] = useState(6)
   const [roundCount, setRoundCount] = useState(3)
   const [drawTimer, setDrawTimer] = useState(60)
-  const [categories, setCategories] = useState<Category[]>(['CUSTOM', ...ALL_CATEGORIES])
+  const [categories, setCategories] = useState<Category[]>([...ALL_CATEGORIES])
   const [locked, setLocked] = useState(false)
   const [password, setPassword] = useState('')
   const playerMin = mode === 2 ? MODE2_PLAYER_MIN : ROOM_PLAYER_MIN
@@ -59,7 +59,7 @@ export default function RoomCreateScreen() {
       // 모드 2는 벌칙을 걸 수 없다 — 켜져 있었다면 끄면서 턴·타이머도 되돌린다
       if (penaltyForm.enabled) penaltyForm.toggle(false)
       // 모드 2는 카테고리 칸이 숨겨지므로 비어 있으면 전체로 되돌려 보이지 않는 이유로 버튼이 막히지 않게 한다
-      setCategories((current) => (current.length === 0 ? ['CUSTOM', ...ALL_CATEGORIES] : current))
+      setCategories((current) => (current.length === 0 ? [...ALL_CATEGORIES] : current))
     }
   }
 

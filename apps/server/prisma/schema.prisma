@@ -32,6 +32,10 @@ model User {
   items           UserItem[]
   coinLedger      CoinLedger[]
   appleIdentities AppleIdentity[]
+  blocking        UserBlock[]     @relation("Blocker")
+  blockedBy       UserBlock[]     @relation("Blocked")
+  reportsSent     UserReport[]    @relation("Reporter")
+  reportsReceived UserReport[]    @relation("ReportTarget")
 
   @@unique([provider, providerId])
   @@unique([nickname, friendCode])
@@ -114,6 +118,46 @@ model Friendship {
   userB User @relation("FriendshipB", fields: [userBId], references: [id])
 
   @@unique([userAId, userBId])
+}
+
+// 차단 — 차단한 사람에게 상대 채팅을 가리고, 서로 친구 요청·초대를 막는다
+model UserBlock {
+  blockerId String
+  blockedId String
+  createdAt DateTime @default(now())
+
+  blocker User @relation("Blocker", fields: [blockerId], references: [id], onDelete: Cascade)
+  blocked User @relation("Blocked", fields: [blockedId], references: [id], onDelete: Cascade)
+
+  @@id([blockerId, blockedId])
+  @@index([blockedId])
+}
+
+enum ReportReason {
+  ABUSE
+  SEXUAL
+  SPAM
+  OTHER
+}
+
+// 신고 — 운영자가 DB에서 확인한다. 채팅 신고는 서버가 보관한 원문을 함께 남긴다 (클라이언트가 보낸 원문은 믿지 않는다)
+model UserReport {
+  id          String       @id @default(uuid())
+  reporterId  String
+  targetId    String
+  reason      ReportReason
+  // 사유가 '기타'일 때 신고자가 직접 쓴 내용
+  detail      String?
+  messageId   String?
+  messageText String?
+  roomCode    String?
+  createdAt   DateTime     @default(now())
+
+  reporter User @relation("Reporter", fields: [reporterId], references: [id], onDelete: Cascade)
+  target   User @relation("ReportTarget", fields: [targetId], references: [id], onDelete: Cascade)
+
+  @@index([targetId, createdAt])
+  @@index([reporterId, targetId])
 }
 
 model GameReplay {
