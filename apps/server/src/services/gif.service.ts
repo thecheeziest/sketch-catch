@@ -13,6 +13,7 @@ import {
   MODE2_REVEAL_MOVE_MS,
   MODE2_REVEAL_OWNER_LEAD_MS,
   MODE2_REVEAL_TOP_LEAD,
+  revealWordText,
   PALETTE_SPRITE,
   buildRevealEntries,
   getSpritePixels,
@@ -52,8 +53,6 @@ const COLORS = {
   EMPTY_TEXT: '#B9AED2',
   PLACEHOLDER: '#4A3A5C',
 } as const;
-
-const UNKNOWN_TEXT = '???';
 
 const BASE_WIDTH = 360;
 const BASE_FONT_SIZE = 17;
@@ -183,12 +182,12 @@ export async function revealToGif(opts: RevealToGifOptions): Promise<Buffer> {
 
   for (const [index, entry] of entries.entries()) {
     const owner = await imageOf(entry.authorId);
-    const ownerText = `${opts.players.find(player => player.id === entry.authorId)?.nickname ?? '친구'}${MODE2_REVEAL_TOP_LEAD} ${entry.text || UNKNOWN_TEXT}!`;
+    const ownerText = `${opts.players.find(player => player.id === entry.authorId)?.nickname ?? '친구'}${MODE2_REVEAL_TOP_LEAD} ${revealWordText(entry.text).word}`;
     const next = entries[index + 1];
     const nextGuesser = next
       ? {
           image: await imageOf(next.authorId),
-          text: `${MODE2_REVEAL_GUESS_LEAD} ${next.text || UNKNOWN_TEXT}!`,
+          text: `${MODE2_REVEAL_GUESS_LEAD} ${revealWordText(next.text).word}`,
           icon: BULB_SPRITE,
         }
       : null;

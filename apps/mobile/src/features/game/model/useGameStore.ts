@@ -87,7 +87,7 @@ export const useGameStore = create<GameStore>()(
     roundResult: null,
     // 드로잉 팔레트(2c) 기본 선택색 = 팔레트 잉크. 팔레트에 없는 값이면 ColorPicker가 미선택으로 보인다.
     color: '#14101C',
-    width: 8,
+    width: 6,
     eraser: false,
     paint: false,
     drawerClearNonce: 0,
@@ -318,7 +318,7 @@ export const useGameStore = create<GameStore>()(
         st.result = null;
         st.roundResult = null;
         st.color = '#14101C';
-        st.width = 8;
+        st.width = 6;
         st.eraser = false;
         st.paint = false;
         st.drawerClearNonce = 0;

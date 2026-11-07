@@ -50,7 +50,11 @@ export function registerPresenceNamespace(io: Server): void {
         // 현재 방이 바뀌었으면 다음 갱신에서 처리한다.
         if (currentCode !== code) return;
         const active = code ? await game.in(`room:${code}`).fetchSockets() : [];
-        if (code && !active.some(s => s.data.userId === userId)) {
+        // 연결이 끊겨 서버가 자리를 붙잡아 둔 참가자(백그라운드 등)는 유예 타이머가 퇴장 시점을 정한다
+        const seatHeld = code
+          ? ((await getRoomState(code))?.players.some(p => p.id === userId && !p.left && !p.connected) ?? false)
+          : false;
+        if (code && !seatHeld && !active.some(s => s.data.userId === userId)) {
           await handleRoomLeave(
             game,
             { id: socket.id, data: { userId }, rooms: new Set(), leave: async () => undefined },

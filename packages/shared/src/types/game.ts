@@ -96,7 +96,15 @@ export type Mode2Step = {
   remainingMs: number;
   cueMs?: number; // DRAW·ANSWER 단계 시작 안내 노출 시간 중 남은 시간
   totalSteps: number; // = 2N (참가자마다 정답(원조자는 제시어) + 그림)
+  submitted?: boolean; // 이번 단계를 이미 제출했는지 (재입장 시 대기 화면 복원)
 };
+
+// 서버 → 클라이언트: 이번 단계에 맡을 시트가 없는 참가자에게 (mode2:rest)
+// 나간 사람 때문에 배정이 비면 생긴다 — 다른 사람이 끝낼 때까지 쉬며 기다린다
+export type Mode2Rest = Pick<
+  Mode2Step,
+  'gameId' | 'stepIndex' | 'phase' | 'durationSec' | 'remainingMs' | 'totalSteps'
+>;
 
 export type Mode2ReviewSheet = {
   sheetId: string;

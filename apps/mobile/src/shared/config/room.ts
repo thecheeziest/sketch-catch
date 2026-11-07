@@ -1,4 +1,7 @@
-import type { Category } from '@sketch-catch/shared';
+import type { Category, GameMode } from '@sketch-catch/shared';
+
+// 모드 1 = 한 명이 그리고 나머지가 맞히기, 모드 2 = 그림·정답을 이어 전달하기
+export const GAME_MODE_LABEL: Record<GameMode, string> = { 1: '캐치', 2: '꼬리물기' };
 
 // 가나다순: 동물·드라마·만화·밈·사물·액션·영화·예능·음식·인물·자연·장소·직업
 export const ALL_CATEGORIES: Category[] = [

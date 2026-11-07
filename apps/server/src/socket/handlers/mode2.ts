@@ -8,6 +8,7 @@ import type {
   Mode2Phase,
   Mode2StepContent,
   Mode2Step,
+  Mode2Rest,
   Stroke,
 } from '@sketch-catch/shared';
 import {
@@ -51,6 +52,8 @@ export type Mode2Current = {
   submitted: string[]; // 이번 step 제출 완료된 sheetId 배열
   drafts: Record<string, Mode2Draft>; // sheetId → 이번 step 작성 중 내용
   startedAt: number; // 이번 step 시작 시각
+  // 이번 차례(정답+그림 2단계 묶음)의 시트별 담당자. null이면 이번 차례는 쉰다 (담당자 이탈·배정할 사람 없음)
+  assignments?: Record<string, string | null>;
 };
 
 // 제시어를 끝내 입력하지 않았을 때 단어 풀도 비어 있으면 쓰는 대체 제시어
@@ -66,6 +69,65 @@ const MAX_POINTS_PER_STROKE = 2000;
 // 인원과 관계없이 한 사람이 (글, 그림) 2단계를 연달아 맡으므로 담당자 오프셋은 step / 2.
 export function currentAssignee(players: Player[], ownerIndex: number, step: number): Player {
   return players[(ownerIndex + Math.floor(step / 2)) % players.length]!;
+}
+
+/**
+ * 차례(정답+그림 2단계)마다 시트 담당자를 정한다. 나간 사람은 빼고, 이미 맡았던 시트(원조자 포함)는 다시 주지 않는다.
+ * 기본은 순번대로 다음 사람이고, 그 사람이 없거나 이미 맡았던 시트는 이번 차례에 시트를 못 받은 사람 중
+ * 처음 맡는 사람과 짝짓는다 (증가 경로 매칭 — 쉬는 사람이 최소가 된다). 짝이 없으면 null(이번 차례 쉼).
+ */
+export function planAssignments(
+  players: Player[],
+  sheets: Mode2Sheet[],
+  pairIndex: number,
+): Record<string, string | null> {
+  const assignments: Record<string, string | null> = {};
+  const visitorsOf = new Map(sheets.map(sheet => [sheet.sheetId, new Set(sheet.steps.map(step => step.authorId))]));
+  const canVisit = (player: Player, sheet: Mode2Sheet): boolean =>
+    !player.left && !visitorsOf.get(sheet.sheetId)!.has(player.id);
+
+  const taken = new Set<string>();
+  const leftovers: Mode2Sheet[] = [];
+  for (const sheet of sheets) {
+    const candidate = players[(sheet.ownerIndex + pairIndex) % players.length];
+    if (candidate && canVisit(candidate, sheet) && !taken.has(candidate.id)) {
+      assignments[sheet.sheetId] = candidate.id;
+      taken.add(candidate.id);
+    } else {
+      leftovers.push(sheet);
+    }
+  }
+
+  const free = players.filter(p => !p.left && !taken.has(p.id));
+  const sheetOfPlayer = new Map<string, Mode2Sheet>();
+  const tryMatch = (sheet: Mode2Sheet, seen: Set<string>): boolean => {
+    for (const player of free) {
+      if (seen.has(player.id) || !canVisit(player, sheet)) continue;
+      seen.add(player.id);
+      const holder = sheetOfPlayer.get(player.id);
+      if (!holder || tryMatch(holder, seen)) {
+        sheetOfPlayer.set(player.id, sheet);
+        return true;
+      }
+    }
+    return false;
+  };
+  for (const sheet of leftovers) {
+    assignments[sheet.sheetId] = null;
+    tryMatch(sheet, new Set());
+  }
+  for (const [playerId, sheet] of sheetOfPlayer) assignments[sheet.sheetId] = playerId;
+  return assignments;
+}
+
+function pairIndexOf(step: number): number {
+  return Math.floor(step / 2);
+}
+
+// 이전 버전에서 저장된 진행 상태(배정표 없음)도 같은 규칙으로 배정표를 만들어 쓴다
+function assignmentsOf(state: RoomState, current: Mode2Current): Record<string, string | null> {
+  current.assignments ??= planAssignments(sortedPlayers(state), current.sheets, pairIndexOf(current.step));
+  return current.assignments;
 }
 
 export function phaseForStep(step: number): Mode2Phase {
@@ -115,35 +177,55 @@ function toPreviousContent(content: Mode2StepContent | undefined): Mode2Step['pr
   return { kind: 'TEXT', text: content.text };
 }
 
-function buildStepPayloads(state: RoomState, current: Mode2Current): Mode2Step[] {
-  const players = sortedPlayers(state);
-  const totalSteps = finalStepForPlayerCount(players.length) + 1;
+function buildRestPayload(state: RoomState, current: Mode2Current): Mode2Rest {
   const elapsedMs = Date.now() - current.startedAt;
-  const remainingMs = Math.max(0, stepDurationMs(current.phase) - elapsedMs);
+  return {
+    gameId: state.gameId ?? '',
+    stepIndex: current.step,
+    phase: current.phase,
+    durationSec: durationSecForPhase(current.phase),
+    remainingMs: Math.max(0, stepDurationMs(current.phase) - elapsedMs),
+    totalSteps: finalStepForPlayerCount(state.players.length) + 1,
+  };
+}
+
+function buildStepPayloads(state: RoomState, current: Mode2Current): Mode2Step[] {
+  const rest = buildRestPayload(state, current);
   const cueTotalMs = cueMsForPhase(current.phase);
-  const cueMs = cueTotalMs > 0 ? Math.max(0, cueTotalMs - elapsedMs) : undefined;
-  return current.sheets.map(sheet => {
-    const assignee = currentAssignee(players, sheet.ownerIndex, current.step);
-    return {
-      gameId: state.gameId ?? '',
-      sheetId: sheet.sheetId,
-      stepIndex: current.step,
-      phase: current.phase,
-      assigneeId: assignee.id,
-      previousContent: toPreviousContent(sheet.steps[sheet.steps.length - 1]),
-      durationSec: durationSecForPhase(current.phase),
-      remainingMs,
-      cueMs,
-      totalSteps,
-    };
+  const cueMs = cueTotalMs > 0 ? Math.max(0, cueTotalMs - (Date.now() - current.startedAt)) : undefined;
+  const assignments = assignmentsOf(state, current);
+  return current.sheets.flatMap((sheet): Mode2Step[] => {
+    const assigneeId = assignments[sheet.sheetId];
+    if (!assigneeId) return [];
+    return [
+      {
+        ...rest,
+        sheetId: sheet.sheetId,
+        assigneeId,
+        previousContent: toPreviousContent(sheet.steps[sheet.steps.length - 1]),
+        cueMs,
+        submitted: current.submitted.includes(sheet.sheetId),
+      },
+    ];
   });
+}
+
+// 이번 단계에 맡을 시트가 없는 참가자(나간 사람 제외) — 쉬어 가는 화면을 띄운다
+function restingPlayerIds(state: RoomState, payloads: Mode2Step[]): string[] {
+  const busy = new Set(payloads.map(p => p.assigneeId));
+  return state.players.filter(p => !p.left && !busy.has(p.id)).map(p => p.id);
 }
 
 // 단계 정보는 담당자 본인에게만 보낸다 — 다른 사람의 시트(그림·글)를 미리 받을 이유가 없고,
 // 시트마다 strokes가 실려 방 전체 broadcast는 N배의 전송량이 된다.
 function emitSteps(game: GameNamespace, state: RoomState, current: Mode2Current): void {
-  for (const payload of buildStepPayloads(state, current)) {
+  const payloads = buildStepPayloads(state, current);
+  for (const payload of payloads) {
     game.to(`user:${payload.assigneeId}`).emit('mode2:step', payload);
+  }
+  const rest = buildRestPayload(state, current);
+  for (const userId of restingPlayerIds(state, payloads)) {
+    game.to(`user:${userId}`).emit('mode2:rest', rest);
   }
 }
 
@@ -157,8 +239,11 @@ export function resendCurrentStep(
 ): void {
   if (!isMode2Active(state.status)) return;
   const current = state.current as Mode2Current;
-  for (const payload of buildStepPayloads(state, current)) {
-    if (payload.assigneeId === userId) socket.emit('mode2:step', payload);
+  const payloads = buildStepPayloads(state, current);
+  const mine = payloads.filter(payload => payload.assigneeId === userId);
+  for (const payload of mine) socket.emit('mode2:step', payload);
+  if (mine.length === 0 && restingPlayerIds(state, payloads).includes(userId)) {
+    socket.emit('mode2:rest', buildRestPayload(state, current));
   }
 }
 
@@ -185,6 +270,7 @@ export async function startMode2(game: GameNamespace, code: string): Promise<voi
     submitted: [],
     drafts: {},
     startedAt: Date.now(),
+    assignments: planAssignments(players, sheets, 0),
   };
 
   state.status = 'MODE2_PROMPT_PHASE';
@@ -207,13 +293,12 @@ async function assertAssignee(
   const current = state.current as Mode2Current;
   const sheet = current.sheets.find(s => s.sheetId === sheetId);
   if (!sheet) return null;
-  if (current.submitted.includes(sheetId) && current.phase !== 'ANSWER') return null;
+  // 제출은 단계마다 한 번 — 답안도 제출 후에는 수정할 수 없다 (전원 제출 시 바로 다음 단계로 넘어간다)
+  if (current.submitted.includes(sheetId)) return null;
   if (Date.now() > current.startedAt + stepDurationMs(current.phase) + MODE2_SUBMIT_GRACE_MS) return null;
 
-  const players = sortedPlayers(state);
-  const assignee = currentAssignee(players, sheet.ownerIndex, current.step);
   // 담당자가 아닌 유저의 제출은 조용히 거부 — 서버가 진실의 출처
-  if (assignee.id !== socket.data.userId) return null;
+  if (assignmentsOf(state, current)[sheetId] !== socket.data.userId) return null;
 
   return { state, current, sheet };
 }
@@ -275,10 +360,19 @@ function findRoomCode(socket: Mode2Socket): string | null {
   return roomName ? roomName.replace('room:', '') : null;
 }
 
-async function checkAllSubmitted(game: GameNamespace, code: string, current: Mode2Current): Promise<void> {
-  if (current.submitted.length >= current.sheets.length) {
-    await advanceStep(game, code);
-  }
+// 이번 단계를 맡은 사람이 모두 제출하면 마감을 기다리지 않고 넘어간다.
+// 나간 사람은 배정에서 빠져 기다리지 않고, 자리를 비운 사람(백그라운드)은 참가자라 마감까지 기다린다.
+async function checkAllSubmitted(
+  game: GameNamespace,
+  code: string,
+  state: RoomState,
+  current: Mode2Current,
+): Promise<void> {
+  const assignments = assignmentsOf(state, current);
+  const pending = current.sheets.some(
+    sheet => assignments[sheet.sheetId] && !current.submitted.includes(sheet.sheetId),
+  );
+  if (!pending) await advanceStep(game, code);
 }
 
 export async function handleMode2Prompt(
@@ -297,11 +391,11 @@ export async function handleMode2Prompt(
   recordMode2Submit(ctx.state, socket.data.userId);
   ctx.current.submitted.push(payload.sheetId);
   await saveRoomState(ctx.state);
-  await checkAllSubmitted(game, code, ctx.current);
+  await checkAllSubmitted(game, code, ctx.state, ctx.current);
 }
 
 export async function handleMode2Answer(
-  _game: GameNamespace,
+  game: GameNamespace,
   socket: Mode2Socket,
   payload: { sheetId: string; text: string },
 ): Promise<void> {
@@ -312,18 +406,11 @@ export async function handleMode2Answer(
 
   const text = sanitizeText(payload.text);
   if (!text) return;
-  const content: Mode2StepContent = { kind: 'ANSWER', authorId: socket.data.userId, text };
-  if (ctx.current.submitted.includes(payload.sheetId)) {
-    ctx.sheet.steps[ctx.sheet.steps.length - 1] = content;
-  } else {
-    ctx.sheet.steps.push(content);
-    recordMode2Submit(ctx.state, socket.data.userId);
-    ctx.current.submitted.push(payload.sheetId);
-  }
-  ctx.current.drafts ??= {};
-  ctx.current.drafts[payload.sheetId] = { text };
-  // 전원이 제출해도 답안 단계는 마감까지 유지한다. 마지막 입력으로 수정 가능하다.
+  ctx.sheet.steps.push({ kind: 'ANSWER', authorId: socket.data.userId, text });
+  recordMode2Submit(ctx.state, socket.data.userId);
+  ctx.current.submitted.push(payload.sheetId);
   await saveRoomState(ctx.state);
+  await checkAllSubmitted(game, code, ctx.state, ctx.current);
 }
 
 export async function handleMode2DrawDone(
@@ -347,7 +434,7 @@ export async function handleMode2DrawDone(
   recordMode2Submit(ctx.state, socket.data.userId);
   ctx.current.submitted.push(payload.sheetId);
   await saveRoomState(ctx.state);
-  await checkAllSubmitted(game, code, ctx.current);
+  await checkAllSubmitted(game, code, ctx.state, ctx.current);
 }
 
 // 작성 중이던 초안 저장 — 담당자 검증·입력 정제는 제출과 동일하게 적용한다 (브로드캐스트 없음)
@@ -378,17 +465,14 @@ function randomWordCategory(categories: Category[]): Category {
   return wordCategories[Math.floor(Math.random() * wordCategories.length)]!;
 }
 
-// 시간 초과로 제출하지 못한 시트의 콘텐츠 — 초안이 있으면 그대로 쓰고, 빈 제시어는 랜덤 단어로 채운다
-async function timeoutContent(
+// 제시어를 시간 안에 내지 못한 경우 — 초안이 있으면 그대로 쓰고, 비어 있으면 랜덤 단어로 채운다
+async function timeoutPrompt(
   state: RoomState,
   current: Mode2Current,
   sheet: Mode2Sheet,
   authorId: string,
 ): Promise<Mode2StepContent> {
-  const draft = current.drafts?.[sheet.sheetId];
-  if (current.phase === 'DRAW') return { kind: 'DRAW', authorId, strokes: draft?.strokes ?? [] };
-  const text = draft?.text ?? '';
-  if (current.phase === 'ANSWER') return { kind: 'ANSWER', authorId, text };
+  const text = current.drafts?.[sheet.sheetId]?.text ?? '';
   if (text) return { kind: 'PROMPT', authorId, text };
   const picked = await pickRoundWord(
     randomWordCategory(state.config.categories),
@@ -401,6 +485,48 @@ async function timeoutContent(
   return { kind: 'PROMPT', authorId, text: picked.word };
 }
 
+// 차례(정답+그림)를 다 마치지 못한 사람의 정답은 버리고 이번 차례를 쉰다.
+// 시트는 앞사람 그림으로 돌아가 다음 차례에 이어지므로 [글, 그림] 순서가 깨지지 않는다.
+function discardPair(current: Mode2Current, sheet: Mode2Sheet, userId: string): void {
+  const last = sheet.steps[sheet.steps.length - 1];
+  if (last?.kind === 'ANSWER' && last.authorId === userId) sheet.steps.pop();
+  current.submitted = current.submitted.filter(id => id !== sheet.sheetId);
+  if (current.assignments) current.assignments[sheet.sheetId] = null;
+}
+
+// 첫 그림도 남기지 못하고 나간 원조자의 시트 — 이어 그릴 그림이 없으므로 게임·공개식에서 뺀다
+function dropSheet(current: Mode2Current, sheetId: string): void {
+  current.sheets = current.sheets.filter(sheet => sheet.sheetId !== sheetId);
+  current.submitted = current.submitted.filter(id => id !== sheetId);
+  if (current.assignments) delete current.assignments[sheetId];
+  if (current.drafts) delete current.drafts[sheetId];
+}
+
+// D-08: 마감까지 제출하지 못한 시트는 작성 중이던 초안으로 채운다.
+// 자리를 비운 사람(연결 끊김)이 아무것도 남기지 않았으면 빈칸을 넘기지 않고 이번 차례를 쉬게 한다.
+async function finalizeStep(state: RoomState, current: Mode2Current, players: Player[]): Promise<void> {
+  const assignments = assignmentsOf(state, current);
+  for (const sheet of current.sheets) {
+    const assigneeId = assignments[sheet.sheetId];
+    if (!assigneeId || current.submitted.includes(sheet.sheetId)) continue;
+    const away = players.find(p => p.id === assigneeId)?.connected === false;
+    const draft = current.drafts?.[sheet.sheetId];
+
+    if (current.phase === 'PROMPT') {
+      sheet.steps.push(await timeoutPrompt(state, current, sheet, assigneeId));
+    } else if (current.phase === 'DRAW') {
+      const strokes = draft?.strokes ?? [];
+      // 원조자의 첫 그림은 버리면 시트가 성립하지 않으므로 빈 그림이라도 남긴다
+      if (strokes.length === 0 && away && current.step > 1) discardPair(current, sheet, assigneeId);
+      else sheet.steps.push({ kind: 'DRAW', authorId: assigneeId, strokes });
+    } else {
+      const text = draft?.text ?? '';
+      if (!text && away) discardPair(current, sheet, assigneeId);
+      else sheet.steps.push({ kind: 'ANSWER', authorId: assigneeId, text });
+    }
+  }
+}
+
 export async function advanceStep(game: GameNamespace, code: string, expectedGameId?: string): Promise<void> {
   const state = await getRoomState(code);
   if (!state || !isMode2Active(state.status)) return;
@@ -409,27 +535,25 @@ export async function advanceStep(game: GameNamespace, code: string, expectedGam
 
   const current = state.current as Mode2Current;
   const players = sortedPlayers(state);
+  const finalStep = finalStepForPlayerCount(players.length);
 
-  // D-08: 미제출 시트는 작성 중이던 초안으로 강제 제출하고 다음 단계로 전환
-  for (const sheet of current.sheets) {
-    if (current.submitted.includes(sheet.sheetId)) {
-      const content = sheet.steps[sheet.steps.length - 1];
-      const draft = current.drafts?.[sheet.sheetId];
-      if (current.phase === 'ANSWER' && content?.kind === 'ANSWER' && draft?.text !== undefined) {
-        content.text = draft.text;
-      }
-      continue;
-    }
-    const assignee = currentAssignee(players, sheet.ownerIndex, current.step);
-    sheet.steps.push(await timeoutContent(state, current, sheet, assignee.id));
+  await finalizeStep(state, current, players);
+
+  // 다음 단계 — 새 차례(정답 단계)마다 배정표를 다시 만들고, 맡을 시트가 하나도 없는 단계는 건너뛴다
+  let nextStep = current.step + 1;
+  let assignments = current.assignments ?? {};
+  while (nextStep <= finalStep) {
+    if (nextStep % 2 === 0) assignments = planAssignments(players, current.sheets, pairIndexOf(nextStep));
+    if (Object.values(assignments).some(Boolean)) break;
+    nextStep += 1;
   }
 
-  const nextStep = current.step + 1;
   current.submitted = [];
   current.drafts = {};
   current.startedAt = Date.now();
+  current.assignments = assignments;
 
-  if (nextStep > finalStepForPlayerCount(players.length)) {
+  if (nextStep > finalStep) {
     // 원조자에게 시트 복귀 — 리뷰 단계로 전환
     current.step = nextStep;
     state.status = 'MODE2_REVIEW';
@@ -484,15 +608,23 @@ export async function handleMode2PlayerLeft(game: GameNamespace, code: string, u
 
   if (!isMode2Active(state.status)) return;
 
+  // 나간 사람은 이후 모든 차례의 배정에서 빠진다 (planAssignments). 지금 맡고 있던 시트만 정리한다
   const current = state.current as Mode2Current;
-  const players = sortedPlayers(state);
-  for (const sheet of current.sheets) {
-    if (current.submitted.includes(sheet.sheetId)) continue;
-    const assignee = currentAssignee(players, sheet.ownerIndex, current.step);
-    if (assignee.id !== userId) continue;
-    sheet.steps.push(await timeoutContent(state, current, sheet, assignee.id));
-    current.submitted.push(sheet.sheetId);
+  const assignments = assignmentsOf(state, current);
+  for (const sheet of [...current.sheets]) {
+    if (assignments[sheet.sheetId] !== userId) continue;
+    const done = current.submitted.includes(sheet.sheetId);
+    if (current.phase === 'DRAW' && done) continue;
+    // 그리던 그림이 있으면 완성된 차례로 보존한다
+    const strokes = current.drafts?.[sheet.sheetId]?.strokes ?? [];
+    if (current.phase === 'DRAW' && strokes.length > 0) {
+      sheet.steps.push({ kind: 'DRAW', authorId: userId, strokes });
+      current.submitted.push(sheet.sheetId);
+      continue;
+    }
+    if (current.step <= 1) dropSheet(current, sheet.sheetId);
+    else discardPair(current, sheet, userId);
   }
   await saveRoomState(state);
-  await checkAllSubmitted(game, code, current);
+  await checkAllSubmitted(game, code, state, current);
 }

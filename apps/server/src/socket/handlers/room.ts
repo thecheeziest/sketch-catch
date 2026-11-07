@@ -271,6 +271,11 @@ async function expireGraceLeave(game: GameNamespace, code: string, userId: strin
   // 그사이 재입장(connected 복원)했거나 이미 퇴장 처리됐으면 할 일이 없다
   if (!state || !player || player.connected || player.left) return;
   if (await hasActiveUserSocketInRoom(game, `room:${code}`, userId, '')) return;
+  // 이어 그리기는 게임이 끝날 때까지 자리를 지켜 둔다 — 언제 돌아와도 이어서 참여한다 (시상식부터는 기존 유예 적용)
+  if (state.mode === 2 && isGameInProgressStatus(state.status)) {
+    scheduleGraceLeave(code, userId, () => expireGraceLeave(game, code, userId));
+    return;
+  }
 
   await leaveRoom(game, code, userId, state);
   // 다른 방에 이미 들어갔다면 그 방의 참가 기록은 건드리지 않는다

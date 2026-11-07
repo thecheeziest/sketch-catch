@@ -20,6 +20,7 @@ import { useRevealPlayback } from '@/features/mode2/lib/useRevealPlayback';
 import { RevealCharacterRow, type RevealSaveState } from '@/features/mode2/ui/RevealCharacterRow';
 import { RevealStage } from '@/features/mode2/ui/RevealStage';
 import { ReplayGuideTooltip } from '@/features/mode2/ui/ReplayGuideTooltip';
+import { GifSavingOverlay } from '@/features/mode2/ui/GifSavingOverlay';
 
 // 모드 2의 시상식 = 정답 공개식. 실시간으로 함께 본 뒤(AWARD), 캐릭터를 눌러 다시 보고 GIF로 저장한다.
 export default function Mode2ReviewScreen() {
@@ -63,11 +64,7 @@ export default function Mode2ReviewScreen() {
   const displayedSheet = playback ? review?.sheets[playback.sheetIndex] : undefined;
   const displayedSheetId = displayedSheet?.sheetId;
   // GIF는 저장을 누를 때 서버가 만든다 — 발표가 끝나면 바로 저장할 수 있다
-  const saveState: RevealSaveState = (() => {
-    if (saving) return 'saving';
-    if (!isFinished || !displayedSheetId) return 'disabled';
-    return 'ready';
-  })();
+  const saveState: RevealSaveState = saving || !isFinished || !displayedSheetId ? 'disabled' : 'ready';
 
   const handleSelect = useCallback(
     (playerId: string): void => {
@@ -182,6 +179,7 @@ export default function Mode2ReviewScreen() {
         title={rematchError ?? ''}
         buttons={[{ label: '홈으로', color: 'primary', onPress: exit }]}
       />
+      <GifSavingOverlay visible={saving} />
       <HostNudgeDialog visible={isNudged && canRematch} onClose={dismissNudge} onEnter={rematch} onExit={exit} />
     </SafeAreaView>
   );

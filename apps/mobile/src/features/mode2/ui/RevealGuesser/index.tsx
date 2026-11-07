@@ -21,6 +21,7 @@ type Props = {
   characterId: string;
   text: string;
   icon: 'question' | 'bulb';
+  highlightFrom?: number;
   size?: number;
 };
 
@@ -72,13 +73,13 @@ function LightBulb({ reduced }: { reduced: boolean }) {
 }
 
 // 공개식 맞히는 사람 — 스케치북 아래에서 말풍선으로 추측을 말하고, 옆에 ?? / 전구가 반응한다
-export function RevealGuesser({ characterId, text, icon, size = 48 }: Props) {
+export function RevealGuesser({ characterId, text, icon, highlightFrom, size = 48 }: Props) {
   const reduced = useReducedMotion();
   const imageSource = getCharacterImageSource(characterId);
 
   return (
     <View sx={{ alignItems: 'center', gap: 12 }}>
-      <PixelSpeechBubble text={text} tail="down" />
+      <PixelSpeechBubble text={text} tail="down" highlightFrom={highlightFrom} />
       <View sx={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
         {/* 아이콘 폭만큼 왼쪽을 비워 캐릭터를 가운데에 둔다 */}
         <View sx={{ width: 27 }} />

@@ -7,6 +7,7 @@ import type {
   GameResult,
   ChatMessage,
   Mode2Step,
+  Mode2Rest,
   Mode2ReviewState,
   Mode2ReviewLiveUpdate,
   CoinReward,
@@ -64,6 +65,7 @@ export type ServerEvents = {
   'chat:correct': (payload: { gameId: string; userId: string; messageId: string }) => void;
   'answer:wrong': (payload: { messageId: string; roundIndex: number }) => void; // 오답 제출자 본인에게만 전달
   'mode2:step': (payload: Mode2Step) => void;
+  'mode2:rest': (payload: Mode2Rest) => void;
   'mode2:review': (payload: Mode2ReviewState) => void;
   'mode2:review:live': (payload: Mode2ReviewLiveUpdate) => void;
   error: (payload: { code: string; message: string }) => void;
@@ -117,6 +119,7 @@ export const SERVER_EVENT = {
   CHAT_CORRECT: 'chat:correct',
   ANSWER_WRONG: 'answer:wrong',
   MODE2_STEP: 'mode2:step',
+  MODE2_REST: 'mode2:rest',
   MODE2_REVIEW: 'mode2:review',
   MODE2_REVIEW_LIVE: 'mode2:review:live',
   ERROR: 'error',

@@ -1,5 +1,6 @@
 import type { Mode2StepContent } from '../types/game.js';
 import type { Stroke } from '../types/stroke.js';
+import { MODE2_REVEAL_MISSING_ANSWER } from '../constants/game.js';
 
 // 정답 공개식 발표 1건 — 원조자는 제시어 + 첫 그림, 이후 참가자는 정답(추측) + 그 정답을 다시 그린 그림
 export type Mode2RevealEntry = {
@@ -8,6 +9,12 @@ export type Mode2RevealEntry = {
   strokes: Stroke[];
   isOwner: boolean;
 };
+
+// 말풍선의 단어 부분 — 답안을 내지 않았으면 느낌표 없이 '답안 미제출'
+export function revealWordText(text: string): { word: string; missing: boolean } {
+  if (!text) return { word: MODE2_REVEAL_MISSING_ANSWER, missing: true };
+  return { word: `${text}!`, missing: false };
+}
 
 // 시트 스텝은 [제시어, 그림, 정답, 그림, ...] 순서로 쌓이므로 (글, 그림) 2개씩 묶는다
 export function buildRevealEntries(steps: readonly Mode2StepContent[]): Mode2RevealEntry[] {

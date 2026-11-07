@@ -43,7 +43,12 @@ export function RevealStage({ entries, startedAt, characterOf, nicknameOf, feedb
         >
           <RevealPainter characterId={characterOf(scene.painterId)} />
         </Animated.View>
-        <PixelSpeechBubble text={scene.painterText} tail="up" numberOfLines={2} />
+        <PixelSpeechBubble
+          text={scene.painterText}
+          tail="up"
+          numberOfLines={2}
+          highlightFrom={scene.painterHighlightFrom}
+        />
       </View>
 
       <View sx={{ flex: 1, paddingHorizontal: spacing.MD, paddingVertical: spacing.SM }}>
@@ -59,6 +64,7 @@ export function RevealStage({ entries, startedAt, characterOf, nicknameOf, feedb
             characterId={characterOf(scene.guesser.authorId)}
             text={scene.guesser.text}
             icon={scene.guesser.icon}
+            highlightFrom={scene.guesser.highlightFrom}
           />
         )}
       </View>

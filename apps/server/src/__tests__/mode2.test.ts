@@ -34,6 +34,8 @@ import {
   currentAssignee,
   phaseForStep,
   finalStepForPlayerCount,
+  planAssignments,
+  type Mode2Current,
 } from '../socket/handlers/mode2.js';
 
 const mockGetRoomState = vi.mocked(getRoomState);
@@ -109,6 +111,30 @@ function makeStatefulMocks(initial: RoomState) {
   };
 }
 
+function socketOf(userId: string) {
+  return { data: { userId }, rooms: new Set(['room:ABC123']) };
+}
+
+// 배정표 기준으로 시트 1장을 제출한다 (단계별 제출 이벤트)
+async function submitOne(game: ReturnType<typeof makeNamespace>, ctl: { state: RoomState }, sheetId: string) {
+  const current = ctl.state.current as Mode2Current;
+  const userId = current.assignments?.[sheetId];
+  if (!userId) return;
+  const socket = socketOf(userId);
+  if (current.phase === 'PROMPT') await handleMode2Prompt(game as any, socket, { sheetId, text: '강아지' });
+  else if (current.phase === 'DRAW') await handleMode2DrawDone(game as any, socket, { sheetId, strokes: makeStroke() });
+  else await handleMode2Answer(game as any, socket, { sheetId, text: '멍멍이' });
+}
+
+// 배정받은 사람 전원(except 제외)이 이번 단계를 제출한다
+async function submitAll(game: ReturnType<typeof makeNamespace>, ctl: { state: RoomState }, except: string[] = []) {
+  const current = ctl.state.current as Mode2Current;
+  const sheetIds = Object.entries(current.assignments ?? {})
+    .filter(([, userId]) => userId && !except.includes(userId))
+    .map(([sheetId]) => sheetId);
+  for (const sheetId of sheetIds) await submitOne(game, ctl, sheetId);
+}
+
 describe('mode2', () => {
   beforeEach(() => {
     vi.clearAllMocks();
@@ -132,6 +158,26 @@ describe('mode2', () => {
     const odd = makeMode2RoomState(5).players;
     expect(currentAssignee(odd, 0, 1).id).toBe('p0');
     expect(currentAssignee(odd, 0, 9).id).toBe('p4');
+  });
+
+  it('planAssignments: 나간 사람은 빼고, 이미 맡았던 시트(원조자 포함)는 다시 주지 않는다', () => {
+    const players = makeMode2RoomState(4).players;
+    players[1]!.left = true;
+    const sheets = players.map((p, ownerIndex) => ({
+      sheetId: p.id,
+      ownerIndex,
+      steps: [
+        { kind: 'PROMPT' as const, authorId: p.id, text: 'x' },
+        { kind: 'DRAW' as const, authorId: p.id, strokes: [] },
+      ],
+    }));
+    const plan = planAssignments(players, sheets, 1);
+    // 순번대로면 p0 시트 → p1(나감). 시트를 못 받은 p0은 자기 시트라 받을 수 없어 다른 짝을 찾는다
+    expect(Object.values(plan)).not.toContain('p1');
+    for (const [sheetId, userId] of Object.entries(plan)) expect(userId).not.toBe(sheetId);
+    const assigned = Object.values(plan).filter(Boolean);
+    expect(new Set(assigned).size).toBe(assigned.length);
+    expect(assigned).toHaveLength(3); // 남은 3명 모두 시트를 받는다
   });
 
   it('phase 순서: step0=PROMPT, 홀수=DRAW, 짝수(0제외)=ANSWER', () => {
@@ -360,8 +406,13 @@ describe('mode2', () => {
 
       const savedSheet = (ctl.state.current as any).sheets.find((s: any) => s.sheetId === sheet.sheetId);
       expect(savedSheet.steps.at(-1).text).toBe('멍멍이');
-      // 전원이 제출해도 마감까지 남아 수정할 수 있다.
-      for (const item of answerPhase.sheets) {
+      // 제출한 답안은 수정할 수 없다 — 재제출·제출 후 초안은 무시된다
+      await handleMode2Answer(game as never, socket, { sheetId: sheet.sheetId, text: '수정한 답안' });
+      await handleMode2Draft(socket, { sheetId: sheet.sheetId, text: '제출 후 마지막 입력' });
+      expect(savedSheet.steps.at(-1).text).toBe('멍멍이');
+      expect(savedSheet.steps).toHaveLength(3);
+      // 나머지 전원이 제출하면 마감을 기다리지 않고 바로 다음 단계로 넘어간다
+      for (const item of answerPhase.sheets.slice(1)) {
         const writer = currentAssignee(initial.players, item.ownerIndex, answerPhase.step);
         await handleMode2Answer(
           game as never,
@@ -369,14 +420,8 @@ describe('mode2', () => {
           { sheetId: item.sheetId, text: '첫 답안' },
         );
       }
-      expect(ctl.state.status).toBe('MODE2_ANSWER_PHASE');
-      await handleMode2Answer(game as never, socket, { sheetId: sheet.sheetId, text: '수정한 답안' });
-      expect(savedSheet.steps.at(-1).text).toBe('수정한 답안');
-      expect(savedSheet.steps).toHaveLength(3);
-      await handleMode2Draft(socket, { sheetId: sheet.sheetId, text: '제출 후 마지막 입력' });
-      await vi.advanceTimersByTimeAsync(1500 + 15000 + 800);
       expect(ctl.state.status).toBe('MODE2_DRAW_PHASE');
-      expect(savedSheet.steps.at(-1).text).toBe('제출 후 마지막 입력');
+      expect(savedSheet.steps.at(-1).text).toBe('멍멍이');
       // 이미 다음 단계로 넘어간 뒤의 지연된 answer 이벤트는 무시한다.
       const count = savedSheet.steps.length;
       await handleMode2Answer(game as never, socket, { sheetId: sheet.sheetId, text: '늦은 답안' });
@@ -449,7 +494,7 @@ describe('mode2', () => {
   });
 
   describe('handleMode2PlayerLeft (OFFL-05)', () => {
-    it('DRAW 단계 담당 시트 이탈: 빈 콘텐츠로 즉시 제출 처리되고 전원 제출 완료 시 다음 단계로 advance한다', async () => {
+    it('첫 그림 전에 원조자가 나가면 그 시트는 빠지고, 남은 전원 제출 상태가 되어 바로 다음 단계로 advance한다', async () => {
       const initial = makeMode2RoomState(5);
       const ctl = makeStatefulMocks(initial);
       const game = makeNamespace();
@@ -483,12 +528,89 @@ describe('mode2', () => {
       expect(leftPlayer.left).toBe(true);
       expect(leftPlayer.connected).toBe(false);
 
-      // 초안이 없으므로 빈 그림으로 강제 제출 후 전원 제출 완료 -> step2 ANSWER로 advance
+      // 이어 그릴 그림이 없으므로 시트를 빼고 -> 남은 시트 전원 제출 완료로 step2 ANSWER로 advance
       expect(mockEndGame).not.toHaveBeenCalled();
       expect(ctl.state.status).toBe('MODE2_ANSWER_PHASE');
-      const advancedCurrent = ctl.state.current as any;
+      const advancedCurrent = ctl.state.current as Mode2Current;
       expect(advancedCurrent.step).toBe(2);
-      expect(leaverSheet.steps[1]).toMatchObject({ kind: 'DRAW', authorId: 'p1', strokes: [] });
+      expect(advancedCurrent.sheets.map(sheet => sheet.sheetId)).not.toContain(leaverSheet.sheetId);
+      // 나간 사람은 새 차례에서 배정받지 않는다
+      expect(Object.values(advancedCurrent.assignments ?? {})).not.toContain('p1');
+    });
+
+    it('그리던 그림이 있는 상태로 나가면 그 그림을 보존한다', async () => {
+      const initial = makeMode2RoomState(4);
+      const ctl = makeStatefulMocks(initial);
+      const game = makeNamespace();
+
+      await startMode2(game as any, 'ABC123');
+      await submitAll(game, ctl);
+      const leaverSheet = (ctl.state.current as Mode2Current).sheets.find(sheet => sheet.sheetId === 'p1')!;
+      await handleMode2Draft(socketOf('p1'), { sheetId: 'p1', strokes: makeStroke() });
+
+      await handleMode2PlayerLeft(game as any, 'ABC123', 'p1');
+
+      expect(leaverSheet.steps[1]).toMatchObject({ kind: 'DRAW', authorId: 'p1' });
+      expect((ctl.state.current as Mode2Current).sheets.map(sheet => sheet.sheetId)).toContain('p1');
+    });
+
+    it('정답 단계 중 이탈: 낸 답안은 버리고 기다리지 않으며, 이후 누구도 자기가 맡았던 시트를 다시 받지 않는다', async () => {
+      const initial = makeMode2RoomState(5);
+      const ctl = makeStatefulMocks(initial);
+      const game = makeNamespace();
+
+      await startMode2(game as any, 'ABC123');
+      await submitAll(game, ctl); // PROMPT
+      await submitAll(game, ctl); // 원조자 DRAW
+      const answer = ctl.state.current as Mode2Current;
+      expect(answer.phase).toBe('ANSWER');
+      const leaverSheetId = Object.entries(answer.assignments!).find(([, userId]) => userId === 'p2')![0];
+      await submitOne(game, ctl, leaverSheetId);
+
+      // p2를 뺀 나머지만 제출해도 바로 다음 단계로 넘어간다
+      await handleMode2PlayerLeft(game as any, 'ABC123', 'p2');
+      await submitAll(game, ctl);
+      expect(ctl.state.status).toBe('MODE2_DRAW_PHASE');
+      const leaverSheet = (ctl.state.current as Mode2Current).sheets.find(sheet => sheet.sheetId === leaverSheetId)!;
+      expect(leaverSheet.steps).toHaveLength(2); // p2의 답안은 버려지고 원조자 그림으로 돌아간다
+
+      // 끝까지 진행 — 타이머 없이 전원 제출만으로 공개식에 도착해야 한다
+      for (let guard = 0; guard < 20 && ctl.state.status !== 'MODE2_REVIEW'; guard++) await submitAll(game, ctl);
+      expect(ctl.state.status).toBe('MODE2_REVIEW');
+
+      for (const sheet of (ctl.state.current as Mode2Current).sheets) {
+        const authors = sheet.steps.map(step => step.authorId);
+        // [글, 그림] 2개씩 같은 사람 — 같은 사람이 한 시트를 두 번 맡지 않는다
+        const pairAuthors = authors.filter((_, index) => index % 2 === 0);
+        expect(new Set(pairAuthors).size).toBe(pairAuthors.length);
+        authors.forEach((author, index) => {
+          if (index % 2 === 1) expect(author).toBe(authors[index - 1]);
+        });
+        expect(sheet.steps.every((step, index) => step.kind === phaseForStep(index))).toBe(true);
+        expect(authors.filter(author => author === 'p2').length).toBeLessThanOrEqual(2);
+      }
+    });
+
+    it('자리를 비운 사람은 마감까지 기다리고, 아무것도 남기지 않았으면 빈칸 대신 그 차례를 쉰다', async () => {
+      const initial = makeMode2RoomState(4);
+      const ctl = makeStatefulMocks(initial);
+      const game = makeNamespace();
+
+      await startMode2(game as any, 'ABC123');
+      await submitAll(game, ctl);
+      await submitAll(game, ctl);
+      const answer = ctl.state.current as Mode2Current;
+      const awaySheetId = Object.entries(answer.assignments!).find(([, userId]) => userId === 'p3')![0];
+      ctl.state.players.find(p => p.id === 'p3')!.connected = false;
+
+      await submitAll(game, ctl, ['p3']);
+      expect(ctl.state.status).toBe('MODE2_ANSWER_PHASE'); // 자리 비움은 기다린다
+
+      await vi.advanceTimersByTimeAsync(1500 + 15000 + 800);
+      const draw = ctl.state.current as Mode2Current;
+      expect(draw.phase).toBe('DRAW');
+      expect(draw.assignments![awaySheetId]).toBeNull();
+      expect(draw.sheets.find(sheet => sheet.sheetId === awaySheetId)!.steps).toHaveLength(2);
     });
 
     it('활성 인원이 3명 미만이 되면 endGame(INSUFFICIENT_PLAYERS)이 호출되고 시트 처리는 건너뛴다', async () => {

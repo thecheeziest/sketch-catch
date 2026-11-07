@@ -11,6 +11,7 @@ import { getRoomSaveErrorMessage, usePenaltyForm } from '@/features/room/lib'
 import { useCreateRoom } from '@/features/room/api'
 import { useToastStore, useAuthStore } from '@/shared/model'
 import { colors, spacing } from '@/shared/config'
+import { GAME_MODE_LABEL } from '@/shared/config/room'
 import { MODE2_PLAYER_MIN, ROOM_PLAYER_MIN, type Category } from '@sketch-catch/shared'
 
 export default function RoomCreateScreen() {
@@ -78,8 +79,8 @@ export default function RoomCreateScreen() {
         <View sx={{ gap: spacing.SM }}>
           <Text sx={{ color: colors.LIGHT_500 }}>모드</Text>
           <View sx={{ flexDirection: 'row', gap: spacing.SM }}>
-            <CategoryChip label="맞혀 볼래?" active={mode === 1} onPress={() => handleSelectMode(1)} />
-            <CategoryChip label="이어 그리자!" active={mode === 2} onPress={() => handleSelectMode(2)} />
+            <CategoryChip label={GAME_MODE_LABEL[1]} active={mode === 1} onPress={() => handleSelectMode(1)} />
+            <CategoryChip label={GAME_MODE_LABEL[2]} active={mode === 2} onPress={() => handleSelectMode(2)} />
           </View>
         </View>
         {mode === 1 && (

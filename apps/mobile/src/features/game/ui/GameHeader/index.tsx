@@ -62,10 +62,10 @@ export function GameHeader({
         <View style={styles.roundStrip}>
           <Icon name="BACK" size={18} color={gameText.PRIMARY} onPress={onBack} />
           <Text sx={{ ...textSizes.B2, color: gameText.PRIMARY, fontFamily: fontFamily.BOLD, letterSpacing: 1 }}>
-            {`ROUND ${roundIndex + 1} (${roundIndex + 1}/${totalTurns})`}
+            {`ROUND ${roundIndex + 1}/${totalTurns}`}
           </Text>
           <Text sx={{ marginLeft: 'auto', ...textSizes.B3, color: gameText.MUTED, fontFamily: fontFamily.BOLD }}>
-            {`${playerCount}/${maxPlayers}`}
+            {`PLAYER ${playerCount}/${maxPlayers}`}
           </Text>
         </View>
       </Collapse>
