@@ -1,6 +1,13 @@
 import { create } from 'zustand';
 import { immer } from 'zustand/middleware/immer';
-import type { Mode2Step, Mode2ReviewLiveUpdate, Mode2ReviewState, RoomState, Stroke } from '@sketch-catch/shared';
+import type {
+  Mode2Rest,
+  Mode2Step,
+  Mode2ReviewLiveUpdate,
+  Mode2ReviewState,
+  RoomState,
+  Stroke,
+} from '@sketch-catch/shared';
 import { CLIENT_EVENT } from '@sketch-catch/shared';
 import { useRoomStore } from '@/shared/model/room';
 import { useAuthStore } from '@/shared/model/auth';
@@ -15,6 +22,8 @@ type Mode2Store = {
   // 지금 진행 중인 게임 1판의 식별자 (room:state 기준). 다른 gameId의 이벤트는 버린다
   gameId: string | null;
   step: Mode2Step | null;
+  // 이번 단계에 맡을 시트가 없어 쉬는 중 (나간 사람 때문에 배정이 빈 경우). step과 동시에 존재하지 않는다
+  rest: Mode2Rest | null;
   stepTiming: Mode2StepTiming | null;
   myStrokes: Stroke[];
   review: Mode2ReviewState | null;
@@ -31,6 +40,7 @@ export const useMode2Store = create<Mode2Store>()(
   immer((set, get) => ({
     gameId: null,
     step: null,
+    rest: null,
     stepTiming: null,
     myStrokes: [],
     review: null,
@@ -59,7 +69,18 @@ export const useMode2Store = create<Mode2Store>()(
         const now = Date.now();
         set(st => {
           st.step = payload;
+          st.rest = null;
           st.stepTiming = { deadline: now + payload.remainingMs, cueUntil: now + (payload.cueMs ?? 0) };
+        });
+      };
+
+      const handleRest = (payload: Mode2Rest): void => {
+        if (!isCurrentGame(payload.gameId)) return;
+        const now = Date.now();
+        set(st => {
+          st.step = null;
+          st.rest = payload;
+          st.stepTiming = { deadline: now + payload.remainingMs, cueUntil: now };
         });
       };
 
@@ -91,12 +112,14 @@ export const useMode2Store = create<Mode2Store>()(
       // 이벤트명 리터럴 직접 사용 — D-04-04
       socket.on('room:state', handleRoomState);
       socket.on('mode2:step', handleStep);
+      socket.on('mode2:rest', handleRest);
       socket.on('mode2:review', handleReview);
       socket.on('mode2:review:live', handleReviewLive);
 
       return () => {
         socket.off('room:state', handleRoomState);
         socket.off('mode2:step', handleStep);
+        socket.off('mode2:rest', handleRest);
         socket.off('mode2:review', handleReview);
         socket.off('mode2:review:live', handleReviewLive);
       };
@@ -111,6 +134,7 @@ export const useMode2Store = create<Mode2Store>()(
       set(st => {
         st.gameId = null;
         st.step = null;
+        st.rest = null;
         st.stepTiming = null;
         st.myStrokes = [];
         st.review = null;

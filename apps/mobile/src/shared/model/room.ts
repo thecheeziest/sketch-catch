@@ -25,7 +25,7 @@ type MatchLobby = {
 };
 
 // 방 입장 자체가 거절된 에러 — 대기실 화면이 홈으로 되돌아가는 기준
-const JOIN_REJECT_CODES = new Set(['ROOM_NOT_FOUND', 'ROOM_FULL', 'ALREADY_LEFT', 'GAME_IN_PROGRESS']);
+const JOIN_REJECT_CODES = new Set(['ROOM_NOT_FOUND', 'ROOM_FULL', 'ALREADY_LEFT', 'GAME_IN_PROGRESS', 'ROOM_UNAVAILABLE']);
 
 type JoinError = { code: string; message: string };
 

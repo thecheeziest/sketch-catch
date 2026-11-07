@@ -11,6 +11,8 @@ import { useRoomChatStore } from '@/features/room/model/useRoomChatStore';
 import { PodiumSlot, PenaltyAward, ChatStream, ChatInputBar } from '@/features/game/ui';
 import { AudienceCheer } from '@/features/game/ui/AudienceCheer';
 import { useAwardSession } from '@/features/room/lib';
+import { HostNudgeDialog } from '@/features/room/ui';
+import { useChatModeration } from '@/features/moderation';
 import { CoinRewardChip, useCoinRewardStore } from '@/features/shop';
 import { Button } from '@/shared/ui/Button';
 import { Dialog } from '@/shared/ui/Dialog';
@@ -40,7 +42,7 @@ export default function AwardScreen() {
   const canRematch = isInAwardRoster && (liveRoomState?.status === 'AWARD' || liveRoomState?.status === 'LOBBY');
 
   // 시상식 결과는 이후 대기실·새 게임 상태가 도착해도 유지한다.
-  const { rematch, exit, rematching, rematchError } = useAwardSession(code ?? '');
+  const { rematch, exit, rematching, rematchError, isNudged, dismissNudge } = useAwardSession(code ?? '');
 
   const ranking = result?.ranking ?? [];
   const players = roomState?.players ?? [];
@@ -85,16 +87,18 @@ export default function AwardScreen() {
   const penaltyLosers = ranking.filter(r => penaltyLoserIds.has(r.userId)).map(toPodiumPlayer);
 
   // 채팅 스트림 — 게임 진행 중과 동일하게 우상단에 말풍선으로 표시 (정답 판정 없는 자유 채팅)
+  const { textOf, onLongPressChat } = useChatModeration();
   const streamItems = useMemo(
     () =>
       chatMessages.slice(-5).map(m => ({
         id: m.id,
+        userId: m.userId,
         nickname: m.nickname,
-        text: m.text,
+        text: textOf(m),
         ...chatSenderLook(m),
         isCorrect: false,
       })),
-    [chatMessages, chatSenderLook],
+    [chatMessages, chatSenderLook, textOf],
   );
 
   // 시상대 baseCardWidth: 화면 너비를 3등분에서 약간 여유 있게
@@ -175,7 +179,7 @@ export default function AwardScreen() {
         {penalty === null && <AudienceCheer players={audiencePlayers} />}
 
         {/* 채팅 말풍선 — 게임 진행 화면과 동일하게 우상단에 겹쳐 표시 */}
-        <ChatStream items={streamItems} />
+        <ChatStream items={streamItems} onLongPressItem={onLongPressChat} />
       </Pressable>
 
       {/* 하단바 — 게임 진행 때와 동일한 채팅 입력창 (자동 종료 안내/나가기 버튼은 두지 않는다) */}
@@ -194,6 +198,7 @@ export default function AwardScreen() {
         title={rematchError ?? ''}
         buttons={[{ label: '홈으로', color: 'primary', onPress: exit }]}
       />
+      <HostNudgeDialog visible={isNudged && canRematch} onClose={dismissNudge} onEnter={rematch} onExit={exit} />
     </SafeAreaView>
   );
 }

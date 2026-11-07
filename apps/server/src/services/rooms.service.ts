@@ -102,7 +102,8 @@ function toRoomListItem(state: RoomState, hasPassword: boolean): RoomListItem {
  * 방 찾기 목록 — 대기 중 우선, 같은 상태끼리는 최신순.
  * 인덱스에 남았지만 상태 키가 사라진 방(TTL 만료·비정상 종료)은 조회하면서 정리한다.
  */
-export async function listRooms(): Promise<RoomListItem[]> {
+/** @param hiddenUserIds 차단 관계인 유저 — 이 유저가 있는 방은 목록에서 뺀다 */
+export async function listRooms(hiddenUserIds: ReadonlySet<string> = new Set()): Promise<RoomListItem[]> {
   await redis.zremrangebyscore(ROOM_INDEX_KEY, '-inf', `(${Date.now() - ROOM_TTL_SEC * 1000}`);
 
   const codes = await redis.zrevrange(ROOM_INDEX_KEY, 0, ROOM_LIST_LIMIT - 1);
@@ -122,6 +123,8 @@ export async function listRooms(): Promise<RoomListItem[]> {
       return;
     }
     const state = JSON.parse(raw) as RoomState;
+    const members = [...state.players, ...(state.awardViewers ?? [])];
+    if (members.some(p => !p.left && hiddenUserIds.has(p.id))) return;
     // 전원이 퇴장·시상식 잔류 중인 방은 들어가도 같이 할 사람이 없다
     if (state.players.some(p => !p.left && !p.inAward)) items.push(toRoomListItem(state, passwords[i] != null));
   });

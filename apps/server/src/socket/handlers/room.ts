@@ -20,6 +20,7 @@ import { resendReview } from './mode2-review.js';
 import { destroyRoom, finishAward } from './award.js';
 import { cancelGraceLeave, scheduleGraceLeave } from '../../services/disconnectGrace.js';
 import { createCoinStats } from '../../services/coin.service.js';
+import { getBlockRelatedIds, hasBlockedMember } from '../../services/moderation.service.js';
 
 type GameNamespace = Namespace<ClientEvents, ServerEvents>;
 type GameSocket = Socket<ClientEvents, ServerEvents, Record<string, never>, { userId: string }>;
@@ -46,7 +47,7 @@ async function hasActiveUserSocketInRoom(
 
 type JoinResult =
   | { ok: true; state: RoomState }
-  | { ok: false; code: 'ROOM_NOT_FOUND' | 'ALREADY_LEFT' | 'ROOM_FULL' | 'GAME_IN_PROGRESS'; message: string };
+  | { ok: false; code: 'ROOM_NOT_FOUND' | 'ALREADY_LEFT' | 'ROOM_FULL' | 'GAME_IN_PROGRESS' | 'ROOM_UNAVAILABLE'; message: string };
 
 export async function handleRoomJoin(
   game: GameNamespace,
@@ -85,6 +86,10 @@ export async function handleRoomJoin(
       if (countSeatedPlayers(state) >= state.config.playerCountMax) {
         return { ok: false, code: 'ROOM_FULL', message: '방이 꽉 찼어요!' };
       }
+      // 차단 관계인 사람이 있는 방 — 차단 사실은 드러내지 않는다
+      if (hasBlockedMember(state, await getBlockRelatedIds(userId))) {
+        return { ok: false, code: 'ROOM_UNAVAILABLE', message: '방에 들어갈 수 없어요!' };
+      }
 
       // 사용 중인 slot 번호를 제외한 최소 slot 번호 계산
       const usedSlots = new Set(state.players.map(p => p.slot));
@@ -109,6 +114,7 @@ export async function handleRoomJoin(
         isHost: userId === state.hostId,
         isReady: false,
         connected: true,
+        lobbyJoinedAt: Date.now(),
       });
     }
 
@@ -265,6 +271,11 @@ async function expireGraceLeave(game: GameNamespace, code: string, userId: strin
   // 그사이 재입장(connected 복원)했거나 이미 퇴장 처리됐으면 할 일이 없다
   if (!state || !player || player.connected || player.left) return;
   if (await hasActiveUserSocketInRoom(game, `room:${code}`, userId, '')) return;
+  // 이어 그리기는 게임이 끝날 때까지 자리를 지켜 둔다 — 언제 돌아와도 이어서 참여한다 (시상식부터는 기존 유예 적용)
+  if (state.mode === 2 && isGameInProgressStatus(state.status)) {
+    scheduleGraceLeave(code, userId, () => expireGraceLeave(game, code, userId));
+    return;
+  }
 
   await leaveRoom(game, code, userId, state);
   // 다른 방에 이미 들어갔다면 그 방의 참가 기록은 건드리지 않는다

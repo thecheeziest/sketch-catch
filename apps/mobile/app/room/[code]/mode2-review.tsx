@@ -12,12 +12,15 @@ import { useChatSender } from '@/features/game/api/useChatSender';
 import { ChatInputBar, ChatStream } from '@/features/game/ui';
 import { useRoomChatStore } from '@/features/room/model/useRoomChatStore';
 import { useAwardSession } from '@/features/room/lib';
+import { HostNudgeDialog } from '@/features/room/ui';
+import { useChatModeration } from '@/features/moderation';
 import { CoinRewardChip, useCoinRewardStore } from '@/features/shop';
 import { useGifDownload, useMode2Store } from '@/features/mode2';
 import { useRevealPlayback } from '@/features/mode2/lib/useRevealPlayback';
 import { RevealCharacterRow, type RevealSaveState } from '@/features/mode2/ui/RevealCharacterRow';
 import { RevealStage } from '@/features/mode2/ui/RevealStage';
 import { ReplayGuideTooltip } from '@/features/mode2/ui/ReplayGuideTooltip';
+import { GifSavingOverlay } from '@/features/mode2/ui/GifSavingOverlay';
 
 // 모드 2의 시상식 = 정답 공개식. 실시간으로 함께 본 뒤(AWARD), 캐릭터를 눌러 다시 보고 GIF로 저장한다.
 export default function Mode2ReviewScreen() {
@@ -32,7 +35,7 @@ export default function Mode2ReviewScreen() {
   const coinReward = useCoinRewardStore(s => s.reward);
   const { sendChat } = useChatSender();
   const { saveGif } = useGifDownload();
-  const { rematch, exit, rematching, rematchError } = useAwardSession(code ?? '');
+  const { rematch, exit, rematching, rematchError, isNudged, dismissNudge } = useAwardSession(code ?? '');
   const { playback, entriesBySheet, isLive, isFinished, startReplay } = useRevealPlayback(review, reviewSheetStartAt);
 
   const [guideVisible, setGuideVisible] = useState(false);
@@ -61,11 +64,7 @@ export default function Mode2ReviewScreen() {
   const displayedSheet = playback ? review?.sheets[playback.sheetIndex] : undefined;
   const displayedSheetId = displayedSheet?.sheetId;
   // GIF는 저장을 누를 때 서버가 만든다 — 발표가 끝나면 바로 저장할 수 있다
-  const saveState: RevealSaveState = (() => {
-    if (saving) return 'saving';
-    if (!isFinished || !displayedSheetId) return 'disabled';
-    return 'ready';
-  })();
+  const saveState: RevealSaveState = saving || !isFinished || !displayedSheetId ? 'disabled' : 'ready';
 
   const handleSelect = useCallback(
     (playerId: string): void => {
@@ -98,16 +97,18 @@ export default function Mode2ReviewScreen() {
   };
 
   // 채팅 스트림 — 게임 진행 중과 동일하게 우상단에 말풍선으로 표시 (정답 판정 없는 자유 채팅)
+  const { textOf, onLongPressChat } = useChatModeration();
   const streamItems = useMemo(
     () =>
       chatMessages.slice(-5).map(m => ({
         id: m.id,
+        userId: m.userId,
         nickname: m.nickname,
-        text: m.text,
+        text: textOf(m),
         ...chatSenderLook(m),
         isCorrect: false,
       })),
-    [chatMessages, chatSenderLook],
+    [chatMessages, chatSenderLook, textOf],
   );
 
   return (
@@ -159,7 +160,7 @@ export default function Mode2ReviewScreen() {
         )}
 
         {/* 채팅 말풍선 — 게임 진행 화면과 동일하게 우상단에 겹쳐 표시 */}
-        <ChatStream items={streamItems} />
+        <ChatStream items={streamItems} onLongPressItem={onLongPressChat} />
         {guideVisible && !isLive && <ReplayGuideTooltip onClose={() => setGuideVisible(false)} />}
       </Pressable>
 
@@ -178,6 +179,8 @@ export default function Mode2ReviewScreen() {
         title={rematchError ?? ''}
         buttons={[{ label: '홈으로', color: 'primary', onPress: exit }]}
       />
+      <GifSavingOverlay visible={saving} />
+      <HostNudgeDialog visible={isNudged && canRematch} onClose={dismissNudge} onEnter={rematch} onExit={exit} />
     </SafeAreaView>
   );
 }

@@ -28,12 +28,12 @@ describe('공개식 다시보기', () => {
     act(() => {
       renderer = create(createElement(Player, { entries: entries('1'), startedAt: Number.NEGATIVE_INFINITY }));
     });
-    expect(scene.painterText).toBe('닉네임1이 그린 그림은.. 고양이!');
+    expect(scene.painterText).toBe('닉네임1의 그림은.. 고양이!');
     act(() => renderer.update(createElement(Player, { entries: entries('2'), startedAt: Date.now() })));
     expect(scene.phase).toBe('wait');
     expect(scene.painterId).toBe('2');
     act(() => { vi.advanceTimersByTime(3500); });
-    expect(scene.painterText).toBe('닉네임2이 그린 그림은.. 고양이!');
+    expect(scene.painterText).toBe('닉네임2의 그림은.. 고양이!');
     expect(scene.phase).toBe('draw');
     act(() => renderer.update(createElement(Player, { entries: entries('3'), startedAt: Date.now() })));
     expect(scene.phase).toBe('wait');

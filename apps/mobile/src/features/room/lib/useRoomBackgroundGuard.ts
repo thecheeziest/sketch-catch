@@ -17,6 +17,7 @@ const RESYNC_TIMEOUT_MS = 15000;
  * - 게임 중: 백그라운드로 갈 때 방 소켓을 끊어 서버의 자리 유예(30초)를 시작한다.
  *   Android는 백그라운드에서도 JS가 돌아 연결이 유지되므로, 끊지 않으면 자리를 비운 채 게임에 남는다.
  *   30초 안에 돌아오면 다시 연결해 이어서 하고, 30초 이상이면 서버가 이미 퇴장 처리했으므로 바로 홈으로 간다.
+ *   단, 이어 그리기(모드 2)는 게임이 끝날 때까지 자리가 유지되므로 언제 돌아와도 다시 연결한다.
  * - 대기실·시상식: 연결을 유지한 채 재입장으로 자리를 확인한다. iOS에서 끊긴 소켓은 응답이 없으므로 다시 연결한다.
  * - 자리가 없어졌으면(방 삭제·명단 제외) 대기실을 보여 주지 않고 바로 홈으로 간다.
  */
@@ -43,7 +44,8 @@ export function useRoomBackgroundGuard(code: string | undefined): void {
 
       const awayMs = Date.now() - backgroundAtRef.current;
       backgroundAtRef.current = null;
-      if (roomState && isGameInProgressStatus(roomState.status) && awayMs >= GRACE_MS) {
+      // 이어 그리기는 게임이 끝날 때까지 서버가 자리를 지켜 두므로 오래 비워도 다시 연결해 이어서 한다
+      if (roomState && roomState.mode !== 2 && isGameInProgressStatus(roomState.status) && awayMs >= GRACE_MS) {
         useToastStore.getState().show('장시간 참여하지 않아 홈으로 돌아왔어요!', 'info');
         router.replace('/(tabs)/' as never);
         return;

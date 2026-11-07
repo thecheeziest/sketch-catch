@@ -4,6 +4,7 @@ import { describe, it, expect, vi, beforeEach } from 'vitest';
 vi.mock('../db/prisma.js', () => ({
   prisma: {
     user: { findUnique: vi.fn() },
+    userBlock: { findFirst: vi.fn().mockResolvedValue(null) },
     friendRequest: { create: vi.fn(), findUnique: vi.fn(), findFirst: vi.fn(), update: vi.fn() },
     friendship: { findUnique: vi.fn(), findMany: vi.fn(), create: vi.fn(), delete: vi.fn() },
     $transaction: vi.fn(async (ops: unknown[]) => {

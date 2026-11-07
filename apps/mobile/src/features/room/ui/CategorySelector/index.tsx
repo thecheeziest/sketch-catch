@@ -15,7 +15,7 @@ export function CategorySelector({ value, onChange }: Props) {
 
   // 0개도 허용한다 — 빈 선택은 안내 문구로 알리고 저장 버튼은 상위 화면에서 막는다
   const toggleAll = (): void => {
-    onChange(isAllSelected ? [] : ['CUSTOM', ...ALL_CATEGORIES]);
+    onChange(isAllSelected ? [] : [...ALL_CATEGORIES]);
   };
 
   const toggleCategory = (cat: Category): void => {
@@ -26,19 +26,10 @@ export function CategorySelector({ value, onChange }: Props) {
     }
   };
 
-  const toggleCustom = (): void => {
-    if (value.includes('CUSTOM')) {
-      onChange(value.filter((c) => c !== 'CUSTOM'));
-    } else {
-      onChange([...value, 'CUSTOM']);
-    }
-  };
-
   return (
     <View sx={{ gap: spacing.SM }}>
       <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ gap: spacing.SM, paddingRight: spacing.MD }}>
         <CategoryChip label="전체" active={isAllSelected} onPress={toggleAll} />
-        <CategoryChip label="커스텀" active={value.includes('CUSTOM')} onPress={toggleCustom} />
         {ALL_CATEGORIES.map((cat) => (
           <CategoryChip key={cat} label={CATEGORY_LABEL[cat]} active={value.includes(cat)} onPress={() => toggleCategory(cat)} />
         ))}

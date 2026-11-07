@@ -13,6 +13,7 @@ import { gameSurface, gameText, legendSwatch, playerDot, resultOverlay, toolbar 
 import { useGameStore } from '@/features/game/model/useGameStore';
 import type { GameResultOverlayData } from '@/features/game/model/resultOverlay';
 import { useChatSender } from '@/features/game/api/useChatSender';
+import { useChatModeration } from '@/features/moderation';
 import {
   DrawingCanvas,
   GameHeader,
@@ -20,14 +21,11 @@ import {
   ToolbarRow,
   ChatInputBar,
   ChatStream,
-  AnswerApprovalButton,
-  CustomPromptModal,
   CanvasStage,
 } from '@/features/game/ui';
 import { ResultOverlay } from '@/features/game/ui/ResultOverlay';
 
 import { useGameKeyboardLayout } from '@/features/game/lib/useGameKeyboardLayout';
-import { PromptWaitingOverlay } from '@/features/game/ui/PromptWaitingOverlay';
 
 // 라운드 종료 후 다음 라운드(서버 5초 대기)가 이 시간 안에 오지 않으면 서버에 현재 상태를 다시 요청한다
 const ROUND_RESYNC_DELAY_MS = 8000;
@@ -95,8 +93,6 @@ export default function GameScreen() {
   const promptHint = useGameStore(s => s.promptHint);
   const chatMessages = useGameStore(s => s.chatMessages);
   const correct = useGameStore(s => s.correct);
-  const waitingForPrompt = useGameStore(s => s.waitingForPrompt);
-  const promptInputEndsAt = useGameStore(s => s.promptInputEndsAt);
   const keyboardLayout = useGameKeyboardLayout();
   const [timeLeft, setTimeLeft] = useState(0);
   useEffect(() => {
@@ -106,18 +102,16 @@ export default function GameScreen() {
     return () => clearInterval(timer);
   }, [round?.endsAt]);
   const roundResult = useGameStore(s => s.roundResult);
-  const needsCustomPrompt = useGameStore(s => s.needsCustomPrompt);
-  const isCustomRound = useGameStore(s => s.isCustomRound);
-  useTimerFeedback(timeLeft, `${roomState?.gameId}:${round?.roundIndex}:classic`, !waitingForPrompt && !roundResult && roomState?.status === 'MODE1_ROUND_START');
+  useTimerFeedback(timeLeft, `${roomState?.gameId}:${round?.roundIndex}:classic`, !roundResult && roomState?.status === 'MODE1_ROUND_START');
 
-  const { sendChat, acceptAnswer, submitCustomPrompt } = useChatSender();
+  const { sendChat } = useChatSender();
 
-  const [selectedUserId, setSelectedUserId] = useState<string | null>(null);
   const [overlay, setOverlay] = useState<GameResultOverlayData | null>(null);
 
   const players = roomState?.players ?? [];
   const knownPlayer = useKnownPlayer();
   const chatSenderLook = useChatSenderLook();
+  const { textOf, onLongPressChat } = useChatModeration();
   const drawerId = round?.drawerId ?? '';
 
   // 라운드 시작 시각(클라이언트 기준) — 정답 결과 오버레이의 solveSeconds 계산용
@@ -129,13 +123,8 @@ export default function GameScreen() {
       roundStartRef.current = Date.now();
       overlayVisibleRef.current = false;
       setOverlay(null);
-      setSelectedUserId(null);
     }
-  }, [round?.roundIndex, waitingForPrompt]);
-
-  useEffect(() => {
-    if (!waitingForPrompt) roundStartRef.current = Date.now();
-  }, [waitingForPrompt]);
+  }, [round?.roundIndex]);
 
   const overlaySeqRef = useRef(0);
   // 결과 오버레이가 화면에 떠 있는 동안 true — 마지막 라운드 결과를 끝까지 보여준 뒤 시상식으로 넘어가기 위한 기준
@@ -191,17 +180,6 @@ export default function GameScreen() {
     }
   }, [roomState?.status, roundResult, overlay, code, router]);
 
-  const handleApprove = (messageId: string): void => {
-    acceptAnswer(messageId);
-    setSelectedUserId(null);
-  };
-
-  const handleCustomPromptSubmit = (text: string): boolean => {
-    const sent = submitCustomPrompt(text);
-    if (sent) Keyboard.dismiss();
-    return sent;
-  };
-
   const handleExitAttempt = useCallback((): void => {
     Alert.alert('게임 나가기', '게임을 나가시겠어요?\n재참여가 불가하며 패배 처리됩니다.', [
       { text: '취소', style: 'cancel' },
@@ -233,10 +211,6 @@ export default function GameScreen() {
   const totalTurns = roomState?.turnSchedule?.length ?? roomState?.config.roundCount ?? 1;
   const roundIndex = round?.roundIndex ?? 0;
 
-  const selectedNickname = players.find(p => p.id === selectedUserId)?.nickname ?? '';
-
-  // 수동 '정답 인정'(+ 캐릭터 선택 테두리)은 커스텀 제시어 라운드의 출제자에게만
-  const canManualApprove = isDrawer && isCustomRound;
   const maxPlayers = roomState?.config.playerCountMax ?? 12;
   const solvedUserId = correct?.userId ?? null;
   const guessedUserIds = useMemo(() => new Set(chatMessages.map(m => m.userId)), [chatMessages]);
@@ -244,13 +218,14 @@ export default function GameScreen() {
     () =>
       chatMessages.slice(-5).map(m => ({
         id: m.id,
+        userId: m.userId,
         nickname: m.nickname,
-        text: m.text,
+        text: textOf(m),
         ...chatSenderLook(m),
         isCorrect: m.id === correct?.messageId,
         score: m.id === correct?.messageId ? roundResult?.scoreDelta[m.userId] : undefined,
       })),
-    [chatMessages, chatSenderLook, correct?.messageId, roundResult],
+    [chatMessages, chatSenderLook, correct?.messageId, roundResult, textOf],
   );
 
   const roundEnded = roundResult != null;
@@ -261,7 +236,7 @@ export default function GameScreen() {
     isCorrectEnd,
     answer: roundResult?.answer ?? '',
     word: promptForDrawer,
-    hint: waitingForPrompt ? null : promptHint,
+    hint: promptHint,
   });
   const inputBarState = getInputBarState(roundEnded, isCorrectEnd, roundResult?.answer ?? '');
 
@@ -285,6 +260,8 @@ export default function GameScreen() {
           word={wordDisplay.text}
           wordColor={wordDisplay.color}
           collapsed={!isDrawer && keyboardLayout.keyboardVisible}
+          // 출제자는 그림 영역을 최대로 쓰도록 캐릭터 목록·범례를 항상 접는다
+          playerGridCollapsed={isDrawer || keyboardLayout.keyboardVisible}
           playerCount={players.length}
           maxPlayers={maxPlayers}
           playerGrid={
@@ -294,21 +271,7 @@ export default function GameScreen() {
               drawerId={drawerId}
               solvedUserId={solvedUserId}
               guessedUserIds={guessedUserIds}
-              isDrawerView={canManualApprove && !roundEnded && !waitingForPrompt}
-              selectedUserId={selectedUserId}
-              onSelectPlayer={setSelectedUserId}
             />
-          }
-          legendAction={
-            canManualApprove ? (
-              <AnswerApprovalButton
-                selectedUserId={selectedUserId}
-                selectedNickname={selectedNickname}
-                chatMessages={chatMessages}
-                onApprove={handleApprove}
-                onDeselect={() => setSelectedUserId(null)}
-              />
-            ) : undefined
           }
           onBack={handleExitAttempt}
         />
@@ -319,13 +282,13 @@ export default function GameScreen() {
             {/* key를 roundIndex로 고정해 턴 전환 시 캔버스 초기화 */}
             <DrawingCanvas
               isDrawer={isDrawer}
-              drawingEnabled={isDrawer && !waitingForPrompt && !roundEnded}
+              drawingEnabled={isDrawer && !roundEnded}
               key={`canvas-${roundIndex}`}
               onTouchCanvas={Keyboard.dismiss}
             />
-            <ChatStream items={streamItems} />
+            {/* 출제자는 말풍선 아래 캔버스에 그려야 하므로 길게 누르기를 받지 않는다 */}
+            <ChatStream items={streamItems} onLongPressItem={isDrawer ? undefined : onLongPressChat} />
           </CanvasStage>
-          {waitingForPrompt && !isDrawer && <PromptWaitingOverlay />}
           {overlay != null && <ResultOverlay key={overlay.id} data={overlay} onDismiss={handleDismissOverlay} />}
         </View>
 
@@ -338,18 +301,13 @@ export default function GameScreen() {
               resetKey={`${roomState?.gameId}-${roundIndex}`}
               onSend={sendChat}
               placeholder={inputBarState.placeholder}
-              disabled={inputBarState.disabled || waitingForPrompt}
+              disabled={inputBarState.disabled}
               ringColor={inputBarState.ringColor}
               placeholderColor={inputBarState.placeholderColor}
             />
           </View>
         )}
       </View>
-      <CustomPromptModal
-        visible={isDrawer && needsCustomPrompt}
-        endsAt={promptInputEndsAt}
-        onSubmit={handleCustomPromptSubmit}
-      />
     </SafeAreaView>
   );
 }

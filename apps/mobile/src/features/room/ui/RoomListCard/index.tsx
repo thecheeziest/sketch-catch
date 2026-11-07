@@ -1,6 +1,7 @@
 import { FeedbackPressable } from '@/shared/ui/FeedbackPressable';
 import { Badge, Icon, PixelFrame } from '@/shared/ui';
 import { colors, spacing } from '@/shared/config';
+import { GAME_MODE_LABEL } from '@/shared/config/room';
 import { ScrollView, Text, View } from 'dripsy';
 import type { ReactNode } from 'react';
 import { StyleSheet } from 'react-native';
@@ -17,7 +18,6 @@ type Props = {
 
 const STATUS_LABEL: Record<RoomListStatus, string> = { WAITING: '대기 중', PLAYING: '게임 중' };
 const STATUS_COLOR: Record<RoomListStatus, string> = { WAITING: colors.ACCENT_200, PLAYING: colors.LIGHT_500 };
-const MODE_LABEL: Record<GameMode, string> = { 1: '맞혀 볼래?', 2: '이어 그리자!' };
 const MODE_COLOR: Record<GameMode, string> = { 1: colors.PRIMARY_100, 2: colors.SECONDARY_100 };
 
 export function RoomListCard({ room, onPress, extraChips }: Props) {
@@ -39,7 +39,7 @@ export function RoomListCard({ room, onPress, extraChips }: Props) {
       <View sx={{ padding: spacing.MD, gap: spacing.SM }}>
         <View sx={{ flexDirection: 'row', alignItems: 'center', gap: spacing.XS }}>
           <Badge label={STATUS_LABEL[room.status]} color={STATUS_COLOR[room.status]} />
-          <Badge label={MODE_LABEL[room.mode]} color={MODE_COLOR[room.mode]} />
+          <Badge label={GAME_MODE_LABEL[room.mode]} color={MODE_COLOR[room.mode]} />
           {extraChips}
           <View sx={{ flex: 1 }} />
           {room.hasPassword && <Icon name="LOCK" size={14} />}

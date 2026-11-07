@@ -5,6 +5,7 @@ vi.mock('../db/prisma.js', () => ({
   prisma: {
     user: { findUnique: vi.fn() },
     friendship: { findUnique: vi.fn() },
+    userBlock: { findMany: vi.fn(async () => []), findFirst: vi.fn(async () => null) },
   },
 }));
 

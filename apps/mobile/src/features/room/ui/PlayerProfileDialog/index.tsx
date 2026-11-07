@@ -12,6 +12,7 @@ import { handleApiError } from '@/shared/lib';
 import { useToastStore } from '@/shared/model';
 import { Button, Dialog, UserProfileView, type DialogButton } from '@/shared/ui';
 import type { Player } from '@sketch-catch/shared';
+import { ModerationActions, useReportStore } from '@/features/moderation';
 
 type Props = {
   player: Player | null;
@@ -33,6 +34,7 @@ export function PlayerProfileDialog({ player, onClose, onTransferHost }: Props) 
   const sendRequest = useSendFriendRequest();
   const respondRequest = useRespondRequest();
   const [isConfirmingTransfer, setIsConfirmingTransfer] = useState(false);
+  const openQueuedReport = useReportStore(s => s.openQueued);
 
   const relation: FriendRelation = (() => {
     if (!player) return 'NONE';
@@ -101,9 +103,16 @@ export function PlayerProfileDialog({ player, onClose, onTransferHost }: Props) 
   }
 
   return (
-    <Dialog visible={player !== null} onClose={handleClose} title="프로필" buttons={buttons}>
+    <Dialog
+      visible={player !== null}
+      onClose={handleClose}
+      onDismissed={openQueuedReport}
+      title="프로필"
+      buttons={buttons}
+    >
       {player && (
         <View sx={{ alignItems: 'center', gap: spacing.SM }}>
+          <ModerationActions target={{ userId: player.id, nickname: player.nickname }} onCloseHost={handleClose} />
           <UserProfileView
             nickname={player.nickname}
             friendCode={player.friendCode}

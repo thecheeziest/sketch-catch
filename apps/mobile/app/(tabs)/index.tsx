@@ -1,6 +1,7 @@
 import { useCancelMatch, useStartMatch } from '@/features/room/api';
 import { CodeJoinModal, MatchingStatus } from '@/features/room/ui';
 import { icons, spacing } from '@/shared/config';
+import { GAME_MODE_LABEL } from '@/shared/config/room';
 import { useRoomStore } from '@/shared/model';
 import { useMatchingTimer, useMatchingNavigation, useNavGuard } from '@/shared/lib';
 import { Button, Dialog, ProfileHeader } from '@/shared/ui';
@@ -89,13 +90,13 @@ export default function HomeScreen() {
         <Dialog visible={sheetVisible} onClose={() => setSheetVisible(false)} title="모드 선택">
           <View sx={{ flexDirection: 'row', gap: spacing.MD }}>
             <Button
-              label="맞혀 볼래?"
+              label={GAME_MODE_LABEL[1]}
               color="primary"
               style={{ flex: 1 }}
               onPress={() => handleSelectAndStart(1)}
             />
             <Button
-              label="이어 그리자!"
+              label={GAME_MODE_LABEL[2]}
               color="primary"
               style={{ flex: 1 }}
               onPress={() => handleSelectAndStart(2)}

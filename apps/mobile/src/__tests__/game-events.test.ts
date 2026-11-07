@@ -30,7 +30,7 @@ beforeEach(() => {
 afterEach(() => vi.useRealTimers());
 
 describe('게임 소켓 이벤트', () => {
-  it('입력 대기와 그림 시간이 같은 30초여도 제출 이벤트로 마감 시각을 새로 잡는다', () => {
+  it('같은 라운드 재전송은 마감 시각을 새로 잡고 출제자에게만 제시어를 보여 준다', () => {
     useGameStore.getState().registerGameListeners();
     emit('room:state', { gameId: 'g1' } satisfies Partial<RoomState>);
     const round: RoundStart = {
@@ -38,16 +38,17 @@ describe('게임 소켓 이벤트', () => {
       roundIndex: 0,
       drawerId: 'me',
       durationSec: 30,
-      isCustomRound: true,
-      needsCustomPrompt: true,
+      promptForDrawer: '고양이',
     };
     emit('game:round:start', round);
-    const promptDeadline = useGameStore.getState().round!.endsAt;
-    vi.advanceTimersByTime(29_000);
-    emit('game:round:start', { ...round, needsCustomPrompt: false, promptForDrawer: '고양이' });
-    expect(useGameStore.getState().round!.endsAt).toBe(promptDeadline + 29_000);
-    expect(useGameStore.getState().waitingForPrompt).toBe(false);
+    const firstDeadline = useGameStore.getState().round!.endsAt;
+    vi.advanceTimersByTime(10_000);
+    emit('game:round:start', { ...round, durationSec: 20 });
+    expect(useGameStore.getState().round!.endsAt).toBe(firstDeadline);
     expect(useGameStore.getState().promptForDrawer).toBe('고양이');
+
+    emit('game:round:start', { ...round, roundIndex: 1, drawerId: 'other' });
+    expect(useGameStore.getState().promptForDrawer).toBeNull();
   });
 
   it('모드2는 내 시트의 그림·제시어와 공개식 페인트 정보를 보존하고 남은 시간을 기기 시각으로 바꾼다', () => {

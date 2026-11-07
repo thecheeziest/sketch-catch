@@ -16,13 +16,10 @@ export function useGameFeedback(): void {
         const identity = `${state.gameId}:${state.round.roundIndex}`;
         const isNew = state.gameId !== previous.gameId || state.round.roundIndex !== previous.round?.roundIndex;
         if (isNew) {
-          let event: 'promptRequest' | 'drawer' | 'roundStart' | 'gameStart' = 'roundStart';
-          if (state.round.roundIndex === 0 && !state.waitingForPrompt) event = 'gameStart';
+          let event: 'drawer' | 'roundStart' | 'gameStart' = 'roundStart';
+          if (state.round.roundIndex === 0) event = 'gameStart';
           if (state.round.drawerId === myId) event = 'drawer';
-          if (state.needsCustomPrompt) event = 'promptRequest';
-          playFeedback(event, { key: `${identity}:start`, haptics: !state.needsCustomPrompt });
-        } else if (previous.waitingForPrompt && !state.waitingForPrompt) {
-          playFeedback('roundStart', { key: `${identity}:drawing` });
+          playFeedback(event, { key: `${identity}:start` });
         }
       }
       if (

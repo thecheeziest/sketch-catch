@@ -31,6 +31,7 @@ export async function beginAward(_game: GameNamespace, state: RoomState): Promis
   for (const p of state.players) {
     p.inAward = !p.left;
     p.isReady = false;
+    delete p.lobbyJoinedAt;
   }
   // 지난 시상식에서 계속 머물던 유저도 이번 시상식 명단에 합친다 (자리는 비어 있는 slot으로)
   const usedSlots = new Set(state.players.map(p => p.slot));
@@ -39,7 +40,7 @@ export async function beginAward(_game: GameNamespace, state: RoomState): Promis
     let slot = 0;
     while (usedSlots.has(slot)) slot++;
     usedSlots.add(slot);
-    state.players.push({ ...viewer, slot, isHost: false, isReady: false, inAward: true });
+    state.players.push({ ...viewer, slot, isHost: false, isReady: false, inAward: true, lobbyJoinedAt: undefined });
   }
   delete state.awardViewers;
   await saveRoomState(state);
@@ -68,8 +69,6 @@ export async function finishAward(game: GameNamespace, code: string, expectedGam
 
   const removed = state.players.filter(p => p.left);
   const remaining = state.players.filter(p => !p.left);
-  // 방장이 시상식에 남아 있으면 방장은 그대로다 — 나가기를 누른 경우에만 가장 먼저 대기실로 온 유저가 승계한다
-  const hostStays = remaining.some(p => p.id === state.hostId);
 
   if (remaining.length === 0) {
     await destroyRoom(code);
@@ -83,7 +82,8 @@ export async function finishAward(game: GameNamespace, code: string, expectedGam
   const viewers = new Set(remaining.filter(p => p.inAward).map(p => p.id));
   resetToLobby(state);
   for (const p of remaining) p.inAward = viewers.has(p.id);
-  if (!hostStays) ensureHost(state, removed);
+  // 방장이 시상식에 남아 있으면 그대로 — 나가기를 누른 경우에만 가장 먼저 대기실로 온 유저가 승계한다
+  ensureHost(state, removed);
   await saveRoomState(state);
 
   const roomName = `room:${code}`;
@@ -135,6 +135,7 @@ export async function handleRematch(
 
   player.inAward = false;
   player.isReady = false;
+  player.lobbyJoinedAt = Date.now();
   await saveRoomState(state);
 
   await setPresence(userId, 'IN_LOBBY');

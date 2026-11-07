@@ -13,13 +13,16 @@ export function computeAllReady(state: RoomState): boolean {
 const DEFAULT_TITLE_SUFFIXES = ['님의 방', '의 방'] as const;
 
 /**
- * LBBY-03: 방장이 빠졌으면 slot 최소 참가자가 승계.
+ * LBBY-03: 방장이 방을 떠났을 때만 승계한다 — 시상식에 머무는 방장은 나가기 전까지 방장이다.
+ * 대기실에 가장 먼저 들어온 참가자가 승계하고, 같으면(첫 판 대기실 등) slot 순서를 따른다.
  * 제목이 이전 방장 이름으로 자동 생성된 기본 제목이면 새 방장 이름으로 바꾼다 (직접 정한 제목은 유지).
  * @param departedPlayers 이번에 방에서 빠진 플레이어 — 이전 방장의 닉네임을 찾는 데 쓴다
  */
 export function ensureHost(state: RoomState, departedPlayers: Player[] = []): void {
-  if (state.players.some(p => p.id === state.hostId && !p.inAward)) return;
-  const next = state.players.filter(p => !p.inAward && !p.left).sort((a, b) => a.slot - b.slot)[0];
+  if (state.players.some(p => p.id === state.hostId && !p.left)) return;
+  const next = state.players
+    .filter(p => !p.inAward && !p.left)
+    .sort((a, b) => (a.lobbyJoinedAt ?? 0) - (b.lobbyJoinedAt ?? 0) || a.slot - b.slot)[0];
   if (!next) return;
 
   setHost(

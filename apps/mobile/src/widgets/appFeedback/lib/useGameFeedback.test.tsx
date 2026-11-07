@@ -65,15 +65,13 @@ afterEach(() => {
 });
 
 describe('게임 피드백 연결', () => {
-  it('라운드 재전송은 시작음을 반복하지 않고 커스텀 입력 종료는 별도 시작으로 처리한다', () => {
+  it('라운드 재전송은 시작음을 반복하지 않는다', () => {
     act(() => {
       renderer = create(createElement(Observer));
     });
-    useGameStore.setState({ gameId: 'g1', round, waitingForPrompt: true });
+    useGameStore.setState({ gameId: 'g1', round });
     useGameStore.setState({ round: { ...round } });
     expect(cue).toHaveBeenCalledTimes(1);
-    useGameStore.setState({ round: { ...round }, waitingForPrompt: false });
-    expect(cue).toHaveBeenLastCalledWith('roundStart', { key: 'g1:0:drawing' });
   });
 
   it('내 정답·타인 정답·내 그림 정답을 구분하고 chat:correct와 종료 판정을 이중 재생하지 않는다', () => {

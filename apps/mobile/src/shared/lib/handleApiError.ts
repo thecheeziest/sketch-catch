@@ -19,6 +19,7 @@ export const ERROR_HANDLERS: Record<string, ErrorAction> = {
   INVALID_CODE: { type: 'setError', message: '방을 찾지 못했어요! 코드를 확인해 주세요' },
   ROOM_FULL: { type: 'setError', message: '방이 꽉 찼어요! 다른 방을 찾아볼까요?' },
   ROOM_LOCKED: { type: 'setError', message: '잠겨 있는 방이에요!' },
+  ROOM_UNAVAILABLE: { type: 'setError', message: '방에 들어갈 수 없어요!' },
   GAME_IN_PROGRESS: { type: 'toast', message: '이미 게임이 한창이에요!' },
   TARGET_BUSY: { type: 'toast', message: '친구가 다른 방에서 놀고 있어요!' },
   INVITE_COOLDOWN: { type: 'toast', message: '방금 초대했어요! 잠시 후 다시 보낼 수 있어요' },

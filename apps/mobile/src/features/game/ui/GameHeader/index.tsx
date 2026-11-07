@@ -18,10 +18,10 @@ type Props = {
   wordColor: string;
   /** 키보드가 올라온 동안 라운드 바·참가자 리스트·범례를 접어 스케치북 영역을 확보한다 */
   collapsed: boolean;
+  /** 참가자 리스트·범례만 따로 접는다 (예: 출제자). 없으면 collapsed를 따른다 */
+  playerGridCollapsed?: boolean;
   playerCount: number;
   maxPlayers: number;
-  /** 범례 라인 오른쪽 끝 슬롯 (예: 정답 인정 버튼) */
-  legendAction?: ReactNode;
   /** 제시어 바의 남은 시간 오른쪽 슬롯 (예: 모드 2 제출 버튼) */
   wordAction?: ReactNode;
   wordActionWidth?: number;
@@ -46,9 +46,9 @@ export function GameHeader({
   word,
   wordColor,
   collapsed,
+  playerGridCollapsed = collapsed,
   playerCount,
   maxPlayers,
-  legendAction,
   wordAction,
   wordActionWidth = 0,
   onBack,
@@ -62,10 +62,10 @@ export function GameHeader({
         <View style={styles.roundStrip}>
           <Icon name="BACK" size={18} color={gameText.PRIMARY} onPress={onBack} />
           <Text sx={{ ...textSizes.B2, color: gameText.PRIMARY, fontFamily: fontFamily.BOLD, letterSpacing: 1 }}>
-            {`ROUND ${roundIndex + 1} (${roundIndex + 1}/${totalTurns})`}
+            {`ROUND ${roundIndex + 1}/${totalTurns}`}
           </Text>
           <Text sx={{ marginLeft: 'auto', ...textSizes.B3, color: gameText.MUTED, fontFamily: fontFamily.BOLD }}>
-            {`${playerCount}/${maxPlayers}`}
+            {`PLAYER ${playerCount}/${maxPlayers}`}
           </Text>
         </View>
       </Collapse>
@@ -84,7 +84,7 @@ export function GameHeader({
       />
 
       {playerGrid != null && (
-        <Collapse collapsed={collapsed}>
+        <Collapse collapsed={playerGridCollapsed}>
           {playerGrid}
 
           {/* ③ 상태 범례 (+ 오른쪽 끝 액션 슬롯) */}
@@ -95,7 +95,6 @@ export function GameHeader({
                 <Text sx={{ fontFamily: fontFamily.REGULAR, fontSize: 11, color: gameText.MUTED }}>{item.label}</Text>
               </View>
             ))}
-            {legendAction != null && <View sx={{ marginLeft: 'auto' }}>{legendAction}</View>}
           </View>
         </Collapse>
       )}

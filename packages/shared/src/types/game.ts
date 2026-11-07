@@ -7,7 +7,6 @@ export type Mode1RoundCurrent = {
   roundIndex: number;
   drawerId: string;
   prompt: string; // 제시어 (서버 전용 — 출제자 외 노출 금지)
-  isCustomRound?: boolean;
   startedAt: number; // 라운드 시작 epoch ms
 };
 
@@ -18,9 +17,6 @@ export type RoundStart = {
   promptForDrawer?: string; // 출제자만 받음
   durationSec: number;
   promptHint?: string;
-  isCustomRound?: boolean;
-  promptInputEndsAt?: number;
-  needsCustomPrompt?: boolean; // 커스텀 정답 모드: 출제자가 직접 제시어를 입력해야 함
 };
 
 export type RoundEnd = {
@@ -100,7 +96,15 @@ export type Mode2Step = {
   remainingMs: number;
   cueMs?: number; // DRAW·ANSWER 단계 시작 안내 노출 시간 중 남은 시간
   totalSteps: number; // = 2N (참가자마다 정답(원조자는 제시어) + 그림)
+  submitted?: boolean; // 이번 단계를 이미 제출했는지 (재입장 시 대기 화면 복원)
 };
+
+// 서버 → 클라이언트: 이번 단계에 맡을 시트가 없는 참가자에게 (mode2:rest)
+// 나간 사람 때문에 배정이 비면 생긴다 — 다른 사람이 끝낼 때까지 쉬며 기다린다
+export type Mode2Rest = Pick<
+  Mode2Step,
+  'gameId' | 'stepIndex' | 'phase' | 'durationSec' | 'remainingMs' | 'totalSteps'
+>;
 
 export type Mode2ReviewSheet = {
   sheetId: string;

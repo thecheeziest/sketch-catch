@@ -83,6 +83,23 @@ describe('방 찾기 목록', () => {
     vi.useFakeTimers({ toFake: ['Date'] });
   });
 
+  it('차단 관계인 사람이 있는 방은 목록에서 빠진다 (시상식 잔류자 포함)', async () => {
+    const visible = await makeRoom({ at: BASE });
+    const withBlocked = await makeRoom({ at: BASE + 1 });
+    const blockedInAward = await makeRoom({ at: BASE + 2 });
+    await saveRoomState({
+      ...withBlocked,
+      players: [...withBlocked.players, { ...withBlocked.players[0]!, id: 'blocked', isHost: false, slot: 1 }],
+    });
+    await saveRoomState({
+      ...blockedInAward,
+      awardViewers: [{ ...blockedInAward.players[0]!, id: 'blocked', isHost: false, slot: 1 }],
+    });
+
+    const codes = (await listRooms(new Set(['blocked']))).map(item => item.code);
+    expect(codes).toEqual([visible.code]);
+  });
+
   it('방을 만들면 인덱스에 추가되고 목록 항목으로 매핑된다', async () => {
     const room = await makeRoom({ at: BASE, title: '그림방' });
 

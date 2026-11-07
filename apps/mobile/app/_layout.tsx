@@ -7,6 +7,7 @@ import { useNotificationListeners } from '@/features/push/lib/useNotificationLis
 import { usePushRegistration } from '@/features/push/lib/usePushRegistration';
 import { hydratePushPreference, usePushPreferenceStore } from '@/features/push/model/usePushPreferenceStore';
 import { NotificationGate } from '@/features/push/ui/NotificationGate';
+import { ReportDialog } from '@/features/moderation';
 import { queryClient } from '@/shared/api';
 import { useFeedbackLifecycle } from '@/shared/lib/useFeedbackLifecycle';
 import { useBackgroundMusic } from '@/widgets/appFeedback/lib/useBackgroundMusic';
@@ -242,6 +243,7 @@ export default function RootLayout() {
                 <NotificationGate ready={splashDone && isSignedIn} />
               </>
             )}
+            <ReportDialog />
             <ToastHost />
             {!splashDone && (
               <SplashOverlay

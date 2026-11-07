@@ -130,8 +130,6 @@ export const feedbackDefinitions = {
   gameStart: cue('round', 450, 'light', 5),
   roundStart: cue('round', 450, 'light', 5),
   drawer: cue('notify', 230, 'light'),
-  promptRequest: cue('notify', 230, 'light'),
-  promptSubmit: action('confirm'),
   tick: { ...cue('select', 80), volume: 0.4 },
   correct: cue('correct', 750, 'success', 10),
   otherCorrect: { ...cue('correct', 750, undefined, 10), volume: 0.45 },

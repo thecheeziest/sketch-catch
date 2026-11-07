@@ -9,7 +9,6 @@ export { ChatInputBar } from './ChatInputBar';
 export { WordBanner } from './WordBanner';
 export { RoundResultOverlay } from './RoundResultOverlay';
 export { ResultOverlay } from './ResultOverlay';
-export { AnswerApprovalButton } from './AnswerApprovalButton';
 export { CustomPromptModal } from './CustomPromptModal';
 export { PodiumSlot } from './PodiumSlot';
 export { PenaltyAward } from './PenaltyAward';

@@ -4,11 +4,10 @@ import type { Player } from '@sketch-catch/shared';
 import { spacing } from '@/shared/config';
 import { FeedbackPressable } from '@/shared/ui/FeedbackPressable';
 import { Icon } from '@/shared/ui/Icon';
-import { PixelLoadingSpinner } from '@/shared/ui/PixelLoadingSpinner';
 import { gameSurface, gameText } from '@/features/game/config';
 import { PlayerCell } from '@/features/game/ui/PlayerCell';
 
-export type RevealSaveState = 'disabled' | 'ready' | 'saving';
+export type RevealSaveState = 'disabled' | 'ready';
 
 type Props = {
   players: Player[];
@@ -72,21 +71,17 @@ export function RevealCharacterRow({ players, myId, highlightedId, selectable, o
         ))}
       </ScrollView>
       <View sx={{ width: SAVE_SLOT_WIDTH, alignItems: 'flex-end', justifyContent: 'center' }}>
-        {saveState === 'saving' ? (
-          <PixelLoadingSpinner size={20} accessibilityLabel="GIF 저장 중" />
-        ) : (
-          <FeedbackPressable
-            feedback={saveState === 'ready' ? 'select' : false}
-            disabled={saveState !== 'ready'}
-            onPress={onSave}
-            hitSlop={10}
-            accessibilityRole="button"
-            accessibilityLabel="정답 발표식 GIF 저장"
-            accessibilityState={{ disabled: saveState !== 'ready' }}
-          >
-            <Icon name="SAVE" size={22} color={gameText.PRIMARY} opacity={saveState === 'ready' ? 1 : 0.3} />
-          </FeedbackPressable>
-        )}
+        <FeedbackPressable
+          feedback={saveState === 'ready' ? 'select' : false}
+          disabled={saveState !== 'ready'}
+          onPress={onSave}
+          hitSlop={10}
+          accessibilityRole="button"
+          accessibilityLabel="정답 발표식 GIF 저장"
+          accessibilityState={{ disabled: saveState !== 'ready' }}
+        >
+          <Icon name="SAVE" size={22} color={gameText.PRIMARY} opacity={saveState === 'ready' ? 1 : 0.3} />
+        </FeedbackPressable>
       </View>
     </View>
   );
