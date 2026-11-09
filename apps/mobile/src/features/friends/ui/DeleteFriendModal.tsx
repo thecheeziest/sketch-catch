@@ -1,4 +1,4 @@
-import { Text } from 'dripsy'
+import { Text } from 'dripsy';
 import { Dialog } from '@/shared/ui';
 import { useDeleteFriend } from '@/features/friends/api';
 import { useToastStore } from '@/shared/model';
@@ -33,7 +33,7 @@ export function DeleteFriendModal({ visible, onClose, friendNickname, friendUser
       title="친구 삭제"
       buttons={[
         { label: '취소', color: 'light', onPress: onClose, disabled: isPending },
-        { label: '삭제하기', color: 'dark', onPress: handleDelete, disabled: isPending },
+        { label: '삭제하기', color: 'dark', onPress: handleDelete, loading: isPending },
       ]}
     >
       <Text variant="B4" sx={{ color: colors.GRAY }}>

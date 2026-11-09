@@ -1,20 +1,57 @@
 import type { PixelSpriteData } from '@sketch-catch/shared';
 import { colors } from '@/shared/config';
 
-// 사람 + 금지 표시 — 친구 삭제(사람 + 빼기)와 겹치지 않게 원형 금지 기호를 쓴다
+// 같은 사람 실루엣과 10×10도트 배지 — 차단은 가는 금지 표시, 삭제는 빼기 표시.
 export const BLOCK_SPRITE: PixelSpriteData = {
   rows: [
-    '..lll........',
-    '.lllll.......',
-    '.lllll...rrr.',
-    '..lll...rr..r',
-    '........r.r.r',
-    '.lllll..r..rr',
-    'lllllll..rrr.',
-    'lllllll......',
-    'lllllll......',
+    '....................',
+    '.....llll...........',
+    '....llllll..........',
+    '....llllll..........',
+    '....llllll..........',
+    '....llllll..........',
+    '.....llll...........',
+    '....................',
+    '....................',
+    '...llllllll.........',
+    '..llllllll...rrrr...',
+    '.lllllllll..r....r..',
+    '.lllllllll.r......r.',
+    '.lllllllllr......r.r',
+    '.lllllllllr.....r..r',
+    '.lllllllllr....r...r',
+    '..llllllllr...r....r',
+    '...........r.r....r.',
+    '............r....r..',
+    '.............rrrr...',
   ],
   colors: { l: colors.LIGHT_500, r: colors.ERROR_300 },
+};
+
+export const UNFRIEND_SPRITE: PixelSpriteData = {
+  rows: [
+    '....................',
+    '.....llll...........',
+    '....llllll..........',
+    '....llllll..........',
+    '....llllll..........',
+    '....llllll..........',
+    '.....llll...........',
+    '....................',
+    '....................',
+    '...llllllll.........',
+    '..llllllll...rrrr...',
+    '.lllllllll..rrrrrr..',
+    '.lllllllll.rrrrrrrr.',
+    '.lllllllllrrrrrrrrrr',
+    '.lllllllllrrwwwwwwrr',
+    '.lllllllllrrwwwwwwrr',
+    '..llllllllrrrrrrrrrr',
+    '...........rrrrrrrr.',
+    '............rrrrrr..',
+    '.............rrrr...',
+  ],
+  colors: { l: colors.LIGHT_500, r: colors.ERROR_300, w: colors.WHITE },
 };
 
 // 경광등 — 신고

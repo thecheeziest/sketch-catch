@@ -27,8 +27,11 @@ export function UserProfileView({
   chatColorId,
   statusMessage,
 }: Props) {
+  const profileMessage = statusMessage?.trim() ?? '';
+  const hasStatusMessage = profileMessage.length > 0;
+
   return (
-    <View sx={sxStyles.container}>
+    <View sx={{ ...sxStyles.container, paddingBottom: hasStatusMessage ? spacing.SM : 0 }}>
       <CosmeticAvatar
         characterId={characterId}
         frameId={frameId}
@@ -41,13 +44,13 @@ export function UserProfileView({
         {nickname}
         <Text sx={{ color: colors.GRAY }}>#{friendCode}</Text>
       </Text>
-      {!!statusMessage && (
+      {hasStatusMessage && (
         <View sx={sxStyles.bubble}>
           <PixelFrame borderColor={colors.DARK_100} borderWidth={2} notchSize={4} style={StyleSheet.absoluteFill}>
             <View style={[StyleSheet.absoluteFill, { backgroundColor: colors.DARK_200 }]} />
           </PixelFrame>
           <View sx={{ padding: spacing.SM }}>
-            <CosmeticChatText itemId={chatColorId}>{statusMessage}</CosmeticChatText>
+            <CosmeticChatText itemId={chatColorId}>{profileMessage}</CosmeticChatText>
           </View>
         </View>
       )}
@@ -60,7 +63,6 @@ const sxStyles = {
     alignItems: 'center' as const,
     gap: spacing.SM,
     paddingTop: spacing.SM + 8, // 특수 프레임 장식이 위로 삐져나올 공간
-    paddingBottom: spacing.SM,
   },
   bubble: { alignSelf: 'stretch' as const, alignItems: 'center' as const },
 };

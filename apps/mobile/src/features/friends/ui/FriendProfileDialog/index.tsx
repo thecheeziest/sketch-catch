@@ -1,3 +1,4 @@
+import { useRef } from 'react';
 import { Text } from 'dripsy';
 import { colors, textSizes } from '@/shared/config';
 import type { Friend, PresenceStatus } from '@/shared/model';
@@ -7,6 +8,7 @@ import { ModerationActions, useReportStore } from '@/features/moderation';
 type Props = {
   friend: Friend | null;
   onClose: () => void;
+  onDelete: (friend: Friend) => void;
   onJoin: (room: NonNullable<Friend['room']>) => void;
   isJoining?: boolean;
 };
@@ -26,9 +28,24 @@ const PRESENCE_LABEL: Record<PresenceStatus, string> = {
 };
 
 // 친구 목록에서 친구를 눌렀을 때 — 대기실 프로필과 같은 본문에 접속 상태와 같이하기를 더한다
-export function FriendProfileDialog({ friend, onClose, onJoin, isJoining = false }: Props) {
+export function FriendProfileDialog({ friend, onClose, onDelete, onJoin, isJoining = false }: Props) {
+  const pendingDelete = useRef<Friend | null>(null);
   const room = friend?.room;
   const openQueuedReport = useReportStore(s => s.openQueued);
+  const handleDelete = (): void => {
+    if (!friend || pendingDelete.current) return;
+    pendingDelete.current = friend;
+    onClose();
+  };
+  const handleDismissed = (): void => {
+    const target = pendingDelete.current;
+    pendingDelete.current = null;
+    if (target) {
+      onDelete(target);
+      return;
+    }
+    openQueuedReport();
+  };
   const statusLabel = (() => {
     if (!friend) return '';
     if (friend.presenceStatus === 'IN_LOBBY' && room) {
@@ -46,13 +63,21 @@ export function FriendProfileDialog({ friend, onClose, onJoin, isJoining = false
     <Dialog
       visible={friend !== null}
       onClose={onClose}
-      onDismissed={openQueuedReport}
+      onDismissed={handleDismissed}
       title="프로필"
+      headerRight={
+        friend && (
+          <ModerationActions
+            target={{ userId: friend.userId, nickname: friend.nickname }}
+            onCloseHost={onClose}
+            onDelete={handleDelete}
+          />
+        )
+      }
       buttons={buttons}
     >
       {friend && (
         <>
-          <ModerationActions target={{ userId: friend.userId, nickname: friend.nickname }} onCloseHost={onClose} />
           <UserProfileView
             nickname={friend.nickname}
             friendCode={friend.friendCode}
