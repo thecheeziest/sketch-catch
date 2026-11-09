@@ -70,10 +70,12 @@ export function RoomEditModal({ visible, onClose, roomCode }: Props) {
         <StepperField label="인원" value={playerCountMax} min={playerMin} max={12} onChange={setPlayerCountMax} />
         <StepperField label="턴" value={roundCount} min={1} max={10} onChange={setRoundCount} />
         <StepperField label="타이머" value={drawTimer} min={40} max={90} step={5} onChange={setDrawTimer} />
-        <View sx={{ gap: spacing.SM }}>
-          <Text sx={{ color: colors.DARK_100 }}>카테고리</Text>
-          <CategorySelector value={categories} onChange={setCategories} />
-        </View>
+        {roomState?.mode === 1 && (
+          <View sx={{ gap: spacing.SM }}>
+            <Text sx={{ color: colors.DARK_100 }}>카테고리</Text>
+            <CategorySelector value={categories} onChange={setCategories} />
+          </View>
+        )}
         <View sx={{ flexDirection: 'row', alignItems: 'center', gap: spacing.SM }}>
           <Text sx={{ flex: 1, color: colors.DARK_100 }}>잠금</Text>
           <Icon name={locked ? 'LOCK' : 'LOCK_OPEN'} size={20} />

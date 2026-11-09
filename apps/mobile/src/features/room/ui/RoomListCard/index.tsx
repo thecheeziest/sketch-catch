@@ -50,11 +50,13 @@ export function RoomListCard({ room, onPress, extraChips }: Props) {
         <Text variants={['bold', 'B2']} numberOfLines={1} sx={{ color: colors.LIGHT_100 }}>
           {room.title}
         </Text>
-        <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ gap: spacing.XS }}>
-          {categoryLabels.map(label => (
-            <Badge key={label} label={label} color={colors.LIGHT_300} />
-          ))}
-        </ScrollView>
+        {room.mode === 1 && (
+          <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ gap: spacing.XS }}>
+            {categoryLabels.map(label => (
+              <Badge key={label} label={label} color={colors.LIGHT_300} />
+            ))}
+          </ScrollView>
+        )}
       </View>
     </FeedbackPressable>
   );

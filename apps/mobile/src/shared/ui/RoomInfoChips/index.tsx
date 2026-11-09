@@ -8,9 +8,11 @@ import { PixelFrame } from '../PixelFrame';
 type Props = { mode: GameMode; categories: Category[] };
 
 export function RoomInfoChips({ mode, categories }: Props) {
+  // 모드 2(꼬리물기)는 제시어를 쓰지 않으므로 카테고리를 표시하지 않는다
+  const visibleCategories = mode === 1 ? categories : [];
   const chips = [
     { key: 'mode', label: GAME_MODE_LABEL[mode], color: colors.PRIMARY_100 },
-    ...categories
+    ...visibleCategories
       .filter(category => CATEGORY_LABEL[category])
       .map(category => ({ key: category, label: CATEGORY_LABEL[category], color: colors.SECONDARY_100 })),
   ];
