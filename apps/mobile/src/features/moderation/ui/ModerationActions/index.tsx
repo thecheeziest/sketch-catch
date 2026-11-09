@@ -15,7 +15,7 @@ type Props = {
   onDelete?: () => void;
 };
 
-// 프로필 다이얼로그 오른쪽 위의 픽셀 아이콘 버튼 — 차단 / 신고 / 친구 삭제
+// 프로필 다이얼로그 오른쪽 위의 픽셀 아이콘 버튼 — 신고 / 차단 / 친구 삭제
 export function ModerationActions({ target, onCloseHost, onDelete }: Props) {
   const { confirmBlock } = useUserModeration();
   const queueReport = useReportStore(s => s.queue);
@@ -26,19 +26,7 @@ export function ModerationActions({ target, onCloseHost, onDelete }: Props) {
   };
 
   return (
-    <View sx={{ flexDirection: 'row', alignItems: 'center', alignSelf: 'flex-end', gap: spacing.MD }}>
-      <FeedbackPressable
-        onPress={() => confirmBlock(target)}
-        hitSlop={4}
-        style={styles.action}
-        accessibilityRole="button"
-        accessibilityLabel={`${target.nickname} 차단`}
-      >
-        <PixelSprite sprite={BLOCK_SPRITE} pixelSize={1.5} />
-        <Text variant="B4" sx={{ color: colors.GRAY }}>
-          차단
-        </Text>
-      </FeedbackPressable>
+    <View sx={{ flexDirection: 'row', alignItems: 'center', alignSelf: 'flex-end', gap: spacing.XS }}>
       <FeedbackPressable
         onPress={handleReport}
         hitSlop={4}
@@ -46,11 +34,23 @@ export function ModerationActions({ target, onCloseHost, onDelete }: Props) {
         accessibilityRole="button"
         accessibilityLabel={`${target.nickname} 신고`}
       >
-        <View sx={{ height: 30, justifyContent: 'center' }}>
-          <PixelSprite sprite={REPORT_SPRITE} pixelSize={1.5} />
+        <View sx={{ height: 18, justifyContent: 'center' }}>
+          <PixelSprite sprite={REPORT_SPRITE} pixelSize={0.9} />
         </View>
         <Text variant="B4" sx={{ color: colors.GRAY }}>
           신고
+        </Text>
+      </FeedbackPressable>
+      <FeedbackPressable
+        onPress={() => confirmBlock(target)}
+        hitSlop={4}
+        style={styles.action}
+        accessibilityRole="button"
+        accessibilityLabel={`${target.nickname} 차단`}
+      >
+        <PixelSprite sprite={BLOCK_SPRITE} pixelSize={0.9} />
+        <Text variant="B4" sx={{ color: colors.GRAY }}>
+          차단
         </Text>
       </FeedbackPressable>
       {onDelete && (
@@ -61,7 +61,7 @@ export function ModerationActions({ target, onCloseHost, onDelete }: Props) {
           accessibilityRole="button"
           accessibilityLabel={`${target.nickname} 친구 삭제`}
         >
-          <PixelSprite sprite={UNFRIEND_SPRITE} pixelSize={1.5} />
+          <PixelSprite sprite={UNFRIEND_SPRITE} pixelSize={0.9} />
           <Text variant="B4" sx={{ color: colors.GRAY }}>
             삭제
           </Text>
