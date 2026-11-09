@@ -170,13 +170,6 @@ export default function FriendsScreen() {
                   friend={item}
                   index={index}
                   onPress={() => setProfileUserId(item.userId)}
-                  onDelete={() =>
-                    setDeleteTarget({
-                      friendshipId: item.friendshipId,
-                      userId: item.userId,
-                      nickname: item.nickname,
-                    })
-                  }
                   onJoin={item.room?.joinable ? () => handleJoinPress(item.room!) : undefined}
                   isJoining={joinRoom.isPending}
                 />
@@ -224,8 +217,10 @@ export default function FriendsScreen() {
                     respondRequest.mutate(
                       { requestId: item.id, action: 'ACCEPT' },
                       {
-                        onSuccess: () => useToastStore.getState().show(`${item.sender.nickname}님과 친구가 됐어요!`, 'success'),
-                        onError: () => useToastStore.getState().show('연결에 실패했어요. 잠시 후 다시 시도해주세요.', 'error'),
+                        onSuccess: () =>
+                          useToastStore.getState().show(`${item.sender.nickname}님과 친구가 됐어요!`, 'success'),
+                        onError: () =>
+                          useToastStore.getState().show('연결에 실패했어요. 잠시 후 다시 시도해주세요.', 'error'),
                       },
                     )
                   }
@@ -234,7 +229,8 @@ export default function FriendsScreen() {
                       { requestId: item.id, action: 'REJECT' },
                       {
                         onSuccess: () => useToastStore.getState().show('요청을 거절했어요'),
-                        onError: () => useToastStore.getState().show('연결에 실패했어요. 잠시 후 다시 시도해주세요.', 'error'),
+                        onError: () =>
+                          useToastStore.getState().show('연결에 실패했어요. 잠시 후 다시 시도해주세요.', 'error'),
                       },
                     )
                   }
@@ -273,6 +269,13 @@ export default function FriendsScreen() {
 
         <FriendProfileDialog
           friend={profileFriend}
+          onDelete={friend =>
+            setDeleteTarget({
+              friendshipId: friend.friendshipId,
+              userId: friend.userId,
+              nickname: friend.nickname,
+            })
+          }
           onClose={() => setProfileUserId(null)}
           onJoin={room => {
             setProfileUserId(null);

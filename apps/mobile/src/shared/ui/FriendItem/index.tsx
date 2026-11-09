@@ -1,35 +1,16 @@
 import { FeedbackPressable } from '@/shared/ui/FeedbackPressable';
-import { Image, Text, View } from 'dripsy'
+import { Image, Text, View } from 'dripsy';
 import { colors, getCharacterImageSource } from '@/shared/config';
 import type { Friend } from '@/shared/model';
-import type { PixelSpriteData } from '@sketch-catch/shared';
 import { Button } from '../Button';
-import { PixelSprite } from '../PixelSprite';
 import { StyleSheet } from 'react-native';
 
 type Props = {
   friend: Friend;
   onPress?: () => void;
-  onDelete: () => void;
   onJoin?: () => void;
   isJoining?: boolean;
   index?: number;
-};
-
-// 사람 + 빼기 — 차단(사람 + 금지 기호)과 구분되도록 X 대신 빼기를 쓴다
-const UNFRIEND_SPRITE: PixelSpriteData = {
-  rows: [
-    '..lll........',
-    '.lllll.......',
-    '.lllll.......',
-    '..lll........',
-    '........rrrrr',
-    '.lllll..rrrrr',
-    'lllllll......',
-    'lllllll......',
-    'lllllll......',
-  ],
-  colors: { l: colors.LIGHT_500, r: colors.ERROR_300 },
 };
 
 const PRESENCE_COLOR: Record<Friend['presenceStatus'], string> = {
@@ -48,7 +29,7 @@ const PRESENCE_LABEL: Record<Friend['presenceStatus'], string> = {
 
 const ROW_BG = [`${colors.WHITE}70`, `${colors.PRIMARY_300}70`] as const;
 
-export function FriendItem({ friend, onPress, onDelete, onJoin, isJoining, index }: Props) {
+export function FriendItem({ friend, onPress, onJoin, isJoining, index }: Props) {
   const imageSource = getCharacterImageSource(friend.characterId);
   const bgColor = index !== undefined ? ROW_BG[index % 2] : 'transparent';
 
@@ -80,9 +61,7 @@ export function FriendItem({ friend, onPress, onDelete, onJoin, isJoining, index
           <View sx={{ width: 40, height: 40, backgroundColor: colors.SECONDARY_400 }} />
         )}
         <View sx={{ flex: 1 }}>
-          <Text sx={{ color: colors.LIGHT_100 }}>
-            {friend.nickname}
-          </Text>
+          <Text sx={{ color: colors.LIGHT_100 }}>{friend.nickname}</Text>
           <Text variant="B4" sx={{ color: PRESENCE_COLOR[friend.presenceStatus] }}>
             {statusLabel}
           </Text>
@@ -91,14 +70,6 @@ export function FriendItem({ friend, onPress, onDelete, onJoin, isJoining, index
       {friend.room?.joinable && onJoin ? (
         <Button label="같이하기" color="secondary" height={32} onPress={onJoin} disabled={isJoining} />
       ) : null}
-      <FeedbackPressable
-        onPress={onDelete}
-        hitSlop={8}
-        accessibilityRole="button"
-        accessibilityLabel={`${friend.nickname} 친구 삭제`}
-      >
-        <PixelSprite sprite={UNFRIEND_SPRITE} pixelSize={1.5} />
-      </FeedbackPressable>
     </View>
   );
 }

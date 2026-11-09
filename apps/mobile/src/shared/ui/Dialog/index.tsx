@@ -18,6 +18,7 @@ type Props = {
   visible: boolean;
   onClose: () => void;
   title: string;
+  headerRight?: ReactNode;
   children?: ReactNode;
   buttons?: DialogButton[];
   dismissible?: boolean; // false면 백드롭 탭/하드웨어 뒤로가기로 닫히지 않음 (기본 true)
@@ -25,7 +26,16 @@ type Props = {
   onDismissed?: () => void;
 };
 
-export function Dialog({ visible, onClose, title, children, buttons, dismissible = true, onDismissed }: Props) {
+export function Dialog({
+  visible,
+  onClose,
+  title,
+  headerRight,
+  children,
+  buttons,
+  dismissible = true,
+  onDismissed,
+}: Props) {
   const { rendered, closing, dismiss, overlayAnim, scaleXAnim, scaleYAnim, flashAnim } = useTvDialog(visible, onClose);
   // Android Modal은 onDismiss를 지원하지 않아 렌더가 끝나는 시점을 닫힘 완료로 본다
   const wasRendered = useRef(rendered);
@@ -34,8 +44,8 @@ export function Dialog({ visible, onClose, title, children, buttons, dismissible
     wasRendered.current = rendered;
   }, [rendered, onDismissed]);
   // 부모가 선택값·입력값을 지워도 TV가 꺼지는 동안 마지막 화면을 유지한다.
-  const content = useRef({ title, children, buttons });
-  if (visible && !closing) content.current = { title, children, buttons };
+  const content = useRef({ title, headerRight, children, buttons });
+  if (visible && !closing) content.current = { title, headerRight, children, buttons };
   const displayed = content.current;
 
   return (
@@ -58,9 +68,12 @@ export function Dialog({ visible, onClose, title, children, buttons, dismissible
           </PixelFrame>
           {/* normal flow: 패널 높이 결정, z-order상 PixelFrame 위에 렌더링됨 */}
           <View sx={{ padding: spacing.LG, gap: spacing.MD }}>
-            <Text variant="T2" sx={{ color: colors.SECONDARY_100 }}>
-              {displayed.title}
-            </Text>
+            <View sx={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: spacing.SM }}>
+              <Text variant="T2" sx={{ color: colors.SECONDARY_100, flexShrink: 1 }}>
+                {displayed.title}
+              </Text>
+              {displayed.headerRight}
+            </View>
             {displayed.children}
             {displayed.buttons && displayed.buttons.length > 0 && (
               <View sx={{ flexDirection: 'row', gap: 8 }}>
