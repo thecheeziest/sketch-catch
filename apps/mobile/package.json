@@ -13,6 +13,7 @@
     "build:dev": "eas build --profile development",
     "build:test": "eas build --profile preview",
     "build:prod": "eas build --profile production",
+    "build:aab": "bash scripts/build-android-aab.sh",
     "update:dev": "eas update --channel development",
     "update:test": "eas update --channel test",
     "update:prod": "eas update --channel production",

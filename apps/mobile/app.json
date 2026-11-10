@@ -94,7 +94,8 @@
           "enableBackgroundPlayback": false
         }
       ],
-      "./plugins/withSceneLifecycle.cjs"
+      "./plugins/withSceneLifecycle.cjs",
+      "./plugins/withAndroidReleaseSigning.cjs"
     ],
     "experiments": {
       "typedRoutes": true
