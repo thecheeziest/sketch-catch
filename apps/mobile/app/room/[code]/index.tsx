@@ -1,5 +1,6 @@
 import { FeedbackPressable } from '@/shared/ui/FeedbackPressable';
 import { useChatSender } from '@/features/game/api/useChatSender';
+import { useGameKeyboardLayout } from '@/features/game/lib/useGameKeyboardLayout';
 import { ChatInputBar } from '@/features/game/ui';
 import { useRoomChatStore } from '@/features/room/model/useRoomChatStore';
 import { useChatModeration } from '@/features/moderation';
@@ -13,7 +14,8 @@ import { CLIENT_EVENT, MODE2_PLAYER_MIN, ROOM_PLAYER_MIN } from '@sketch-catch/s
 import { Text, View } from 'dripsy';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { useEffect, useMemo, useRef, useState } from 'react';
-import { type ListRenderItem, Alert, ImageBackground, KeyboardAvoidingView, StyleSheet, useWindowDimensions } from 'react-native';
+import { type ListRenderItem, Alert, ImageBackground, KeyboardAvoidingView, StyleSheet } from 'react-native';
+import { useAppDimensions } from '@/shared/lib/useAppDimensions';
 import roomBackground from '@assets/room-background.png';
 import { RoomInfoChips } from '@/shared/ui/RoomInfoChips';
 import { SafeAreaView } from 'react-native-safe-area-context';
@@ -101,7 +103,8 @@ export default function LobbyScreen() {
     wasHostRef.current = isHost;
   }, [roomState?.hostId, myId]);
 
-  const { width: screenWidth } = useWindowDimensions();
+  const { width: screenWidth } = useAppDimensions();
+  const { keyboardVisible } = useGameKeyboardLayout();
   const maxPlayers = roomState?.config.playerCountMax ?? 6;
   const penalty = roomState?.config.penalty;
   const numColumns = getNumColumns(maxPlayers);
@@ -241,7 +244,10 @@ export default function LobbyScreen() {
           style={styles.slotList}
         />
 
+        {/* 키보드가 올라오면 남는 공간은 비워 두고, 입력창 바로 위에 최신 말풍선 1개만 붙인다 */}
+        {keyboardVisible && <View sx={{ flex: 1 }} />}
         <LobbyChatLog
+          compact={keyboardVisible}
           messages={lobbyMessages}
           characterIdOf={characterIdOf}
           chatColorOf={chatColorOf}

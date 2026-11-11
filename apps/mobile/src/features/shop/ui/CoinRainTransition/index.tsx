@@ -1,6 +1,7 @@
 import { useMemo } from 'react';
 import { View } from 'dripsy';
-import { StyleSheet, useWindowDimensions } from 'react-native';
+import { StyleSheet } from 'react-native';
+import { useAppDimensions } from '@/shared/lib/useAppDimensions';
 import { Canvas, Group, Picture, Skia, createPicture, type SkPicture } from '@shopify/react-native-skia';
 import Animated, {
   interpolate,
@@ -101,7 +102,7 @@ function FallingCoin({
 // 옷장 → 샵 전환: 픽셀 코인이 위에서 우수수 쏟아지며 화면을 덮었다가 아래로 빠져나간다.
 // 덮인 채 기다리는 동안(샵 진입 로딩)에는 코인이 계속 쏟아진다
 export function CoinRainTransition({ startCovered, ready, onCovered, onDone, children }: CoverTransitionProps) {
-  const { width, height } = useWindowDimensions();
+  const { width, height } = useAppDimensions();
   const picture = useMemo(createCoinPicture, []);
   const coins = useMemo(() => createCoinSpecs(width), [width]);
   const progress = useCoverTransition({

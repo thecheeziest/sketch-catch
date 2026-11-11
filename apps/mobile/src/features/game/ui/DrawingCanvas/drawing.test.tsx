@@ -2,13 +2,26 @@ import { createElement } from 'react';
 import { act, create, type ReactTestRenderer } from 'react-test-renderer';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
-const gestures = vi.hoisted(() => ({ begin: (_event: { x: number; y: number }) => {}, end: () => {} }));
+const gestures = vi.hoisted(() => ({
+  begin: (_event: { x: number; y: number }) => {},
+  update: (_event: { x: number; y: number }) => {},
+  end: () => {},
+}));
 vi.mock('react-native', () => ({
   StyleSheet: { create: (s: object) => s },
   useWindowDimensions: () => ({ width: 360 }),
 }));
 vi.mock('dripsy', () => ({ View: 'View' }));
-vi.mock('@shopify/react-native-skia', () => ({ Canvas: 'Canvas', Path: 'Path' }));
+vi.mock('@shopify/react-native-skia', () => ({
+  Canvas: 'Canvas',
+  Path: 'Path',
+  Picture: 'Picture',
+  Skia: { Path: { Make: () => ({}) } },
+}));
+vi.mock('react-native-reanimated', async () => {
+  const { useRef } = await import('react');
+  return { useSharedValue: <T,>(value: T) => useRef({ value }).current };
+});
 vi.mock('react-native-gesture-handler', () => ({
   GestureDetector: 'GestureDetector',
   Gesture: {
@@ -20,7 +33,10 @@ vi.mock('react-native-gesture-handler', () => ({
           gestures.begin = fn;
           return pan;
         },
-        onUpdate: () => pan,
+        onUpdate: (fn: typeof gestures.update) => {
+          gestures.update = fn;
+          return pan;
+        },
         onEnd: (fn: typeof gestures.end) => {
           gestures.end = fn;
           return pan;
@@ -37,7 +53,13 @@ vi.mock('@/shared/model/auth', () => ({
 }));
 vi.mock('@/shared/model/toast', () => ({ useToastStore: { getState: () => ({ show: vi.fn() }) } }));
 vi.mock('@/shared/lib/feedback', () => ({ playFeedback: vi.fn() }));
-vi.mock('@/shared/lib/strokePath', () => ({ buildStrokePath: () => ({}), buildPaintPath: () => ({}) }));
+vi.mock('@/shared/lib/useAppDimensions', () => ({ useAppDimensions: () => ({ width: 360, height: 640 }) }));
+vi.mock('@/shared/lib/strokePath', () => ({
+  buildStrokePath: () => ({}),
+  buildPaintPath: () => ({}),
+  toCanvasStrokeWidth: (width: number) => width,
+  createStrokesPicture: (strokes: readonly object[]) => ({ strokes }),
+}));
 vi.mock('@/features/game/api/useStrokeSender', () => ({
   useStrokeSender: () => ({ startStroke: vi.fn(), endStroke: vi.fn(), pushPoint: vi.fn(), fill: vi.fn() }),
 }));
@@ -54,8 +76,12 @@ function draw(): void {
     gestures.end();
   });
 }
+// 다 그린 획은 Picture 한 장으로 굳는다
+function committedStrokes(): { color: string; width: number }[] {
+  return renderer.root.findByType('Picture' as never).props.picture.strokes;
+}
 function strokeCount(): number {
-  return renderer.root.findAllByType('Path' as never).length;
+  return committedStrokes().length;
 }
 
 describe('캔버스 입력 회귀', () => {
@@ -68,7 +94,29 @@ describe('캔버스 입력 회귀', () => {
       useGameStore.getState().setWidth(12);
     });
     draw();
-    expect(renderer.root.findByType('Path' as never).props).toMatchObject({ color: '#FF0000', strokeWidth: 12 });
+    expect(committedStrokes()[0]).toMatchObject({ color: '#FF0000', width: 12 });
+  });
+  it('그리는 동안에는 진행 중인 획만 따로 그리고, 손을 떼면 Picture에 합친다', () => {
+    act(() => {
+      renderer = create(createElement(DrawingCanvas, { isDrawer: true }));
+    });
+    act(() => gestures.begin({ x: 10, y: 10 }));
+    act(() => gestures.update({ x: 30, y: 30 }));
+    expect(renderer.root.findAllByType('Path' as never)).toHaveLength(1);
+    expect(strokeCount()).toBe(0);
+    act(() => gestures.end());
+    expect(renderer.root.findAllByType('Path' as never)).toHaveLength(0);
+    expect(strokeCount()).toBe(1);
+  });
+  it('그리는 중 되돌리기는 진행 중인 획만 버린다', () => {
+    act(() => {
+      renderer = create(createElement(DrawingCanvas, { isDrawer: true }));
+    });
+    draw();
+    act(() => gestures.begin({ x: 10, y: 10 }));
+    act(() => useGameStore.getState().requestDrawerUndo());
+    expect(strokeCount()).toBe(1);
+    expect(renderer.root.findAllByType('Path' as never)).toHaveLength(0);
   });
   it('연속 되돌리기는 한 획씩, 콜백 변경·새 캔버스에서는 이전 클릭을 재실행하지 않는다', () => {
     act(() => {

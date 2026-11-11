@@ -15,7 +15,7 @@ import { useGameFeedback } from '@/widgets/appFeedback/lib/useGameFeedback';
 import { playFeedback, waitForFeedbackReady } from '@/shared/lib/feedback';
 import { colors, fontFamily, icons, theme } from '@/shared/config';
 import { hydrateAuthStore, useAppUpdateStore, useAuthStore, usePresenceStore } from '@/shared/model';
-import { SketchbookLoadingSpinner, ToastHost } from '@/shared/ui';
+import { AppFrame, SketchbookLoadingSpinner, ToastHost } from '@/shared/ui';
 import { QueryClientProvider } from '@tanstack/react-query';
 import { DripsyProvider, Image, Text, View } from 'dripsy';
 import Galmuri11 from '@assets/fonts/Galmuri11.ttf';
@@ -221,30 +221,32 @@ export default function RootLayout() {
         <QueryClientProvider client={queryClient}>
           <PushTokenRegistrar isAuthenticated={isAuthenticated} needsOnboarding={needsOnboarding} />
           <DripsyProvider theme={theme}>
-            {/* 최소 빌드 미달이면 어떤 화면(로그인 포함)으로도 진입하지 못하게 업데이트 화면만 렌더한다 */}
-            {updateStatus === 'required' ? (
-              <ForceUpdateScreen />
-            ) : (
-              <>
-                {/* Protected는 guard가 바뀌는 즉시 반응한다 — 사용 중 로그인이 풀리면 보호 화면에서 바로 빠져나간다 */}
-                <Stack screenOptions={{ headerShown: false, fullScreenGestureEnabled: true }}>
-                  <Stack.Screen name="index" />
-                  <Stack.Protected guard={!isSignedIn}>
-                    <Stack.Screen name="(auth)" />
-                  </Stack.Protected>
-                  <Stack.Protected guard={isSignedIn}>
-                    <Stack.Screen name="(tabs)" />
-                    <Stack.Screen name="settings" />
-                    <Stack.Screen name="cosmetics" />
-                    {/* 방(대기실·게임·시상식)은 스와이프로 나가지 않는다 — 각 화면의 나가기 확인을 거친다 */}
-                    <Stack.Screen name="room" options={{ gestureEnabled: false }} />
-                  </Stack.Protected>
-                </Stack>
-                <NotificationGate ready={splashDone && isSignedIn} />
-              </>
-            )}
-            <ReportDialog />
-            <ToastHost />
+            <AppFrame>
+              {/* 최소 빌드 미달이면 어떤 화면(로그인 포함)으로도 진입하지 못하게 업데이트 화면만 렌더한다 */}
+              {updateStatus === 'required' ? (
+                <ForceUpdateScreen />
+              ) : (
+                <>
+                  {/* Protected는 guard가 바뀌는 즉시 반응한다 — 사용 중 로그인이 풀리면 보호 화면에서 바로 빠져나간다 */}
+                  <Stack screenOptions={{ headerShown: false, fullScreenGestureEnabled: true }}>
+                    <Stack.Screen name="index" />
+                    <Stack.Protected guard={!isSignedIn}>
+                      <Stack.Screen name="(auth)" />
+                    </Stack.Protected>
+                    <Stack.Protected guard={isSignedIn}>
+                      <Stack.Screen name="(tabs)" />
+                      <Stack.Screen name="settings" />
+                      <Stack.Screen name="cosmetics" />
+                      {/* 방(대기실·게임·시상식)은 스와이프로 나가지 않는다 — 각 화면의 나가기 확인을 거친다 */}
+                      <Stack.Screen name="room" options={{ gestureEnabled: false }} />
+                    </Stack.Protected>
+                  </Stack>
+                  <NotificationGate ready={splashDone && isSignedIn} />
+                </>
+              )}
+              <ReportDialog />
+              <ToastHost />
+            </AppFrame>
             {!splashDone && (
               <SplashOverlay
                 isAuthenticated={isAuthenticated}

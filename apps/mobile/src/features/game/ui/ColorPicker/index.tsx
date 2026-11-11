@@ -1,5 +1,6 @@
 import { FeedbackPressable } from '@/shared/ui/FeedbackPressable';
-import { StyleSheet, useWindowDimensions } from 'react-native';
+import { StyleSheet } from 'react-native';
+import { useAppDimensions } from '@/shared/lib/useAppDimensions';
 import { View } from 'dripsy';
 import { PixelFrame } from '@/shared/ui/PixelFrame';
 import { drawingPalette, toolbar } from '@/features/game/config';
@@ -16,7 +17,7 @@ type Props = {
 };
 
 export function ColorPicker({ value, onChange }: Props) {
-  const { width } = useWindowDimensions();
+  const { width } = useAppDimensions();
   const swatchWidth = Math.floor((width - TOOLBAR_H_PADDING - GAP * (COLUMNS - 1)) / COLUMNS);
   const normalizedValue = value.toLowerCase();
 

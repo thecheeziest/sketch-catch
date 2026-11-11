@@ -2,6 +2,9 @@ import { Text } from 'dripsy'
 import { useRouter } from 'expo-router'
 import { Dialog } from '@/shared/ui/Dialog'
 import { useDeleteMe } from '@/features/auth/api'
+import { isAppleLoginCanceled } from '@/features/auth/lib'
+import { getErrorMessage } from '@/shared/lib'
+import { useToastStore } from '@/shared/model'
 import { colors } from '@/shared/config'
 
 type Props = {
@@ -18,6 +21,10 @@ export function DeleteAccountModal({ visible, onClose }: Props) {
       onSuccess: () => {
         onClose()
         router.replace('/(auth)/onboarding/step1')
+      },
+      onError: (err) => {
+        if (isAppleLoginCanceled(err)) return
+        useToastStore.getState().show(getErrorMessage(err, { fallback: '탈퇴하지 못했어요. 다시 시도해주세요.' }), 'error')
       },
     })
   }

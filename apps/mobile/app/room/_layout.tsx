@@ -13,5 +13,10 @@ export default function RoomLayout() {
     navigation.setOptions({ gestureEnabled: isSwipeBackScreen })
   }, [navigation, isSwipeBackScreen])
 
-  return <Stack screenOptions={{ headerShown: false }} />
+  return (
+    <Stack screenOptions={{ headerShown: false }}>
+      {/* 방 찾기에서 push된 방 화면도 스와이프로 나가지 않게 막는다 (굵기 슬라이더 드래그와 충돌) */}
+      <Stack.Screen name="[code]" options={{ gestureEnabled: false }} />
+    </Stack>
+  )
 }

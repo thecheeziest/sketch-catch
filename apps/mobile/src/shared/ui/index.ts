@@ -22,3 +22,4 @@ export * from './CoinChip';
 export * from './CosmeticBackground';
 export * from './CosmeticAvatar';
 export * from './UserProfileView';
+export * from './AppFrame';

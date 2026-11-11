@@ -8,7 +8,8 @@ import { Text, View } from 'dripsy';
 import { BlurView } from 'expo-blur';
 import { Tabs } from 'expo-router';
 import { ComponentRef, Ref } from 'react';
-import { StyleSheet, useWindowDimensions } from 'react-native';
+import { StyleSheet } from 'react-native';
+import { useAppDimensions } from '@/shared/lib/useAppDimensions';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 const glowColors = ['rgba(255, 51, 136, 0.22)', 'rgba(255, 51, 136, 0.08)', 'rgba(255, 51, 136, 0)'];
@@ -23,7 +24,7 @@ function useRequestBadge(): number | string | undefined {
 export default function TabsLayout() {
   const requestBadge = useRequestBadge();
   const { bottom } = useSafeAreaInsets();
-  const { width, fontScale } = useWindowDimensions();
+  const { width, fontScale } = useAppDimensions();
   const isMatchmaking = useRoomStore(s => s.isMatchmaking);
   const bottomOffset = bottom + 12;
   const tabBarWidth = Math.min(240, width - spacing.MD * 2);

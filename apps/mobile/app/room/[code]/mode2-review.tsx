@@ -9,6 +9,7 @@ import { Button } from '@/shared/ui/Button';
 import { Dialog } from '@/shared/ui/Dialog';
 import { gameSurface } from '@/features/game/config';
 import { useChatSender } from '@/features/game/api/useChatSender';
+import { useGameKeyboardLayout } from '@/features/game/lib/useGameKeyboardLayout';
 import { ChatInputBar, ChatStream } from '@/features/game/ui';
 import { useRoomChatStore } from '@/features/room/model/useRoomChatStore';
 import { useAwardSession } from '@/features/room/lib';
@@ -29,7 +30,16 @@ export default function Mode2ReviewScreen() {
   const liveRoomState = useRoomStore(s => s.roomState);
   // 공개식 화면은 이후 대기실·새 게임 상태가 도착해도 이번 판의 참가자 구성을 유지한다
   const [roomSnapshot] = useState(() => useRoomStore.getState().roomState);
-  const review = useMode2Store(s => s.review);
+  const storeReview = useMode2Store(s => s.review);
+  // 방이 대기실 복귀·새 게임으로 넘어가 스토어가 비워져도 이번 판 공개식은 화면을 나갈 때까지 유지한다
+  const [keptReview, setKeptReview] = useState(storeReview);
+  useEffect(() => {
+    if (storeReview) setKeptReview(storeReview);
+  }, [storeReview]);
+  const review = useMemo(
+    () => storeReview ?? (keptReview ? { ...keptReview, live: null } : null),
+    [storeReview, keptReview],
+  );
   const reviewSheetStartAt = useMode2Store(s => s.reviewSheetStartAt);
   const chatMessages = useRoomChatStore(s => s.awardMessages);
   const coinReward = useCoinRewardStore(s => s.reward);
@@ -37,6 +47,7 @@ export default function Mode2ReviewScreen() {
   const { saveGif } = useGifDownload();
   const { rematch, exit, rematching, rematchError, isNudged, dismissNudge } = useAwardSession(code ?? '');
   const { playback, entriesBySheet, isLive, isFinished, startReplay } = useRevealPlayback(review, reviewSheetStartAt);
+  const { keyboardVisible } = useGameKeyboardLayout();
 
   const [guideVisible, setGuideVisible] = useState(false);
   const [saving, setSaving] = useState(false);
@@ -152,6 +163,7 @@ export default function Mode2ReviewScreen() {
             characterOf={characterOf}
             nicknameOf={userId => knownPlayer(userId)?.nickname ?? players.find(p => p.id === userId)?.nickname ?? '친구'}
             feedbackKey={isLive ? `${review?.gameId ?? ''}:${playback.sheetIndex}` : undefined}
+            compact={keyboardVisible}
           />
         ) : (
           <View sx={{ flex: 1, alignItems: 'center', justifyContent: 'center' }}>

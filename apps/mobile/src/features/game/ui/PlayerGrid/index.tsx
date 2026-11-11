@@ -1,5 +1,5 @@
 import { View } from 'dripsy';
-import { useWindowDimensions } from 'react-native';
+import { useAppDimensions } from '@/shared/lib/useAppDimensions';
 import type { Player } from '@sketch-catch/shared';
 import { gameSurface } from '@/features/game/config';
 import { PlayerCell } from '../PlayerCell';
@@ -20,7 +20,7 @@ type Props = {
 };
 
 export function PlayerGrid({ players, availableWidth, myId, drawerId, solvedUserId, guessedUserIds }: Props) {
-  const { width: screenWidth } = useWindowDimensions();
+  const { width: screenWidth } = useAppDimensions();
   const cellWidth = Math.floor(
     ((availableWidth ?? screenWidth) - GRID_PADDING * 2 - CELL_MARGIN * 2 * COLUMNS) / COLUMNS,
   );

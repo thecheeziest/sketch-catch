@@ -1,5 +1,6 @@
 import { Image, Text, View } from 'dripsy';
-import { Linking, Platform, useWindowDimensions } from 'react-native';
+import { Linking, Platform } from 'react-native';
+import { useAppDimensions } from '@/shared/lib/useAppDimensions';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { colors, icons, spacing, textSizes } from '@/shared/config';
 import { useAppUpdateStore, useToastStore } from '@/shared/model';
@@ -11,7 +12,7 @@ const UPDATE_SOURCE = Platform.OS === 'ios' ? 'TestFlight 또는 App Store' : 'P
 // 최소 빌드 미달 시 앱 전체를 대신하는 화면 — 다른 화면으로 이동할 수단을 두지 않는다
 export function ForceUpdateScreen() {
   const updateUrl = useAppUpdateStore(s => s.updateUrl);
-  const { width: screenWidth } = useWindowDimensions();
+  const { width: screenWidth } = useAppDimensions();
   const logoWidth = (screenWidth - spacing.XL * 2) * 0.55;
 
   const handleUpdate = async (): Promise<void> => {

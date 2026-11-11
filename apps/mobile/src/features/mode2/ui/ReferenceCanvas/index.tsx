@@ -4,7 +4,7 @@ import { type LayoutChangeEvent, StyleSheet } from 'react-native';
 import { Canvas, Path, type SkPath } from '@shopify/react-native-skia';
 import type { Stroke } from '@sketch-catch/shared';
 import { colors, textSizes } from '@/shared/config';
-import { buildPaintPath, buildStrokePath } from '@/shared/lib/strokePath';
+import { buildPaintPath, buildStrokePath, toCanvasStrokeWidth } from '@/shared/lib/strokePath';
 
 type Props = {
   strokes: readonly Stroke[];
@@ -49,7 +49,7 @@ export function ReferenceCanvas({ strokes, emptyLabel }: Props) {
                 key={stroke.id}
                 path={path}
                 color={stroke.color}
-                strokeWidth={stroke.width <= 1 ? stroke.width * size.width : stroke.width}
+                strokeWidth={toCanvasStrokeWidth(stroke.width, size.width)}
                 style={stroke.paintSpans ? 'fill' : 'stroke'}
                 strokeCap="round"
                 strokeJoin="round"

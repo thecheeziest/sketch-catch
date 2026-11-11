@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState } from 'react';
-import { Keyboard, KeyboardAvoidingView, Pressable, StyleSheet, useWindowDimensions } from 'react-native';
+import { Keyboard, KeyboardAvoidingView, Pressable, StyleSheet } from 'react-native';
+import { useAppDimensions } from '@/shared/lib/useAppDimensions';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Text, View } from 'dripsy';
 import { useLocalSearchParams } from 'expo-router';
@@ -20,7 +21,7 @@ import { colors, spacing, textSizes, fontFamily } from '@/shared/config';
 
 export default function AwardScreen() {
   const { code } = useLocalSearchParams<{ code: string }>();
-  const { width } = useWindowDimensions();
+  const { width } = useAppDimensions();
   const [result, setResult] = useState(() => useGameStore.getState().result);
   const chatMessages = useRoomChatStore(s => s.awardMessages);
   const myId = useAuthStore(s => s.user?.id);

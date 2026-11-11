@@ -79,6 +79,9 @@ export const spacing = {
   XXXL: 64,
 } as const;
 
+/** 앱 화면 최대 폭(dp) — 폴드·태블릿처럼 넓은 창에서도 세로형 화면을 이 폭 안에서 가운데 정렬해 그린다 */
+export const APP_MAX_WIDTH = 480;
+
 export const fontFamily = {
   REGULAR: 'Galmuri11',
   BOLD: 'Mona12-Bold',

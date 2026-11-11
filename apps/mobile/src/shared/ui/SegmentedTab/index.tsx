@@ -3,7 +3,8 @@ import { Text, View } from 'dripsy'
 import { colors, textSizes } from '@/shared/config';
 import { BlurView } from 'expo-blur';
 import React, { useEffect, useRef } from 'react';
-import { Animated, Dimensions, StyleSheet } from 'react-native';
+import { Animated, StyleSheet } from 'react-native';
+import { useAppDimensions } from '@/shared/lib/useAppDimensions';
 
 type Props = {
   tabs: string[];
@@ -19,7 +20,7 @@ function formatBadge(count: number): string {
 
 export function SegmentedTab({ tabs, activeIndex, onTabPress, badges }: Props) {
   const indicator = useRef(new Animated.Value(activeIndex)).current;
-  const tabWidth = Dimensions.get('window').width / tabs.length;
+  const tabWidth = useAppDimensions().width / tabs.length;
 
   useEffect(() => {
     Animated.timing(indicator, {
