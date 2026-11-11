@@ -360,6 +360,20 @@ describe('answer detect (MD1-02)', () => {
     expect(game._broadcastEmit).toHaveBeenCalledWith('chat:correct', expect.objectContaining({ userId: 'u2' }));
   });
 
+  it('answer detect: 영문 대소문자만 다른 답은 정답 처리', async () => {
+    const english = (): RoomState =>
+      makeChatRoomState({
+        current: { roundIndex: 0, drawerId: 'u1', prompt: 'Zoom 회의', startedAt: Date.now() - 5000 },
+      });
+    mockGetRoomState.mockReset();
+    mockGetRoomState.mockResolvedValueOnce(english());
+    mockGetRoomState.mockResolvedValueOnce(english());
+    const game = makeNamespace();
+    const socket = { data: { userId: 'u2' }, rooms: new Set(['room:ABC123']), emit: vi.fn() };
+    await handleChatSend(game as any, socket as any, { text: 'zOOM회의' });
+    expect(game._broadcastEmit).toHaveBeenCalledWith('chat:correct', expect.objectContaining({ userId: 'u2' }));
+  });
+
   it('answer detect: 부분 일치는 오답 — chat:correct 미발생, answer:wrong은 제출자에게만 전달', async () => {
     mockGetRoomState.mockResolvedValueOnce(makeChatRoomState());
     const game = makeNamespace();

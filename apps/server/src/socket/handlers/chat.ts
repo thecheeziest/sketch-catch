@@ -10,9 +10,9 @@ import { endRound } from './game.js';
 type GameNamespace = Namespace<ClientEvents, ServerEvents>;
 type GameSocket = Socket<ClientEvents, ServerEvents, Record<string, never>, { userId: string }>;
 
-// 띄어쓰기 차이는 오답으로 보지 않는다 (정답 '오징어 게임' ← '오징어게임' 인정)
+// 띄어쓰기·영문 대소문자 차이는 오답으로 보지 않는다 (정답 '오징어 게임' ← '오징어게임', 'Zoom' ← 'zoom' 인정)
 function isCorrectAnswer(answer: string, prompt: string): boolean {
-  const normalize = (text: string): string => text.replace(/\s+/gu, '');
+  const normalize = (text: string): string => text.replace(/\s+/gu, '').toLowerCase();
   const normalizedPrompt = normalize(prompt);
   return normalizedPrompt.length > 0 && normalize(answer) === normalizedPrompt;
 }
