@@ -9,3 +9,10 @@ export const APP_BUILD = Number(Application.nativeBuildVersion);
 
 /** 서버가 최소 빌드 미달 여부를 판단할 때 쓰는 클라이언트 정보 (REST 헤더·소켓 handshake 공통) */
 export const APP_CLIENT_INFO = { platform: APP_PLATFORM, build: APP_BUILD } as const;
+
+/** 스토어·앱에서 안내하는 정책·지원 페이지 (forrich 웹사이트) */
+export const POLICY_URL = {
+  TERMS: 'https://web.forrich.co.kr/sketchcatch/terms/',
+  PRIVACY: 'https://web.forrich.co.kr/sketchcatch/privacy/',
+  SUPPORT: 'https://web.forrich.co.kr/sketchcatch/',
+} as const;

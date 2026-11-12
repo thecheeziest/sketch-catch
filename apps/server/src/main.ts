@@ -1,5 +1,6 @@
 import Fastify from 'fastify';
 import cors from '@fastify/cors';
+import rateLimit from '@fastify/rate-limit';
 import socketioPlugin from 'fastify-socket.io';
 import type { Server } from 'socket.io';
 import { env } from './lib/env.js';
@@ -18,6 +19,7 @@ import { replaysRoutes } from './routes/replays.js';
 import { appVersionRoutes } from './routes/appVersion.js';
 import { moderationRoutes } from './routes/moderation.js';
 import { isOutdatedClient } from './lib/appVersion.js';
+import { deleteExpiredReplays } from './services/replay.service.js';
 import { registerGameNamespace } from './socket/game.namespace.js';
 import { registerPresenceNamespace } from './socket/presence.namespace.js';
 // shared 패키지 import 검증 — 빌드 시 워크스페이스 resolution 확인
@@ -30,12 +32,25 @@ import {
   type ServerEvents,
 } from '@sketch-catch/shared';
 
+// 사용자 1명 기준 분당 REST 요청 상한 — 정상 사용(폴링 포함)은 분당 수십 회 수준
+const RATE_LIMIT_PER_MINUTE = 300;
+const REPLAY_CLEANUP_INTERVAL_MS = 60 * 60 * 1000;
+
 async function bootstrap(): Promise<void> {
   logger.info({ shared: SHARED_PACKAGE_VERSION, namespace: SOCKET_NAMESPACE }, 'shared package loaded');
 
-  const app = Fastify({ logger });
+  // Render 프록시 뒤에서 실제 접속 IP를 req.ip로 쓰기 위해 X-Forwarded-For를 신뢰한다
+  const app = Fastify({ logger, trustProxy: true });
 
   await app.register(cors, { origin: true });
+  // REST 과호출 방지 — 로그인 사용자는 토큰 단위, 비로그인 요청은 IP 단위로 센다 (소켓 이벤트는 대상 아님)
+  await app.register(rateLimit, {
+    max: RATE_LIMIT_PER_MINUTE,
+    timeWindow: '1 minute',
+    allowList: req => req.url.startsWith('/ping') || req.url.startsWith('/health'),
+    keyGenerator: req => req.headers.authorization ?? req.ip,
+    errorResponseBuilder: () => ({ statusCode: 429, error: 'RATE_LIMITED' }),
+  });
   // Socket.io 플러그인 등록 — app.io 데코레이터 사용 가능해짐
   await app.register(socketioPlugin, { cors: { origin: true } });
 
@@ -62,6 +77,15 @@ async function bootstrap(): Promise<void> {
 
   await connectPrisma();
   await connectRedis();
+
+  // 만료된 다시보기 정리 — 기동 직후 한 번, 이후 1시간마다
+  const cleanReplays = (): void => {
+    deleteExpiredReplays()
+      .then(count => count > 0 && logger.info({ count }, 'expired replays deleted'))
+      .catch(err => logger.error({ err }, 'expired replay cleanup failed'));
+  };
+  cleanReplays();
+  setInterval(cleanReplays, REPLAY_CLEANUP_INTERVAL_MS).unref();
 
   // app.ready() 후에만 app.io 접근 가능 (RESEARCH.md §Pattern 1)
   await app.ready();

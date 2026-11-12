@@ -4,6 +4,7 @@ import { kakaoLoginSchema, appleLoginSchema, refreshSchema } from '@sketch-catch
 import { verifyKakaoToken } from '../auth/kakao.js';
 import { verifyAppleToken } from '../auth/apple.js';
 import { signTokens, verifyRefreshToken, verifyAccessToken } from '../auth/jwt.js';
+import { refreshSessionKey, revokeSession, startSession } from '../auth/session.js';
 import { upsertUserByProvider } from '../services/user.service.js';
 import { toUserPrivate } from '../lib/userPrivate.js';
 import { redis } from '../db/redis.js';
@@ -23,9 +24,8 @@ export const authRoutes: FastifyPluginAsync = async app => {
     try {
       const claims = await verifyKakaoToken(parsed.data.idToken);
       const { user, isNew } = await upsertUserByProvider({ provider: 'KAKAO', providerId: claims.sub });
-      const tokens = await signTokens(user.id);
       // D-05: 단일 기기 — 기존 세션 덮어쓰기
-      await redis.set(`session:${user.id}`, tokens.accessToken);
+      const tokens = await startSession(user.id);
       return reply.send({
         accessToken: tokens.accessToken,
         refreshToken: tokens.refreshToken,
@@ -44,8 +44,7 @@ export const authRoutes: FastifyPluginAsync = async app => {
     try {
       const claims = await verifyAppleToken(parsed.data.identityToken);
       const { user, isNew } = await upsertUserByProvider({ provider: 'APPLE', providerId: claims.sub });
-      const tokens = await signTokens(user.id);
-      await redis.set(`session:${user.id}`, tokens.accessToken);
+      const tokens = await startSession(user.id);
       return reply.send({
         accessToken: tokens.accessToken,
         refreshToken: tokens.refreshToken,
@@ -68,8 +67,7 @@ export const authRoutes: FastifyPluginAsync = async app => {
         provider: 'KAKAO',
         providerId: `${DEV_PROVIDER_ID_PREFIX}${parsed.data.slot}`,
       });
-      const tokens = await signTokens(user.id);
-      await redis.set(`session:${user.id}`, tokens.accessToken);
+      const tokens = await startSession(user.id);
       return reply.send({
         accessToken: tokens.accessToken,
         refreshToken: tokens.refreshToken,
@@ -84,6 +82,13 @@ export const authRoutes: FastifyPluginAsync = async app => {
     if (!parsed.success) return reply.status(400).send({ error: 'INVALID_TOKEN' });
     const payload = await verifyRefreshToken(parsed.data.refreshToken);
     if (!payload) return reply.status(401).send({ error: 'INVALID_TOKEN' });
+    // 다른 기기 로그인·로그아웃·탈퇴로 폐기된 refresh 토큰은 거부 — 예전 기기가 새 기기 세션을 다시 빼앗지 못하게 한다
+    const sessionRefresh = await redis.get(refreshSessionKey(payload.sub));
+    if (sessionRefresh && sessionRefresh !== parsed.data.refreshToken) {
+      return reply.status(401).send({ error: 'SESSION_REPLACED' });
+    }
+    // 세션 기록이 없으면(Redis 재시작·배포 전 로그인) 지금 토큰을 현재 세션으로 이어받는다
+    if (!sessionRefresh) await redis.set(refreshSessionKey(payload.sub), parsed.data.refreshToken);
     const tokens = await signTokens(payload.sub);
     // 단일 기기 정책: refresh 시에도 session 갱신
     await redis.set(`session:${payload.sub}`, tokens.accessToken);
@@ -98,7 +103,8 @@ export const authRoutes: FastifyPluginAsync = async app => {
     const token = authHeader.slice(7);
     const payload = await verifyAccessToken(token);
     if (!payload) return reply.status(401).send({ error: 'INVALID_TOKEN' });
-    await redis.del(`session:${payload.sub}`, `user:presence:${payload.sub}`);
+    await revokeSession(payload.sub);
+    await redis.del(`user:presence:${payload.sub}`);
     return reply.send({ ok: true });
   });
 };

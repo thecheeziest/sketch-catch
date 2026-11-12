@@ -3,6 +3,7 @@ import type { RoomState, RoomConfig, Player, RoomListItem } from '@sketch-catch/
 import crypto from 'node:crypto';
 import { EMPTY_PROFILE, type PlayerProfile } from '../lib/playerProfile.js';
 import { countSeatedPlayers } from './roomRules.js';
+import { createReviewBots } from './reviewRooms.js';
 
 export class RoomNotFoundError extends Error { code = 'ROOM_NOT_FOUND' as const; }
 export class RoomFullError extends Error { code = 'ROOM_FULL' as const; }
@@ -34,6 +35,7 @@ export async function clearRoomPassword(code: string): Promise<void> {
 
 export async function createRoom(opts: {
   hostId: string;
+  reviewOwnerId?: string;
   userIds: string[];
   config: RoomConfig;
   title?: string;
@@ -71,8 +73,14 @@ export async function createRoom(opts: {
     locked: opts.locked,
   };
 
+  if (opts.reviewOwnerId) {
+    state.reviewOwnerId = opts.reviewOwnerId;
+    state.players.push(...createReviewBots(code));
+    state.allReady = true;
+  }
+
   await redis.set(`room:${code}:state`, JSON.stringify(state), 'EX', ROOM_TTL_SEC);
-  await redis.zadd(ROOM_INDEX_KEY, Date.now(), code);
+  if (!state.reviewOwnerId) await redis.zadd(ROOM_INDEX_KEY, Date.now(), code);
   if (opts.locked && opts.password) {
     await setRoomPassword(code, opts.password);
   }
@@ -123,6 +131,7 @@ export async function listRooms(hiddenUserIds: ReadonlySet<string> = new Set()):
       return;
     }
     const state = JSON.parse(raw) as RoomState;
+    if (state.reviewOwnerId) return;
     const members = [...state.players, ...(state.awardViewers ?? [])];
     if (members.some(p => !p.left && hiddenUserIds.has(p.id))) return;
     // 전원이 퇴장·시상식 잔류 중인 방은 들어가도 같이 할 사람이 없다

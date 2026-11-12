@@ -15,7 +15,7 @@
       "entitlements": {
         "com.apple.developer.applesignin": ["Default"]
       },
-      "buildNumber": "9",
+      "buildNumber": "10",
       "infoPlist": {
         "ITSAppUsesNonExemptEncryption": false
       },
@@ -28,7 +28,14 @@
       },
       "package": "com.sketchcatch.app",
       "googleServicesFile": "./google-services.json",
-      "versionCode": 6
+      "versionCode": 7,
+      "blockedPermissions": [
+        "android.permission.READ_MEDIA_IMAGES",
+        "android.permission.READ_MEDIA_VIDEO",
+        "android.permission.READ_MEDIA_AUDIO",
+        "android.permission.READ_MEDIA_VISUAL_USER_SELECTED",
+        "android.permission.SYSTEM_ALERT_WINDOW"
+      ]
     },
     "web": {
       "favicon": "./assets/app-icons/04-shooting-star-symbol.png"
@@ -36,7 +43,12 @@
     "plugins": [
       "expo-router",
       "expo-font",
-      "expo-secure-store",
+      [
+        "expo-secure-store",
+        {
+          "faceIDPermission": false
+        }
+      ],
       [
         "@react-native-seoul/kakao-login",
         {
@@ -47,7 +59,8 @@
       [
         "expo-media-library",
         {
-          "photosPermission": "그림 GIF를 저장하려면 사진 접근 권한이 필요합니다."
+          "photosPermission": "그림 GIF를 저장하려면 사진 접근 권한이 필요합니다.",
+          "savePhotosPermission": "게임에서 그린 그림 GIF를 사진 앨범에 저장합니다."
         }
       ],
       [
@@ -119,7 +132,7 @@
       "url": "https://u.expo.dev/f6970800-ce5d-414d-880e-dc6bbda29d67",
       "enabled": true,
       "requestHeaders": {
-        "expo-channel-name": "test"
+        "expo-channel-name": "production"
       }
     }
   }

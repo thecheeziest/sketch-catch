@@ -11,6 +11,8 @@ type Props = {
   background?: string;
   textColor?: string;
   numberOfLines?: number;
+  /** 한 줄 문구를 칸에 맞게 줄인다 — 여러 줄 안내문은 false로 기본 크기를 유지한다 */
+  shrinkToFit?: boolean;
   /** 이 글자 위치(코드 포인트 기준)부터 빨간색으로 강조 */
   highlightFrom?: number;
 };
@@ -32,6 +34,7 @@ export function PixelSpeechBubble({
   background = '#FFFFFF',
   textColor = '#1D1629',
   numberOfLines = 1,
+  shrinkToFit = true,
   highlightFrom,
 }: Props) {
   const chars = Array.from(text);
@@ -45,7 +48,7 @@ export function PixelSpeechBubble({
       </PixelFrame>
       <Text
         numberOfLines={numberOfLines}
-        adjustsFontSizeToFit
+        adjustsFontSizeToFit={shrinkToFit}
         minimumFontScale={0.6}
         style={[styles.text, { color: textColor }]}
       >

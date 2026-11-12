@@ -5,7 +5,7 @@ const secret = new TextEncoder().encode(env.JWT_SECRET);
 
 export type JwtPayload = { sub: string };
 
-function ttlToSeconds(ttl: string): number {
+export function ttlToSeconds(ttl: string): number {
   // '15m' → 900, '30d' → 2592000
   const match = ttl.match(/^(\d+)([smhd])$/);
   if (!match) throw new Error(`Invalid TTL: ${ttl}`);

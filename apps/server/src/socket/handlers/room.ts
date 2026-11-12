@@ -65,6 +65,9 @@ export async function handleRoomJoin(
     }
 
     const existingPlayer = state.players.find(p => p.id === userId);
+    if (state.reviewOwnerId && state.reviewOwnerId !== userId) {
+      return { ok: false, code: 'ROOM_NOT_FOUND', message: '방을 찾지 못했어요! 코드를 확인해 주세요' };
+    }
     if (existingPlayer) {
       // Pitfall 5: 게임 진행 중 이미 이탈(left=true)한 유저의 재입장은 거부 — 서버가 진실의 출처
       if (existingPlayer.left && isGameInProgressStatus(state.status)) {
@@ -272,7 +275,7 @@ async function expireGraceLeave(game: GameNamespace, code: string, userId: strin
   if (!state || !player || player.connected || player.left) return;
   if (await hasActiveUserSocketInRoom(game, `room:${code}`, userId, '')) return;
   // 이어 그리기는 게임이 끝날 때까지 자리를 지켜 둔다 — 언제 돌아와도 이어서 참여한다 (시상식부터는 기존 유예 적용)
-  if (state.mode === 2 && isGameInProgressStatus(state.status)) {
+  if (!state.reviewOwnerId && state.mode === 2 && isGameInProgressStatus(state.status)) {
     scheduleGraceLeave(code, userId, () => expireGraceLeave(game, code, userId));
     return;
   }
@@ -286,6 +289,10 @@ async function expireGraceLeave(game: GameNamespace, code: string, userId: strin
 async function leaveRoom(game: GameNamespace, code: string, userId: string, state: RoomState): Promise<void> {
   const roomName = `room:${code}`;
   cancelGraceLeave(code, userId);
+  if (state.reviewOwnerId === userId) {
+    await destroyRoom(code);
+    return;
+  }
 
   // 게임이 진행되는 동안 시상식에 남아 있던 유저 - 게임 명단에는 없으므로 보관 목록에서만 뺀다
   if (state.awardViewers?.some(p => p.id === userId)) {

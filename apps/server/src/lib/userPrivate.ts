@@ -1,5 +1,6 @@
 import type { Prisma, User } from '@prisma/client';
 import type { UserPrivate } from '@sketch-catch/shared';
+import { canUseReviewRoom } from '../services/reviewRooms.js';
 
 // /me·로그인 응답에 보유 아이템까지 실어 보내기 위한 include
 export const USER_WITH_ITEMS = { items: { select: { itemId: true } } } satisfies Prisma.UserInclude;
@@ -21,5 +22,6 @@ export function toUserPrivate(u: UserWithItems): UserPrivate {
     backgroundId: u.backgroundId,
     chatColorId: u.chatColorId,
     statusMessage: u.statusMessage,
+    ...(canUseReviewRoom(u.id) ? { reviewAccess: true } : {}),
   };
 }

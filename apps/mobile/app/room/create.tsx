@@ -19,6 +19,7 @@ export default function RoomCreateScreen() {
   const showToast = useToastStore((s) => s.show)
   const { mutate, isPending } = useCreateRoom()
   const nickname = useAuthStore.getState().user?.nickname
+  const reviewAccess = useAuthStore(s => s.user?.reviewAccess === true)
 
   const [title, setTitle] = useState('')
   const [mode, setMode] = useState<1 | 2>(1)
@@ -31,19 +32,23 @@ export default function RoomCreateScreen() {
   const playerMin = mode === 2 ? MODE2_PLAYER_MIN : ROOM_PLAYER_MIN
   const penaltyForm = usePenaltyForm({ playerCountMax, roundCount, drawTimer, setRoundCount, setDrawTimer })
 
-  const handleCreate = (): void => {
+  const handleCreate = (review = false): void => {
+    let input: Parameters<typeof mutate>[0] = {
+      mode,
+      playerCountMax,
+      roundCount,
+      drawTimer,
+      categories,
+      title: title.trim() || undefined,
+      locked,
+      password: locked ? password.trim() : undefined,
+      penalty: penaltyForm.penalty ?? undefined,
+    }
+    if (review) {
+      input = { mode, review: true, playerCountMax: 3, roundCount: 1, drawTimer: 40, categories: ['ANIMAL'] }
+    }
     mutate(
-      {
-        mode,
-        playerCountMax,
-        roundCount,
-        drawTimer,
-        categories,
-        title: title.trim() || undefined,
-        locked,
-        password: locked ? password.trim() : undefined,
-        penalty: penaltyForm.penalty ?? undefined,
-      },
+      input,
       {
         onError: (err) => {
           console.error('[createRoom]', err)
@@ -89,6 +94,12 @@ export default function RoomCreateScreen() {
             <CategorySelector value={categories} onChange={setCategories} />
           </View>
         )}
+        {reviewAccess && (
+          <View sx={{ gap: spacing.SM }}>
+            <Text sx={{ color: colors.LIGHT_100 }}>심사 체험 · 봇 2명이 준비된 그림과 답변으로 참여해요. 코인 보상은 없어요.</Text>
+            <Button label="봇 2명과 체험하기" color="secondary" loading={isPending} onPress={() => handleCreate(true)} />
+          </View>
+        )}
         <StepperField label="인원" value={playerCountMax} min={playerMin} max={12} onChange={setPlayerCountMax} />
         {mode === 1 && <StepperField label="턴" value={roundCount} min={1} max={5} onChange={setRoundCount} />}
         <StepperField label="타이머" value={drawTimer} min={40} max={90} step={5} onChange={setDrawTimer} />
@@ -114,7 +125,7 @@ export default function RoomCreateScreen() {
             color="primary"
             loading={isPending}
             disabled={!penaltyForm.isValid || (locked && !password.trim()) || categories.length === 0}
-            onPress={handleCreate}
+            onPress={() => handleCreate()}
           />
         </View>
       </ScrollView>

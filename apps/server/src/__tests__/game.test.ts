@@ -232,7 +232,7 @@ describe('stroke auth (DRAW-03)', () => {
     mockGetRoomState.mockResolvedValueOnce(makeStrokeRoomState());
 
     const { socket, emitSpy } = makeStrokeSocket('userB'); // 비출제자
-    await handleStrokeStart({} as any, socket as any, { strokeId: 's1', color: '#000', width: 8 });
+    await handleStrokeStart({} as any, socket as any, { strokeId: 's1', color: '#000000', width: 8 });
 
     expect(emitSpy).not.toHaveBeenCalled();
   });
@@ -241,14 +241,14 @@ describe('stroke auth (DRAW-03)', () => {
     mockGetRoomState.mockResolvedValueOnce(makeStrokeRoomState());
 
     const { socket, emitSpy } = makeStrokeSocket('userA'); // 출제자
-    await handleStrokeStart({} as any, socket as any, { strokeId: 's1', color: '#000', width: 8 });
+    await handleStrokeStart({} as any, socket as any, { strokeId: 's1', color: '#000000', width: 8 });
 
     expect(socket.to).toHaveBeenCalledWith('room:ABC123');
     expect(emitSpy).toHaveBeenCalledTimes(1);
     expect(emitSpy).toHaveBeenCalledWith('stroke:remote', {
       strokeId: 's1',
       authorId: 'userA',
-      color: '#000',
+      color: '#000000',
       width: 8,
     });
   });

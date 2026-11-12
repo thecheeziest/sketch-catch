@@ -27,49 +27,65 @@ import {
 } from '../services/rooms.service.js';
 import { toPlayerProfile } from '../lib/playerProfile.js';
 import { getBlockRelatedIds, hasBlockedMember } from '../services/moderation.service.js';
-import { setPresence, setUserRoom } from '../db/redis.js';
+import { getUserRoom, setPresence, setUserRoom } from '../db/redis.js';
 import { runInRoom } from '../services/roomQueue.js';
 import { countSeatedPlayers } from '../services/roomRules.js';
 import { broadcastPresenceUpdate } from '../socket/presence.namespace.js';
 import { prisma } from '../db/prisma.js';
 import { logger } from '../lib/logger.js';
+import { canUseReviewRoom } from '../services/reviewRooms.js';
+import { destroyRoom } from '../socket/handlers/award.js';
 
 export const roomsRoutes: FastifyPluginAsync = async (app) => {
   app.post('/rooms', { preHandler: authenticate }, async (req, reply) => {
     const parsed = createRoomSchema.safeParse(req.body);
     if (!parsed.success) return reply.status(400).send({ error: 'INVALID_INPUT' });
+    if (parsed.data.review && !canUseReviewRoom(req.userId!)) {
+      return reply.status(403).send({ error: 'FORBIDDEN' });
+    }
 
     const { mode, playerCountMax, roundCount, drawTimer, answerTimer, categories, title, locked, password, penalty } =
       parsed.data;
     if (penalty && !isPenaltyTextClean(penalty.text)) return reply.status(400).send({ error: 'PROFANE_PENALTY' });
 
     try {
-      const user = await prisma.user.findUnique({ where: { id: req.userId! } });
-      if (!user) return reply.status(401).send({ error: 'USER_NOT_FOUND' });
+      return await runInRoom(`create:${req.userId!}`, async () => {
+        const user = await prisma.user.findUnique({ where: { id: req.userId! } });
+        if (!user) return reply.status(401).send({ error: 'USER_NOT_FOUND' });
 
-      const defaultTitle = title ?? `${user.nickname}님의 방`;
+        const defaultTitle = title ?? `${user.nickname}님의 방`;
+        if (parsed.data.review) {
+          const previousCode = await getUserRoom(req.userId!);
+          if (previousCode) {
+            await runInRoom(previousCode, async () => {
+              const previous = await getRoomState(previousCode);
+              if (previous?.reviewOwnerId === req.userId) await destroyRoom(previousCode);
+            });
+          }
+        }
 
-      const state = await createRoom({
-        hostId: req.userId!,
-        userIds: [req.userId!],
-        config: { roundCount, drawTimer, answerTimer: answerTimer ?? 10, categories, playerCountMax, penalty },
-        title: defaultTitle,
-        locked,
-        password,
-        mode,
-        userMeta: {
-          [req.userId!]: toPlayerProfile(user),
-        },
+        const state = await createRoom({
+          hostId: req.userId!,
+          reviewOwnerId: parsed.data.review ? req.userId : undefined,
+          userIds: [req.userId!],
+          config: parsed.data.review
+            ? { roundCount: 1, drawTimer: 40, answerTimer: 15, categories: ['ANIMAL'], playerCountMax: 3 }
+            : { roundCount, drawTimer, answerTimer: answerTimer ?? 10, categories, playerCountMax, penalty },
+          title: parsed.data.review ? '봇 2명과 체험하기' : defaultTitle,
+          locked,
+          password,
+          mode,
+          userMeta: {
+            [req.userId!]: toPlayerProfile(user),
+          },
+        });
+
+        // 소켓 연결 전에 presence를 즉시 설정
+        await Promise.all([setPresence(req.userId!, 'IN_LOBBY'), setUserRoom(req.userId!, state.code)]);
+        broadcastPresenceUpdate(req.userId!, 'IN_LOBBY');
+
+        return reply.status(201).send({ code: state.code });
       });
-
-      // 소켓 연결 전에 presence를 즉시 설정 — 이전 게임의 IN_GAME 상태를 덮어씀
-      await Promise.all([
-        setPresence(req.userId!, 'IN_LOBBY'),
-        setUserRoom(req.userId!, state.code),
-      ]);
-      broadcastPresenceUpdate(req.userId!, 'IN_LOBBY');
-
-      return reply.status(201).send({ code: state.code });
     } catch (err) {
       logger.error({ err }, 'POST /rooms failed');
       return reply.status(500).send({ error: 'INTERNAL' });
@@ -86,6 +102,7 @@ export const roomsRoutes: FastifyPluginAsync = async (app) => {
       const state = await getRoomState(code);
       if (!state) return reply.status(404).send({ error: 'ROOM_NOT_FOUND' });
       if (state.hostId !== req.userId) return reply.status(403).send({ error: 'FORBIDDEN' });
+      if (state.reviewOwnerId) return reply.status(403).send({ error: 'REVIEW_ROOM_FIXED' });
       // 진행 중인 게임의 설정(라운드 수·타이머 등)이 바뀌면 진행 로직이 깨지므로 대기실에서만 허용
       if (state.status !== 'LOBBY') return reply.status(409).send({ error: 'GAME_IN_PROGRESS' });
 
@@ -147,6 +164,9 @@ export const roomsRoutes: FastifyPluginAsync = async (app) => {
 
     const state = await getRoomState(codeParsed.data);
     if (!state) return reply.status(404).send({ error: 'ROOM_NOT_FOUND' });
+    if (state.reviewOwnerId && state.reviewOwnerId !== req.userId) {
+      return reply.status(404).send({ error: 'ROOM_NOT_FOUND' });
+    }
     // 차단 관계인 사람이 있는 방은 초대로도 들어갈 수 없다 — 차단 사실은 드러내지 않는다
     if (hasBlockedMember(state, await getBlockRelatedIds(req.userId!))) {
       return reply.status(403).send({ error: 'ROOM_UNAVAILABLE' });
@@ -176,6 +196,9 @@ export const roomsRoutes: FastifyPluginAsync = async (app) => {
 
     const state = await getRoomState(codeParsed.data);
     if (!state) return reply.status(404).send({ error: 'ROOM_NOT_FOUND' });
+    if (state.reviewOwnerId && state.reviewOwnerId !== req.userId) {
+      return reply.status(404).send({ error: 'ROOM_NOT_FOUND' });
+    }
     // 진행 중·시상식 중인 방은 입장 불가 — 소켓 입장 단계에서도 거부하지만 화면 이동 전에 미리 알린다
     if (state.status !== 'LOBBY') return reply.status(409).send({ error: 'GAME_IN_PROGRESS' });
     if (hasBlockedMember(state, await getBlockRelatedIds(req.userId!))) {

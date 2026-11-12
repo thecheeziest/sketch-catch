@@ -5,7 +5,7 @@ import { useUnregisterPushToken } from '@/features/push/api/useUnregisterPushTok
 import { usePushPreferenceStore } from '@/features/push/model/usePushPreferenceStore';
 import { DeleteAccountModal } from '@/features/profile/ui';
 import { BlockedUsersDialog } from '@/features/moderation';
-import { colors, spacing, textSizes } from '@/shared/config';
+import { colors, POLICY_URL, spacing, textSizes } from '@/shared/config';
 import { useFeedbackStore } from '@/shared/model/feedback';
 import { playFeedback } from '@/shared/lib/feedback';
 import { Button, Icon, PlatformBadge } from '@/shared/ui';
@@ -186,6 +186,20 @@ export default function SettingsScreen() {
             </View>
           </View>
           <View sx={sxStyles.divider} />
+          {POLICY_LINKS.map(link => (
+            <FeedbackPressable
+              key={link.url}
+              accessibilityRole="link"
+              onPress={() => Linking.openURL(link.url)}
+              style={({ pressed }) => [styles.linkRow, pressed && { opacity: 0.7 }]}
+            >
+              <Text variants={['B2']} sx={{ color: colors.LIGHT_100 }}>
+                {link.label}
+              </Text>
+              <Icon name="CHEVRON_RIGHT" size={16} />
+            </FeedbackPressable>
+          ))}
+          <View sx={sxStyles.divider} />
           {user ? (
             <>
               <Button label="차단 목록" color="dark" onPress={() => setBlockedOpen(true)} />
@@ -217,8 +231,20 @@ export default function SettingsScreen() {
   );
 }
 
+const POLICY_LINKS = [
+  { label: '이용약관', url: POLICY_URL.TERMS },
+  { label: '개인정보처리방침', url: POLICY_URL.PRIVACY },
+  { label: '고객 지원', url: POLICY_URL.SUPPORT },
+] as const;
+
 const styles = StyleSheet.create({
   iconBtn: { width: 40, height: 40, alignItems: 'center', justifyContent: 'center' },
+  linkRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingVertical: spacing.SM,
+  },
 });
 
 const sxStyles = {

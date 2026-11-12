@@ -25,6 +25,7 @@ async function settleAll(
   linesOf: (userId: string, finisherCount: number) => CoinRewardLine[],
 ): Promise<void> {
   const gameId = state.gameId;
+  if (state.reviewOwnerId) return;
   if (!gameId) return;
   const finishers = state.players.filter(p => !p.left);
   if (!isRewardEligible(finishers.length)) return;

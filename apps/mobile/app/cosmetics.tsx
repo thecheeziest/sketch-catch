@@ -1,7 +1,8 @@
 import { useEffect, useRef, useState } from 'react';
 import { useLocalSearchParams, useNavigation, useRouter } from 'expo-router';
 import { Text, View } from 'dripsy';
-import { StyleSheet, useWindowDimensions } from 'react-native';
+import { StyleSheet } from 'react-native';
+import { useAppDimensions } from '@/shared/lib/useAppDimensions';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import {
   CoinRainTransition,
@@ -29,7 +30,7 @@ const GRID_GAP = 14;
 export default function CosmeticsScreen() {
   const router = useRouter();
   const params = useLocalSearchParams<{ view?: string }>();
-  const { width } = useWindowDimensions();
+  const { width } = useAppDimensions();
   const [initialView] = useState(() => parseCosmeticsView(params.view));
   const shop = useShopScreen(initialView);
   const navigation = useNavigation();

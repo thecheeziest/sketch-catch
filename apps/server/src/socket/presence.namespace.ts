@@ -10,7 +10,7 @@ import { PRESENCE_NAMESPACE, UPDATE_REQUIRED_CODE } from '@sketch-catch/shared';
 import { verifyAccessToken } from '../auth/jwt.js';
 import { isOutdatedClient } from '../lib/appVersion.js';
 import { getPresence, getUserRoom, setPresence } from '../db/redis.js';
-import { getFriendRoomView } from '../services/friends.service.js';
+import { getFriendIds, getFriendRoomView } from '../services/friends.service.js';
 
 import { handleRoomLeave } from './handlers/room.js';
 import { getRoomState } from '../services/rooms.service.js';
@@ -79,10 +79,14 @@ export function registerPresenceNamespace(io: Server): void {
       void refresh().catch(err => console.error('[presence] refresh failed', err));
     }, 60_000);
 
-    socket.on('presence:subscribe', ({ friendIds }) => {
-      console.log(`[presence] ${userId} subscribing to`, friendIds);
+    // 실제 친구만 구독 가능 — 남의 접속 상태·방 정보를 엿보지 못하게 서버에서 걸러낸다
+    socket.on('presence:subscribe', payload => {
+      const requested = payload?.friendIds;
+      if (!Array.isArray(requested)) return;
       void (async () => {
-        for (const friendId of friendIds) {
+        const friendIds = await getFriendIds(userId);
+        for (const friendId of requested) {
+          if (typeof friendId !== 'string' || !friendIds.has(friendId)) continue;
           await socket.join(`presence_of:${friendId}`);
           // 구독 즉시 현재 상태 전송 — 이전 broadcast를 놓쳤더라도 최신 값(room 포함) 수신
           const baseStatus = await getPresence(friendId);
@@ -90,7 +94,7 @@ export function registerPresenceNamespace(io: Server): void {
           socket.emit('presence:update', { userId: friendId, status: presenceStatus, room });
           console.log(`[presence] snapshot sent: ${friendId} → ${presenceStatus}`);
         }
-      })();
+      })().catch(err => console.error('[presence] subscribe failed', err));
     });
 
     socket.on('disconnect', () => {

@@ -9,3 +9,4 @@ export { useHardwareBack } from './useHardwareBack';
 export { usePullToRefresh } from './usePullToRefresh';
 export { buildStrokePath } from './strokePath';
 export { copyToClipboard } from './useCopyToClipboard';
+export { useAppDimensions } from './useAppDimensions';

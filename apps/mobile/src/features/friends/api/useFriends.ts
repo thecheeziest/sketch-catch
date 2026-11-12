@@ -11,7 +11,7 @@ export function useFriends({ subscribed = true }: Options = {}) {
   return useQuery<Friend[]>({
     queryKey: ['friends'],
     queryFn: () => apiGet<Friend[]>('/friends'),
-    refetchInterval: 5_000,
+    refetchInterval: 30_000,
     subscribed,
   });
 }

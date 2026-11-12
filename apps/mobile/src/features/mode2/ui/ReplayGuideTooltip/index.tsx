@@ -36,7 +36,8 @@ export function ReplayGuideTooltip({ onClose }: Props) {
       <FeedbackPressable feedback="cancel" onPress={onClose} accessibilityRole="button" accessibilityHint="안내 닫기">
         <PixelSpeechBubble
           tail="up"
-          numberOfLines={3}
+          numberOfLines={0}
+          shrinkToFit={false}
           background={resultOverlay.GOLD.BG}
           textColor={resultOverlay.GOLD.FG}
           text={'캐릭터를 누르면 발표식을 다시 볼 수 있어요!\n저장 아이콘으로 GIF도 저장해 보세요'}

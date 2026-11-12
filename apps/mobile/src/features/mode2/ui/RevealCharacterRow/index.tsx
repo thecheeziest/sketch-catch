@@ -1,5 +1,6 @@
 import { ScrollView, View } from 'dripsy';
-import { StyleSheet, useWindowDimensions } from 'react-native';
+import { StyleSheet } from 'react-native';
+import { useAppDimensions } from '@/shared/lib/useAppDimensions';
 import type { Player } from '@sketch-catch/shared';
 import { spacing } from '@/shared/config';
 import { FeedbackPressable } from '@/shared/ui/FeedbackPressable';
@@ -27,7 +28,7 @@ const CELL_MARGIN = 3;
 
 // 정답 공개식 상단 — 참가자 전원 + 맨 오른쪽 GIF 저장 아이콘
 export function RevealCharacterRow({ players, myId, highlightedId, selectable, onSelect, saveState, onSave }: Props) {
-  const { width } = useWindowDimensions();
+  const { width } = useAppDimensions();
   const available = width - spacing.MD * 2 - SAVE_SLOT_WIDTH;
   const cellWidth = Math.min(MAX_CELL_WIDTH, Math.floor(available / Math.max(1, players.length)) - CELL_MARGIN * 2);
 

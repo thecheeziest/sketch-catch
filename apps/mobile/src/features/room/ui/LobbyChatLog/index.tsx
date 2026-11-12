@@ -15,14 +15,23 @@ type Props = {
   chatStyleOf: (message: ChatMessage) => string | null;
   /** 말풍선 길게 누르기 (차단·신고) — 내 메시지는 호출부에서 거른다 */
   onLongPressMessage?: (message: ChatMessage) => void;
+  /** 키보드가 올라왔을 때 — 최신 말풍선 1개만 내용 높이로 보여 준다 */
+  compact?: boolean;
 };
 
 const CHIP_SIZE = 16;
 
 // 대기실 채팅 로그 — 왼쪽 상단부터 아래에서 위로 쌓이고, 시간이 지나도 사라지지 않고 스크롤로 이어진다.
 // inverted 리스트라 데이터는 최신이 앞에 오도록 뒤집어 넘긴다.
-export function LobbyChatLog({ messages, characterIdOf, chatColorOf, chatStyleOf, onLongPressMessage }: Props) {
-  const data = [...messages].reverse();
+export function LobbyChatLog({
+  messages,
+  characterIdOf,
+  chatColorOf,
+  chatStyleOf,
+  onLongPressMessage,
+  compact = false,
+}: Props) {
+  const data = compact ? messages.slice(-1) : [...messages].reverse();
 
   const renderItem: ListRenderItem<ChatMessage> = ({ item }) => {
     const characterId = characterIdOf(item);
@@ -65,7 +74,8 @@ export function LobbyChatLog({ messages, characterIdOf, chatColorOf, chatStyleOf
       data={data}
       keyExtractor={item => item.id}
       renderItem={renderItem}
-      style={styles.list}
+      style={compact ? styles.compactList : styles.list}
+      scrollEnabled={!compact}
       contentContainerStyle={styles.content}
       showsVerticalScrollIndicator={false}
       keyboardShouldPersistTaps="handled"
@@ -75,6 +85,7 @@ export function LobbyChatLog({ messages, characterIdOf, chatColorOf, chatStyleOf
 
 const styles = StyleSheet.create({
   list: { flex: 1, minHeight: 96 },
+  compactList: { flexGrow: 0 },
   content: { gap: 6, paddingHorizontal: 16, paddingVertical: 8 },
   row: { alignSelf: 'flex-start', maxWidth: '80%' },
 });

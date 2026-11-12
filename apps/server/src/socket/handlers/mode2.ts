@@ -30,6 +30,7 @@ import { clearRoomTimer, setRoomTimer } from '../../services/roomTimers.js';
 import { recordMode2Submit } from '../../services/coin.service.js';
 import { startMode2Review } from './mode2-review.js';
 import { endGame } from './game.js';
+import { scheduleReviewSteps } from './reviewBots.js';
 
 type GameNamespace = Namespace<ClientEvents, ServerEvents>;
 type Mode2Socket = { data: { userId: string }; rooms: Set<string> };
@@ -220,6 +221,7 @@ function restingPlayerIds(state: RoomState, payloads: Mode2Step[]): string[] {
 // 시트마다 strokes가 실려 방 전체 broadcast는 N배의 전송량이 된다.
 function emitSteps(game: GameNamespace, state: RoomState, current: Mode2Current): void {
   const payloads = buildStepPayloads(state, current);
+  scheduleReviewSteps(game, state, payloads);
   for (const payload of payloads) {
     game.to(`user:${payload.assigneeId}`).emit('mode2:step', payload);
   }

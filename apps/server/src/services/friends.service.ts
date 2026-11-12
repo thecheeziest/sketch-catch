@@ -197,6 +197,15 @@ export async function getFriendRoomView(
   return { presenceStatus, room };
 }
 
+// 친구 userId 목록 — presence 구독을 실제 친구로만 제한할 때 쓴다
+export async function getFriendIds(userId: string): Promise<Set<string>> {
+  const friendships = await prisma.friendship.findMany({
+    where: { OR: [{ userAId: userId }, { userBId: userId }] },
+    select: { userAId: true, userBId: true },
+  });
+  return new Set(friendships.map(f => (f.userAId === userId ? f.userBId : f.userAId)));
+}
+
 export async function getFriends(userId: string): Promise<FriendEntry[]> {
   const friendships = (await prisma.friendship.findMany({
     where: { OR: [{ userAId: userId }, { userBId: userId }] },

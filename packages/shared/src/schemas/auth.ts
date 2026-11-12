@@ -18,9 +18,15 @@ export const refreshSchema = z.object({
   refreshToken: z.string().min(1),
 });
 
+// 회원 탈퇴 — Apple 로그인 계정은 연결 해제용 일회용 authorization code를 함께 보낸다
+export const deleteMeSchema = z.object({
+  appleAuthorizationCode: z.string().min(1).max(4096).optional(),
+});
+
 export type KakaoLoginInput = z.infer<typeof kakaoLoginSchema>;
 export type AppleLoginInput = z.infer<typeof appleLoginSchema>;
 export type RefreshInput = z.infer<typeof refreshSchema>;
+export type DeleteMeInput = z.infer<typeof deleteMeSchema>;
 
 // 자체 JWT 응답 (POST /auth/kakao, POST /auth/apple)
 export const authSuccessResponseSchema = z.object({

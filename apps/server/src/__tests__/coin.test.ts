@@ -34,6 +34,24 @@ const {
 
 const total = (lines: { amount: number }[]): number => lines.reduce((sum, l) => sum + l.amount, 0);
 
+describe('심사 체험방 보상 차단', () => {
+  it.each([1, 2] as const)('모드 %s 체험은 코인 원장과 잔액을 변경하지 않는다', async mode => {
+    vi.clearAllMocks();
+    const { settleMode1Rewards, settleMode2Rewards } = await import('../socket/handlers/coinReward.js');
+    const state: RoomState = {
+      code: 'ABC123', hostId: 'reviewer', reviewOwnerId: 'reviewer', mode, status: 'AWARD',
+      players: [], config: { roundCount: 1, drawTimer: 40, answerTimer: 15, categories: ['ANIMAL'], playerCountMax: 3 },
+      scoreboard: {}, current: null, gameId: 'review-game',
+    };
+    const game = { to: vi.fn() };
+    if (mode === 1) await settleMode1Rewards(game as never, state, []);
+    else await settleMode2Rewards(game as never, state);
+    expect(db.user.update).not.toHaveBeenCalled();
+    expect(db.coinLedger.create).not.toHaveBeenCalled();
+    expect(game.to).not.toHaveBeenCalled();
+  });
+});
+
 describe('computeMode1Lines', () => {
   it('완주 + 정답·그림 횟수 + 순위 보너스를 합산한다', () => {
     const stats = { ...createCoinStats(), correct: { a: 3 }, solved: { a: 2 } };

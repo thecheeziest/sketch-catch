@@ -72,6 +72,8 @@ const { startMode2, handleMode2Prompt, handleMode2DrawDone, handleMode2Answer, c
 const { clearRoomTimers } = await import('../services/roomTimers.js');
 const { handleRematch } = await import('../socket/handlers/award.js');
 const { handleStrokeFill, handleStrokeStart, handleStrokeAppend } = await import('../socket/handlers/stroke.js');
+const { createReviewBots } = await import('../services/reviewRooms.js');
+const { makeReviewDrawing } = await import('../services/reviewDrawings.js');
 
 const CODE = 'ABC123';
 const ROOM = `room:${CODE}`;
@@ -142,6 +144,112 @@ const eventsOf = (ns: ReturnType<typeof makeNamespace>, event: string) =>
 async function startGame(ns: ReturnType<typeof makeNamespace>) {
   await runInRoom(CODE, () => handleRoomStart(ns as never, makeSocket('u1') as never));
 }
+
+describe('봇 체험방 게임 진행', () => {
+  beforeEach(() => {
+    store.clear();
+    reviewStore.clear();
+    vi.clearAllMocks();
+    vi.useFakeTimers();
+  });
+  afterEach(() => { clearRoomTimers(CODE); vi.useRealTimers(); });
+
+  const seedReview = (mode: 1 | 2): void => seedLobby({
+    mode,
+    reviewOwnerId: 'u1',
+    players: [makePlayer('u1', 0), ...createReviewBots(CODE)],
+    config: { roundCount: 1, drawTimer: 40, answerTimer: 15, categories: ['ANIMAL'], playerCountMax: 3 },
+  });
+
+  it('모드1에서 사람 그림을 맞히고 봇 그림을 전송한 뒤 시상식·다시하기까지 진행한다', async () => {
+    seedReview(1);
+    const ns = makeNamespace();
+    await startGame(ns);
+    const drawer = { ...makeSocket('u1'), to: ns.to };
+    await handleStrokeStart(ns as never, drawer as never, { strokeId: 'human', color: '#000000', width: 0.01 });
+    await handleStrokeAppend(ns as never, drawer as never, { strokeId: 'human', points: [{ x: 0.3, y: 0.3, t: 0 }, { x: 0.5, y: 0.5, t: 50 }] });
+    await vi.advanceTimersByTimeAsync(13_000);
+    expect(readState().status).toBe('MODE1_ROUND_END');
+    expect(ns.emitted.some(e => e.event === 'chat:correct')).toBe(true);
+    await vi.advanceTimersByTimeAsync(100_000);
+    expect(readState().status).toBe('AWARD');
+    expect(ns.emitted.some(e => e.event === 'stroke:remote' && (e.payload as { authorId: string }).authorId.startsWith('review-bot-'))).toBe(true);
+    await handleRematch(ns as never, makeSocket('u1'));
+    expect(readState().status).toBe('LOBBY');
+    expect(readState().allReady).toBe(true);
+    expect(readState().players.filter(p => p.isBot).every(p => p.isReady && !p.inAward)).toBe(true);
+    await startGame(ns);
+    expect(readState().status).toBe('MODE1_ROUND_START');
+  });
+
+  it('모드2의 모든 글·그림 차례와 공개식·GIF 기록·다시하기를 완료한다', async () => {
+    seedReview(2);
+    const ns = makeNamespace();
+    await startGame(ns);
+    for (let step = 0; step < 6; step++) {
+      await vi.advanceTimersByTimeAsync(10_000);
+      const current = readState().current as import('../socket/handlers/mode2.js').Mode2Current;
+      expect(current.step).toBe(step);
+      expect(current.submitted).toHaveLength(2);
+      const sheetId = Object.entries(current.assignments!).find(([, playerId]) => playerId === 'u1')![0];
+      const actor = makeSocket('u1');
+      if (current.phase === 'PROMPT') {
+        await handleMode2Prompt(ns as never, actor, { sheetId, text: '토끼' });
+      } else if (current.phase === 'DRAW') {
+        await handleMode2DrawDone(ns as never, actor, { sheetId, strokes: makeReviewDrawing('u1', '토끼') });
+      } else {
+        await handleMode2Answer(ns as never, actor, { sheetId, text: '고양이' });
+      }
+    }
+    expect(readState().status).toBe('MODE2_REVIEW');
+    expect(reviewStore.get(CODE)).toHaveLength(3);
+    expect(reviewStore.get(CODE)!.every(sheet => sheet.steps.length === 6)).toBe(true);
+    const { saveReplays } = await import('../services/replay.service.js');
+    expect(saveReplays).toHaveBeenCalled();
+    await vi.advanceTimersByTimeAsync(300_000);
+    expect(readState().status).toBe('AWARD');
+    await handleRematch(ns as never, makeSocket('u1'));
+    expect(readState().allReady).toBe(true);
+    await startGame(ns);
+    expect(readState().status).toBe('MODE2_PROMPT_PHASE');
+  });
+
+  it('다른 유저는 체험방 코드를 알아도 소켓으로 입장할 수 없다', async () => {
+    seedReview(1);
+    const intruder = makeSocket('u2', []);
+    await handleRoomJoin(makeNamespace() as never, intruder as never, CODE);
+    expect(intruder.join).not.toHaveBeenCalled();
+    expect(intruder.emit).toHaveBeenCalledWith('error', expect.objectContaining({ code: 'ROOM_NOT_FOUND' }));
+  });
+
+  it('체험방에서 나가면 봇과 방 타이머를 함께 정리한다', async () => {
+    seedReview(1);
+    const ns = makeNamespace();
+    await startGame(ns);
+    await handleRoomLeave(ns as never, makeSocket('u1'));
+    expect(store.has(CODE)).toBe(false);
+    ns.emitted.length = 0;
+    await vi.advanceTimersByTimeAsync(60_000);
+    expect(ns.emitted).toHaveLength(0);
+  });
+
+  it('체험방의 봇에게 방장을 넘길 수 없다', async () => {
+    seedReview(1);
+    const socket = makeSocket('u1');
+    await handleRoomHostTransfer(makeNamespace() as never, socket as never, createReviewBots(CODE)[0]!.id);
+    expect(readState().hostId).toBe('u1');
+    expect(socket.emit).toHaveBeenCalledWith('error', expect.objectContaining({ code: 'INVALID_TARGET' }));
+  });
+
+  it('모드2 재접속 유예가 끝나면 사람이 없는 체험방을 정리한다', async () => {
+    seedReview(2);
+    const ns = makeNamespace();
+    await startGame(ns);
+    await handleRoomLeave(ns as never, makeSocket('u1'), undefined, { graceful: true });
+    await vi.advanceTimersByTimeAsync(60_000);
+    expect(store.has(CODE)).toBe(false);
+  });
+});
 
 describe('게임 세션·동시성', () => {
   beforeEach(() => {

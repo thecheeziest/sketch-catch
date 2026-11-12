@@ -1,8 +1,9 @@
 import type { FastifyPluginAsync } from 'fastify';
 import { z } from 'zod';
-import { updateMeSchema, onboardingSchema } from '@sketch-catch/shared';
+import { updateMeSchema, onboardingSchema, deleteMeSchema } from '@sketch-catch/shared';
 import { prisma } from '../db/prisma.js';
-import { redis } from '../db/redis.js';
+import { revokeSession } from '../auth/session.js';
+import { revokeAppleAuthorization } from '../auth/appleRevoke.js';
 import { authenticate } from '../middleware/authenticate.js';
 import { updateMe, onboard, deleteMe, NicknameCooldownError, UserNotFoundError } from '../services/me.service.js';
 import { NicknameCodeConflictError } from '../services/user.service.js';
@@ -110,9 +111,13 @@ export const meRoutes: FastifyPluginAsync = async (app) => {
 
   app.delete('/me', { preHandler: authenticate }, async (request, reply) => {
     const userId = request.userId!;
+    const parsed = deleteMeSchema.safeParse(request.body ?? {});
+    if (!parsed.success) return reply.status(400).send({ error: 'INVALID_INPUT' });
     try {
+      // Apple 연결 해제는 실패해도 탈퇴를 막지 않는다 (결과는 로그로만 남긴다)
+      if (parsed.data.appleAuthorizationCode) await revokeAppleAuthorization(parsed.data.appleAuthorizationCode);
       await deleteMe(userId);
-      await redis.del(`session:${userId}`);
+      await revokeSession(userId);
       return reply.send({ ok: true });
     } catch (err) {
       logger.error({ err }, 'DELETE /me failed');

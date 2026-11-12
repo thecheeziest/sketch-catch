@@ -1,6 +1,7 @@
 import { useMemo } from 'react';
 import { View } from 'dripsy';
-import { StyleSheet, useWindowDimensions } from 'react-native';
+import { StyleSheet } from 'react-native';
+import { useAppDimensions } from '@/shared/lib/useAppDimensions';
 import { Canvas, Picture, Skia, createPicture, type SkCanvas } from '@shopify/react-native-skia';
 import Animated, { Easing, interpolate, useAnimatedStyle } from 'react-native-reanimated';
 import { CURTAIN_PALETTE } from '../../config/pixelArt';
@@ -50,7 +51,7 @@ function drawCurtain(canvas: SkCanvas, width: number, height: number): void {
 // 샵 → 옷장 전환: 픽셀 커튼이 오른쪽에서 왼쪽으로 닫혔다가 다시 오른쪽으로 걷힌다.
 // startCovered면 닫힌 채로 시작해 ready가 될 때까지 기다린다 (옷장 진입 로딩)
 export function CurtainTransition({ startCovered, ready, onCovered, onDone, children }: CoverTransitionProps) {
-  const { width, height } = useWindowDimensions();
+  const { width, height } = useAppDimensions();
   const curtainWidth = width + EDGE;
   const picture = useMemo(
     () => createPicture(canvas => drawCurtain(canvas, curtainWidth, height), { width: curtainWidth, height }),
