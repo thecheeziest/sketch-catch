@@ -125,6 +125,9 @@ export function apiPatch<T>(url: string, body?: unknown): Promise<T> {
   });
 }
 
-export function apiDelete(url: string): Promise<void> {
-  return request<void>(url, { method: 'DELETE' });
+export function apiDelete(url: string, body?: unknown): Promise<void> {
+  return request<void>(url, {
+    method: 'DELETE',
+    body: body !== undefined ? JSON.stringify(body) : undefined,
+  });
 }

@@ -39,7 +39,7 @@ export function ensureHost(state: RoomState, departedPlayers: Player[] = []): vo
 export function transferHost(state: RoomState, targetId: string): boolean {
   if (targetId === state.hostId) return false;
   const next = state.players.find(p => p.id === targetId && !p.left && !p.inAward);
-  if (!next) return false;
+  if (!next || next.isBot) return false;
 
   setHost(
     state,
@@ -84,7 +84,7 @@ export function resetToLobby(state: RoomState): void {
   delete state.awardEndsAt;
   delete state.coinStats;
   for (const p of state.players) {
-    p.isReady = false;
+    p.isReady = p.isBot === true;
     delete p.inAward;
     delete p.left;
   }

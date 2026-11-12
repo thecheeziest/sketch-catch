@@ -83,6 +83,12 @@ describe('방 찾기 목록', () => {
     vi.useFakeTimers({ toFake: ['Date'] });
   });
 
+  it('심사 체험방은 인덱스에 남아 있어도 일반 목록에서 제외한다', async () => {
+    const state = await makeRoom({ at: BASE });
+    await saveRoomState({ ...state, reviewOwnerId: state.hostId });
+    expect(await listRooms()).toEqual([]);
+  });
+
   it('차단 관계인 사람이 있는 방은 목록에서 빠진다 (시상식 잔류자 포함)', async () => {
     const visible = await makeRoom({ at: BASE });
     const withBlocked = await makeRoom({ at: BASE + 1 });

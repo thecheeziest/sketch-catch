@@ -23,6 +23,7 @@ export type UserPrivate = UserPublic &
     nicknameChangedAt: string | null;
     coins: number;
     ownedItemIds: string[]; // 보유 아이템 (캐릭터 포함)
+    reviewAccess?: boolean;
   };
 
 export type FriendStatus = 'ONLINE' | 'OFFLINE' | 'IN_GAME';

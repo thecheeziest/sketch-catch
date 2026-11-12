@@ -81,7 +81,8 @@ export async function finishAward(game: GameNamespace, code: string, expectedGam
   compactSlots(state);
   const viewers = new Set(remaining.filter(p => p.inAward).map(p => p.id));
   resetToLobby(state);
-  for (const p of remaining) p.inAward = viewers.has(p.id);
+  for (const p of remaining) p.inAward = !p.isBot && viewers.has(p.id);
+  if (state.reviewOwnerId) state.allReady = true;
   // 방장이 시상식에 남아 있으면 그대로 — 나가기를 누른 경우에만 가장 먼저 대기실로 온 유저가 승계한다
   ensureHost(state, removed);
   await saveRoomState(state);

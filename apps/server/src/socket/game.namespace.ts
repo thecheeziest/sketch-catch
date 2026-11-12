@@ -36,6 +36,8 @@ declare module 'socket.io' {
 type GameNamespace = Namespace<ClientEvents, ServerEvents>;
 type GameSocket = Socket<ClientEvents, ServerEvents>;
 
+const MAX_ROOM_CODE_LENGTH = 16;
+
 function roomCodesOf(socket: GameSocket): string[] {
   return Array.from(socket.rooms)
     .filter(r => r.startsWith('room:'))
@@ -76,11 +78,16 @@ export function registerGameNamespace(io: Server<ClientEvents, ServerEvents>): v
     // 현재 소켓이 속한 방의 작업 줄에서 실행 (방에 없으면 핸들러가 스스로 무시한다)
     const inRoom = (event: string, task: () => Promise<void>): void => run(socket, event, roomCodesOf(socket), task);
 
-    socket.on('room:join', ({ code, resume }) =>
-      run(socket, 'room:join', [code], () => handleRoomJoin(game, socket, code, resume === true)),
-    );
+    // payload 구조분해는 리스너 안에서 동기로 터지면 프로세스가 종료되므로 옵셔널 체이닝으로만 읽는다
+    socket.on('room:join', payload => {
+      const code = payload?.code;
+      if (typeof code !== 'string' || code.length === 0 || code.length > MAX_ROOM_CODE_LENGTH) return;
+      run(socket, 'room:join', [code], () => handleRoomJoin(game, socket, code, payload?.resume === true));
+    });
     socket.on('room:leave', () => inRoom('room:leave', () => handleRoomLeave(game, socket)));
-    socket.on('room:ready', ({ ready }) => inRoom('room:ready', () => handleRoomReady(game, socket, ready)));
+    socket.on('room:ready', payload =>
+      inRoom('room:ready', () => handleRoomReady(game, socket, payload?.ready === true)),
+    );
     socket.on('room:nudge', () => inRoom('room:nudge', () => handleRoomNudge(game, socket)));
     socket.on('room:start', () => inRoom('room:start', () => handleRoomStart(game, socket)));
     socket.on('room:host:transfer', payload =>

@@ -6,6 +6,7 @@ import type { Prisma } from '@prisma/client';
 import type { Mode2StepContent } from '@sketch-catch/shared';
 import { prisma } from '../db/prisma.js';
 import { redis } from '../db/redis.js';
+import { createReviewBots } from './reviewRooms.js';
 import type { RevealGifPlayer, RevealToGifOptions } from './gif.service.js';
 
 export type ReplaySheet = {
@@ -116,12 +117,13 @@ function writeCache(replayId: string, buf: Buffer): void {
   }
 }
 
-async function renderReplay(replayId: string, steps: Mode2StepContent[], participantIds: string[]): Promise<Buffer> {
+async function renderReplay(replayId: string, steps: Mode2StepContent[], participantIds: string[], roomCode: string): Promise<Buffer> {
   const users = await prisma.user.findMany({
     where: { id: { in: participantIds } },
     select: { id: true, nickname: true, characterId: true },
   });
   const players: RevealGifPlayer[] = users.map(u => ({ id: u.id, nickname: u.nickname, characterId: u.characterId }));
+  players.push(...createReviewBots(roomCode).filter(bot => participantIds.includes(bot.id)));
   const buf = await gifQueue.add(() => spawnGifWorker({ steps, players }));
   writeCache(replayId, buf);
   return buf;
@@ -138,9 +140,15 @@ export async function getReplayGif(sheetId: string): Promise<Buffer | null> {
   const pending = inFlight.get(replay.id);
   if (pending) return pending;
 
-  const task = renderReplay(replay.id, replay.steps as unknown as Mode2StepContent[], replay.participantIds).finally(
+  const task = renderReplay(replay.id, replay.steps as unknown as Mode2StepContent[], replay.participantIds, replay.roomCode).finally(
     () => inFlight.delete(replay.id),
   );
   inFlight.set(replay.id, task);
   return task;
+}
+
+// 보관 기간(30분)이 지난 다시보기 행 삭제 — 그림 데이터가 커서 남겨 두면 DB 용량을 계속 차지한다
+export async function deleteExpiredReplays(): Promise<number> {
+  const { count } = await prisma.gameReplay.deleteMany({ where: { expiresAt: { lt: new Date() } } });
+  return count;
 }

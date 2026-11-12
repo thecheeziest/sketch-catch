@@ -47,6 +47,7 @@ export function isPenaltyLoserCountValid(loserCount: number, playerCountMax: num
 export const createRoomSchema = z
   .object({
     mode: z.union([z.literal(1), z.literal(2)]),
+    review: z.boolean().optional(),
     playerCountMax: z.number().int().min(3).max(12),
     roundCount: z.number().int().min(1).max(20),
     drawTimer: z.number().int().min(40).max(90).multipleOf(5), // MD1-05

@@ -36,6 +36,7 @@ export type Player = UserPublic &
   isHost: boolean;
   isReady: boolean;
   connected: boolean;
+  isBot?: boolean;
   left?: boolean; // 게임 중 자발적 퇴장
   // 시상식(AWARD)에 아직 머무는 중 — [한번 더!]를 누르면 false, true인 유저는 다음 게임 참가 명단에서 제외
   inAward?: boolean;
@@ -76,6 +77,7 @@ export type RoomListItem = {
 export type RoomState = {
   code: string;
   hostId: string;
+  reviewOwnerId?: string;
   mode: GameMode;
   status: RoomStatus;
   players: Player[];

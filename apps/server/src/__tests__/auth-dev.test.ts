@@ -1,7 +1,7 @@
 import { describe, it, expect, beforeEach, vi } from 'vitest';
 import Fastify from 'fastify';
 
-const mockEnv = vi.hoisted(() => ({ NODE_ENV: 'development', ENABLE_DEV_LOGIN: true }));
+const mockEnv = vi.hoisted(() => ({ NODE_ENV: 'development', ENABLE_DEV_LOGIN: true, REVIEW_USER_IDS: [] as string[] }));
 
 vi.mock('../lib/env.js', () => ({ env: mockEnv }));
 vi.mock('../lib/logger.js', () => ({ logger: { warn: vi.fn(), error: vi.fn(), info: vi.fn() } }));

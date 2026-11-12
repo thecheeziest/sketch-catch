@@ -18,6 +18,8 @@ import { recordMode1Round } from '../../services/coin.service.js';
 import { judgePenaltyLosers } from '../../services/penalty.js';
 import { beginAward } from './award.js';
 import { settleMode1Rewards } from './coinReward.js';
+import { REVIEW_WORDS } from '../../services/reviewDrawings.js';
+import { scheduleReviewRound } from './reviewBots.js';
 
 // 선택된 카테고리 중 이번 라운드에 사용할 카테고리 1개를 균등 랜덤 선택
 // CUSTOM(직접 출제)은 없어졌다 — 업데이트 전에 만든 방에 남아 있어도 후보에서 뺀다
@@ -138,7 +140,9 @@ export async function startRound(
   const roundCategory = pickRoundCategory(state.config.categories);
   const roomName = `room:${code}`;
 
-  const picked = await pickRoundWord(roundCategory, state.config.categories, state.usedWords);
+  const picked = state.reviewOwnerId
+    ? { word: REVIEW_WORDS[roundIndex % REVIEW_WORDS.length]!, category: 'ANIMAL' as const }
+    : await pickRoundWord(roundCategory, state.config.categories, state.usedWords);
   if (!picked) {
     await abortGame(game, state);
     return false;
@@ -164,6 +168,7 @@ export async function startRound(
     endRound(game, code, roundIndex, null, undefined, gameId),
   );
   scheduleHint(game, code, gameId, roundIndex, state.config.drawTimer);
+  scheduleReviewRound(game, state);
   return true;
 }
 

@@ -6,6 +6,7 @@ import { playFeedback } from '@/shared/lib/feedback';
 
 // D-04: 기본값 — 인원 6, 라운드 3, 타이머 30
 type CreateRoomInput = {
+  review?: boolean;
   mode: 1 | 2;
   playerCountMax: number;
   roundCount: number;

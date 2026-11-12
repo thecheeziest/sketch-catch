@@ -110,6 +110,30 @@ describe('POST /auth/refresh', () => {
     expect(res.json().accessToken).toBeDefined();
   });
 
+  it('다른 기기 로그인으로 교체된 refreshToken은 SESSION_REPLACED로 거부한다', async () => {
+    const { signTokens } = await import('../auth/jwt.js');
+    const { refreshToken } = await signTokens('user-1');
+    vi.mocked(redis.get).mockResolvedValueOnce('newer-device-refresh-token');
+    vi.mocked(redis.set).mockClear();
+    const app = await buildApp();
+    const res = await app.inject({
+      method: 'POST',
+      url: '/auth/refresh',
+      payload: { refreshToken },
+    });
+    expect(res.statusCode).toBe(401);
+    expect(res.json().error).toBe('SESSION_REPLACED');
+    expect(redis.set).not.toHaveBeenCalled();
+  });
+
+  it('로그인 시 refreshToken을 현재 세션으로 기록한다', async () => {
+    vi.mocked(verifyKakaoToken).mockResolvedValue({ sub: 'kakao-123' });
+    vi.mocked(upsertUserByProvider).mockResolvedValue({ user: sampleUser, isNew: false } as never);
+    const app = await buildApp();
+    const res = await app.inject({ method: 'POST', url: '/auth/kakao', payload: { idToken: 'valid' } });
+    expect(redis.set).toHaveBeenCalledWith('session:refresh:u1', res.json().refreshToken);
+  });
+
   it('returns 401 for invalid refreshToken', async () => {
     const app = await buildApp();
     const res = await app.inject({

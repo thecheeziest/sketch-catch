@@ -154,7 +154,7 @@ export default function LobbyScreen() {
         player={item}
         isMe={isMe}
         cardWidth={cardWidth}
-        onPress={item && !isMe ? () => setProfileTarget(item) : undefined}
+        onPress={item && !isMe && !item.isBot ? () => setProfileTarget(item) : undefined}
         onNudge={item?.inAward === true && item.isHost ? handleNudge : undefined}
       />
     );
@@ -199,12 +199,12 @@ export default function LobbyScreen() {
             <View sx={{ flexDirection: 'row', alignItems: 'center', gap: spacing.SM }}>
               <Text sx={{ color: colors.GRAY }}>{code}</Text>
               <Icon name="COPY" size={16} onPress={handleCopyCode} />
-              {roomState?.status === 'LOBBY' && (
+              {roomState?.status === 'LOBBY' && !roomState.reviewOwnerId && (
                 <FeedbackPressable onPress={() => setInviteOpen(true)} hitSlop={12}>
                   <Icon name="INVITE" size={20} color={colors.LIGHT_100} />
                 </FeedbackPressable>
               )}
-              {isHost && <Icon name="SETTINGS" size={16} onPress={() => setEditVisible(true)} />}
+              {isHost && !roomState.reviewOwnerId && <Icon name="SETTINGS" size={16} onPress={() => setEditVisible(true)} />}
             </View>
           </View>
           <View
@@ -216,6 +216,11 @@ export default function LobbyScreen() {
             }}
           />
           {roomState && <RoomInfoChips mode={roomState.mode} categories={roomState.config.categories} />}
+          {roomState.reviewOwnerId && (
+            <Text sx={{ color: colors.LIGHT_100, paddingVertical: spacing.SM }}>
+              체험방 · 봇 2명이 준비된 그림과 답변으로 참여해요. 코인 보상은 지급되지 않아요.
+            </Text>
+          )}
           {penalty && (
             <View sx={{ marginBottom: spacing.MD }}>
               <PixelFrame borderColor={colors.WARNING_300} borderWidth={2} style={StyleSheet.absoluteFill}>

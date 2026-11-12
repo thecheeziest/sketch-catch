@@ -232,7 +232,7 @@ describe('stroke auth (DRAW-03)', () => {
     mockGetRoomState.mockResolvedValueOnce(makeStrokeRoomState());
 
     const { socket, emitSpy } = makeStrokeSocket('userB'); // 비출제자
-    await handleStrokeStart({} as any, socket as any, { strokeId: 's1', color: '#000', width: 8 });
+    await handleStrokeStart({} as any, socket as any, { strokeId: 's1', color: '#000000', width: 8 });
 
     expect(emitSpy).not.toHaveBeenCalled();
   });
@@ -241,14 +241,14 @@ describe('stroke auth (DRAW-03)', () => {
     mockGetRoomState.mockResolvedValueOnce(makeStrokeRoomState());
 
     const { socket, emitSpy } = makeStrokeSocket('userA'); // 출제자
-    await handleStrokeStart({} as any, socket as any, { strokeId: 's1', color: '#000', width: 8 });
+    await handleStrokeStart({} as any, socket as any, { strokeId: 's1', color: '#000000', width: 8 });
 
     expect(socket.to).toHaveBeenCalledWith('room:ABC123');
     expect(emitSpy).toHaveBeenCalledTimes(1);
     expect(emitSpy).toHaveBeenCalledWith('stroke:remote', {
       strokeId: 's1',
       authorId: 'userA',
-      color: '#000',
+      color: '#000000',
       width: 8,
     });
   });
@@ -357,6 +357,20 @@ describe('answer detect (MD1-02)', () => {
     const game = makeNamespace();
     const socket = { data: { userId: 'u2' }, rooms: new Set(['room:ABC123']), emit: vi.fn() };
     await handleChatSend(game as any, socket as any, { text: '오징어게임' });
+    expect(game._broadcastEmit).toHaveBeenCalledWith('chat:correct', expect.objectContaining({ userId: 'u2' }));
+  });
+
+  it('answer detect: 영문 대소문자만 다른 답은 정답 처리', async () => {
+    const english = (): RoomState =>
+      makeChatRoomState({
+        current: { roundIndex: 0, drawerId: 'u1', prompt: 'Zoom 회의', startedAt: Date.now() - 5000 },
+      });
+    mockGetRoomState.mockReset();
+    mockGetRoomState.mockResolvedValueOnce(english());
+    mockGetRoomState.mockResolvedValueOnce(english());
+    const game = makeNamespace();
+    const socket = { data: { userId: 'u2' }, rooms: new Set(['room:ABC123']), emit: vi.fn() };
+    await handleChatSend(game as any, socket as any, { text: 'zOOM회의' });
     expect(game._broadcastEmit).toHaveBeenCalledWith('chat:correct', expect.objectContaining({ userId: 'u2' }));
   });
 
