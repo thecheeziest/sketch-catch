@@ -17,7 +17,9 @@
       },
       "buildNumber": "10",
       "infoPlist": {
-        "ITSAppUsesNonExemptEncryption": false
+        "ITSAppUsesNonExemptEncryption": false,
+        "CFBundleDevelopmentRegion": "ko",
+        "CFBundleLocalizations": ["ko"]
       },
       "appleTeamId": "67ZA24MTS6"
     },
@@ -133,6 +135,13 @@
       "enabled": true,
       "requestHeaders": {
         "expo-channel-name": "production"
+      }
+    },
+    "locales": {
+      "ko": {
+        "ios": {
+          "CFBundleDisplayName": "스케치캐치"
+        }
       }
     }
   }
