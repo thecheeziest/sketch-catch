@@ -31,6 +31,7 @@
 | fanfare                    | 베스트 공개·1위 공개                                                                             |
 | tv-on / tv-off             | 공통 Dialog 열기·닫기                                                                            |
 | splash-whoosh / jingle     | 스플래시 로고 등장(360ms)·흔들림 방울(1s). `node apps/mobile/scripts/generate-splash-sounds.mjs` |
+| draw-sting / draw-drumroll / light-off / spotlight / draw-fail / draw-promote | 벌칙 꼴등 추첨 연출(스팅·두구두구 8.1s·조명 끄기/켜기 탁·크래시+좌절 트롬본·생존 이동). `node apps/mobile/scripts/generate-penalty-draw-sounds.mjs` |
 
 - 게임 결과는 `roundResult`에서 한 번만 재생. `chat:correct`와 이중 재생하지 않음.
 - 역할별 정답 피드백: 본인 정답·출제자에게 성공 햅틱, 다른 참가자는 낮은 음량의 소리만.

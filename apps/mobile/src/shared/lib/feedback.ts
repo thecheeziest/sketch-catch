@@ -31,6 +31,7 @@ let cancelFade: (() => void) | undefined;
 let musicLoad: { remove: () => void } | undefined;
 let musicLoadTimeout: ReturnType<typeof setTimeout> | undefined;
 let overlayDucked = false;
+let musicMuted = false;
 let cueDucked = false;
 let duckTimer: ReturnType<typeof setTimeout> | undefined;
 let lastUiAt = -Infinity;
@@ -40,7 +41,7 @@ function active(): boolean {
 }
 function musicVolume(): number {
   const state = useFeedbackStore.getState();
-  if (!state.musicEnabled || !active()) return 0;
+  if (!state.musicEnabled || !active() || musicMuted) return 0;
   return state.musicVolume * (overlayDucked || cueDucked ? 0.3 : 1);
 }
 function updateMusicVolume(): void {
@@ -139,6 +140,11 @@ export function setMusicDucked(ducked: boolean): void {
   overlayDucked = ducked;
   updateMusicVolume();
 }
+// 재생 위치는 유지한 채 BGM만 무음 처리 (꼴등 최종 발표 등)
+export function setMusicMuted(muted: boolean): void {
+  musicMuted = muted;
+  updateMusicVolume();
+}
 
 function createEffectPlayers(): void {
   for (const name of Object.keys(soundSources) as Array<keyof typeof soundSources>) {
@@ -217,6 +223,7 @@ export function initializeFeedback(): () => void {
     remembered.clear();
     requestedScene = null;
     overlayDucked = false;
+    musicMuted = false;
     lastUiAt = -Infinity;
     releaseEffectPlayers();
   };

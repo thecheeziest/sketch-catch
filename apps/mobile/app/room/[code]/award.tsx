@@ -9,7 +9,7 @@ import { useChatSender } from '@/features/game/api/useChatSender';
 import { useAuthStore } from '@/shared/model/auth';
 import { useChatSenderLook, useKnownPlayer, useRoomStore } from '@/shared/model/room';
 import { useRoomChatStore } from '@/features/room/model/useRoomChatStore';
-import { PodiumSlot, PenaltyAward, ChatStream, ChatInputBar } from '@/features/game/ui';
+import { PodiumSlot, PenaltyAward, PenaltyDraw, ChatStream, ChatInputBar } from '@/features/game/ui';
 import { AudienceCheer } from '@/features/game/ui/AudienceCheer';
 import { useAwardSession } from '@/features/room/lib';
 import { HostNudgeDialog } from '@/features/room/ui';
@@ -86,6 +86,8 @@ export default function AwardScreen() {
   const penaltyLoserIds = new Set(penalty?.loserIds ?? []);
   const penaltySafePlayers = ranking.filter(r => !penaltyLoserIds.has(r.userId)).map(toPodiumPlayer);
   const penaltyLosers = ranking.filter(r => penaltyLoserIds.has(r.userId)).map(toPodiumPlayer);
+  // 경계 동점자를 서버가 추첨했으면 추첨 연출로 결과를 보여 준다
+  const penaltyDraw = penalty?.draw ?? null;
 
   // 채팅 스트림 — 게임 진행 중과 동일하게 우상단에 말풍선으로 표시 (정답 판정 없는 자유 채팅)
   const { textOf, onLongPressChat } = useChatModeration();
@@ -145,7 +147,15 @@ export default function AwardScreen() {
 
       {/* 시상대 + 방청석 + 채팅 말풍선 */}
       <Pressable style={styles.stage} onPress={Keyboard.dismiss} accessible={false}>
-        {penalty !== null && (
+        {penalty !== null && penaltyDraw !== null && (
+          <PenaltyDraw
+            text={penalty.text}
+            players={ranking.map(toPodiumPlayer)}
+            candidateIds={penaltyDraw.candidateIds}
+            loserIds={penalty.loserIds}
+          />
+        )}
+        {penalty !== null && penaltyDraw === null && (
           <PenaltyAward text={penalty.text} safePlayers={penaltySafePlayers} losers={penaltyLosers} />
         )}
 

@@ -353,7 +353,7 @@ export async function endGame(game: GameNamespace, code: string, reason?: 'INSUF
   const penaltyConfig = state.mode === 1 && reason === undefined ? state.config.penalty : undefined;
   const penalty = penaltyConfig && {
     text: penaltyConfig.text,
-    loserIds: judgePenaltyLosers(ranked, penaltyConfig, new Set(state.players.filter(p => p.left).map(p => p.id))),
+    ...judgePenaltyLosers(ranked, penaltyConfig, new Set(state.players.filter(p => p.left).map(p => p.id))),
   };
 
   // 시상식 시작 — inAward 표시 + 선택 전까지 결과 유지
