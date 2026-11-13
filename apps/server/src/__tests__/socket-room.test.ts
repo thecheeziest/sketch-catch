@@ -3,6 +3,13 @@ import { handleRoomJoin, handleRoomReady, handleRoomStart, handleRoomLeave } fro
 import { SERVER_EVENT } from '@sketch-catch/shared';
 import type { RoomState } from '@sketch-catch/shared';
 
+vi.mock('../db/prisma.js', () => ({
+  prisma: {
+    user: { findUnique: vi.fn().mockResolvedValue(null) },
+    userBlock: { findMany: vi.fn().mockResolvedValue([]) },
+  },
+}));
+
 vi.mock('../socket/handlers/game.js', () => ({
   startRound: vi.fn().mockResolvedValue(true),
   initTurnSchedule: vi.fn(),
