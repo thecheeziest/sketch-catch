@@ -118,4 +118,43 @@ describe('word service (GAME-03)', () => {
 
     expect(result).toEqual({ word: '강아지', category: 'ANIMAL' });
   });
+
+  it('직전 판들에 나온 단어도 제외하고 뽑는다', async () => {
+    mockFindMany.mockResolvedValue([
+      { word: '강아지', category: 'ANIMAL' },
+      { word: '고양이', category: 'ANIMAL' },
+      { word: '토끼', category: 'ANIMAL' },
+    ] as any);
+    vi.spyOn(Math, 'random').mockReturnValue(0);
+
+    const result = await pickRoundWord('ANIMAL', ['ANIMAL'], ['강아지'], [['고양이']]);
+
+    expect(result).toEqual({ word: '토끼', category: 'ANIMAL' });
+  });
+
+  it('단어가 고갈되면 가장 오래된 판의 단어부터 다시 허용한다', async () => {
+    mockFindMany.mockResolvedValue([
+      { word: '강아지', category: 'ANIMAL' },
+      { word: '고양이', category: 'ANIMAL' },
+      { word: '토끼', category: 'ANIMAL' },
+      { word: '사자', category: 'ANIMAL' },
+    ] as any);
+    vi.spyOn(Math, 'random').mockReturnValue(0);
+
+    const result = await pickRoundWord('ANIMAL', ['ANIMAL'], ['강아지'], [['고양이'], ['토끼'], ['사자']]);
+
+    expect(result).toEqual({ word: '고양이', category: 'ANIMAL' });
+  });
+
+  it('직전 판 단어를 전부 풀어도 이번 판 단어는 마지막까지 제외한다', async () => {
+    mockFindMany.mockResolvedValue([
+      { word: '강아지', category: 'ANIMAL' },
+      { word: '고양이', category: 'ANIMAL' },
+    ] as any);
+    vi.spyOn(Math, 'random').mockReturnValue(0);
+
+    const result = await pickRoundWord('ANIMAL', ['ANIMAL'], ['강아지'], [['강아지', '고양이']]);
+
+    expect(result).toEqual({ word: '고양이', category: 'ANIMAL' });
+  });
 });

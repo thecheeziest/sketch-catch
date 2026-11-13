@@ -72,12 +72,18 @@ export function compactSlots(state: RoomState): void {
     });
 }
 
+// 제시어 중복을 막을 직전 판 수
+const RECENT_GAME_WORDS_MAX = 3;
+
 // 게임 1판의 흔적을 지우고 대기실 상태로 되돌린다 (시상식 종료, 게임 시작 실패 공용)
 export function resetToLobby(state: RoomState): void {
   state.status = 'LOBBY';
   state.scoreboard = {};
   state.current = null;
   delete state.turnSchedule;
+  if (state.usedWords && state.usedWords.length > 0) {
+    state.recentGameWords = [...(state.recentGameWords ?? []), state.usedWords].slice(-RECENT_GAME_WORDS_MAX);
+  }
   delete state.usedWords;
   delete state.startedAt;
   delete state.gameId;
@@ -89,4 +95,10 @@ export function resetToLobby(state: RoomState): void {
     delete p.left;
   }
   state.allReady = computeAllReady(state);
+}
+
+// 클라이언트로 보내는 방 상태 — 정답이 드러나는 진행 상태와 제시어 기록은 서버에만 둔다
+export function toPublicRoomState(state: RoomState): RoomState {
+  const { usedWords: _usedWords, recentGameWords: _recentGameWords, ...rest } = state;
+  return { ...rest, current: null };
 }

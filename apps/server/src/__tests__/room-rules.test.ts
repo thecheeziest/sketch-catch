@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest';
 import type { Player, RoomState } from '@sketch-catch/shared';
-import { ensureHost, transferHost } from '../services/roomRules.js';
+import { ensureHost, resetToLobby, toPublicRoomState, transferHost } from '../services/roomRules.js';
 
 function player(id: string, nickname: string, slot: number, isHost = false): Player {
   return { id, nickname, friendCode: 'CODE0', characterId: 'cat', slot, isHost, isReady: false, connected: true };
@@ -81,5 +81,41 @@ describe('transferHost — 방장 넘기기', () => {
       expect(state.hostId).toBe('u1');
       expect(state.title).toBe('감자님의 방');
     }
+  });
+});
+
+describe('resetToLobby — 직전 판 제시어 보관', () => {
+  it('끝난 판의 제시어를 최근 3판까지만 오래된 순서로 보관한다', () => {
+    const { state } = stateAfterHostLeft('아무 방');
+    for (const word of ['강아지', '고양이', '토끼', '사자']) {
+      state.usedWords = [word];
+      resetToLobby(state);
+    }
+    expect(state.usedWords).toBeUndefined();
+    expect(state.recentGameWords).toEqual([['고양이'], ['토끼'], ['사자']]);
+  });
+
+  it('제시어가 한 번도 안 나온 판은 보관하지 않는다', () => {
+    const { state } = stateAfterHostLeft('아무 방');
+    state.recentGameWords = [['강아지']];
+    state.usedWords = [];
+    resetToLobby(state);
+    expect(state.recentGameWords).toEqual([['강아지']]);
+  });
+});
+
+describe('toPublicRoomState — 클라이언트 전송용 방 상태', () => {
+  it('정답이 드러나는 진행 상태와 제시어 기록을 뺀다', () => {
+    const { state } = stateAfterHostLeft('아무 방');
+    state.current = { roundIndex: 0, drawerId: 'u2', prompt: '강아지', startedAt: 0 };
+    state.usedWords = ['강아지'];
+    state.recentGameWords = [['고양이']];
+    state.turnSchedule = ['u2', 'u3'];
+
+    const sent = toPublicRoomState(state);
+
+    expect(JSON.stringify(sent)).not.toMatch(/강아지|고양이/);
+    expect(sent.turnSchedule).toEqual(['u2', 'u3']);
+    expect(state.current).not.toBeNull();
   });
 });

@@ -2,6 +2,7 @@ import type { Namespace, Socket } from 'socket.io';
 import type { ClientEvents, ServerEvents, RoomState, Mode2ReviewSheet, Mode2RevealLive } from '@sketch-catch/shared';
 import { SERVER_EVENT, buildRevealEntries, getSheetRevealDurationMs } from '@sketch-catch/shared';
 import { getRoomState, saveRoomState } from '../../services/rooms.service.js';
+import { toPublicRoomState } from '../../services/roomRules.js';
 import { saveReplays } from '../../services/replay.service.js';
 import { getReviewSheets, saveReviewSheets } from '../../services/reviewStore.js';
 import { setRoomTimer } from '../../services/roomTimers.js';
@@ -96,7 +97,7 @@ export async function startMode2Review(game: GameNamespace, code: string): Promi
   state.current = reveal;
   clearRoomChat(code);
   await beginAward(game, state);
-  game.to(roomName(code)).emit(SERVER_EVENT.ROOM_STATE, state);
+  game.to(roomName(code)).emit(SERVER_EVENT.ROOM_STATE, toPublicRoomState(state));
   game.to(roomName(code)).emit(SERVER_EVENT.MODE2_REVIEW, { gameId: state.gameId ?? '', sheets, live: toLive(reveal) });
 
   // D-10: GIF는 저장 요청 때 만든다 — 여기서는 다시 만들 수 있도록 시트만 기록한다 (발표를 기다리게 하지 않는다)
@@ -144,6 +145,6 @@ async function finishReveal(game: GameNamespace, state: RoomState, reveal: Mode2
   state.status = 'AWARD';
   await saveRoomState(state);
   emitLive(game, state, reveal);
-  game.to(roomName(state.code)).emit(SERVER_EVENT.ROOM_STATE, state);
+  game.to(roomName(state.code)).emit(SERVER_EVENT.ROOM_STATE, toPublicRoomState(state));
   void settleMode2Rewards(game, state);
 }
