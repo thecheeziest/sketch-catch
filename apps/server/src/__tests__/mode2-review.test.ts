@@ -37,6 +37,7 @@ vi.mock('../socket/handlers/coinReward.js', () => ({
   settleMode2Rewards: vi.fn().mockResolvedValue(undefined),
 }));
 
+import { toPublicRoomState } from '../services/roomRules.js';
 import { getRoomState, saveRoomState } from '../services/rooms.service.js';
 import { saveReplays } from '../services/replay.service.js';
 import { clearRoomChat } from '../services/chatStore.js';
@@ -181,7 +182,7 @@ describe('mode2 정답 공개식', () => {
     await vi.advanceTimersByTimeAsync(SHEET_MS * 3);
     expect(ctl.state.status).toBe('AWARD');
     expect(emitted(game, 'mode2:review:live').at(-1)).toEqual({ gameId: 'g1', live: null });
-    expect(game._broadcastEmit).toHaveBeenLastCalledWith('room:state', ctl.state);
+    expect(game._broadcastEmit).toHaveBeenLastCalledWith('room:state', toPublicRoomState(ctl.state));
   });
 
   it('재입장한 소켓에는 시트 전체와 현재 시트 경과 시간을 다시 보낸다', async () => {

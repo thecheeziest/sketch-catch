@@ -18,6 +18,12 @@ import coinRain from '@assets/audio/coin-rain.wav';
 import coinRainTail from '@assets/audio/coin-rain-tail.wav';
 import curtainClose from '@assets/audio/curtain-close.wav';
 import curtainOpen from '@assets/audio/curtain-open.wav';
+import drawSting from '@assets/audio/draw-sting.wav';
+import drawDrumroll from '@assets/audio/draw-drumroll.wav';
+import lightOff from '@assets/audio/light-off.wav';
+import spotlight from '@assets/audio/spotlight.wav';
+import drawFail from '@assets/audio/draw-fail.wav';
+import drawPromote from '@assets/audio/draw-promote.wav';
 import home from '@assets/audio/bgm-home.m4a';
 import lobby from '@assets/audio/bgm-lobby.m4a';
 import classic from '@assets/audio/bgm-classic.m4a';
@@ -46,6 +52,12 @@ export const soundSources = {
   coinRainTail,
   curtainClose,
   curtainOpen,
+  drawSting,
+  drawDrumroll,
+  lightOff,
+  spotlight,
+  drawFail,
+  drawPromote,
 };
 export const musicSources = { home, lobby, classic, relay, review, award };
 export type MusicScene = keyof typeof musicSources;
@@ -82,6 +94,12 @@ const durations = {
   coinRainTail: 796,
   curtainClose: 650,
   curtainOpen: 650,
+  drawSting: 800,
+  drawDrumroll: 8100,
+  lightOff: 160,
+  spotlight: 120,
+  drawFail: 3300,
+  drawPromote: 650,
 };
 const ui = (sound: keyof typeof soundSources, haptic: Haptic = 'light'): FeedbackDefinition => ({
   sound,
@@ -143,6 +161,13 @@ export const feedbackDefinitions = {
   podiumWinner: cue('fanfare', 1600, 'heavy', 10),
   podiumOther: cue('confirm', 280),
   cheer: { ...cue('notify', 230), volume: 0.35 },
+  // 벌칙 꼴등 추첨 — 드럼롤은 조명 효과음과 겹쳐야 하므로 transition 채널
+  drawSting: cue('drawSting', 800, 'heavy', 8),
+  drawDrumroll: { sound: 'drawDrumroll', channel: 'transition', priority: 3, duration: 8100 },
+  lightOff: cue('lightOff', 160, 'heavy'),
+  spotlight: cue('spotlight', 120, 'light'),
+  drawFail: cue('drawFail', 3300, 'warning', 10),
+  drawPromote: cue('drawPromote', 650, 'success', 5),
   tvOn: { sound: 'tvOn', channel: 'tv', priority: 5, duration: 340, haptic: 'tvOn', hapticDelay: 90 },
   tvOff: { sound: 'tvOff', channel: 'tv', priority: 5, duration: 240, haptic: 'tvOff', hapticDelay: 160 },
 } satisfies Record<string, FeedbackDefinition>;

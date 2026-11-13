@@ -7,7 +7,7 @@ import { useAppUpdateStore, useToastStore } from '@/shared/model';
 import { Button } from '@/shared/ui';
 
 // 링크가 없을 때(출시 전 등) 어디서 업데이트하는지 안내
-const UPDATE_SOURCE = Platform.OS === 'ios' ? 'TestFlight 또는 App Store' : 'Play 스토어';
+const UPDATE_SOURCE = Platform.OS === 'ios' ? 'App Store' : 'Play 스토어';
 
 // 최소 빌드 미달 시 앱 전체를 대신하는 화면 — 다른 화면으로 이동할 수단을 두지 않는다
 export function ForceUpdateScreen() {

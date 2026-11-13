@@ -46,7 +46,7 @@ export type Player = UserPublic &
 
 // 벌칙 설정 — 필드가 없으면 벌칙 없는 방. 모드 1에서만 허용
 export type RoomPenalty = {
-  loserCount: number; // 벌칙에 걸리는 꼴찌 인원 1~PENALTY_LOSER_MAX (동점이면 더 늘어날 수 있다)
+  loserCount: number; // 벌칙에 걸리는 꼴찌 인원 1~PENALTY_LOSER_MAX (경계 동점자는 서버 추첨)
   text: string; // 무엇을 걸지
 };
 
@@ -93,6 +93,8 @@ export type RoomState = {
   turnSchedule?: string[];
   // 이번 게임에서 이미 출제한 제시어 — 한 게임 안에서 같은 제시어가 다시 나오지 않게 한다
   usedWords?: string[];
+  // 직전 판들에서 출제한 제시어 (오래된 판부터, 최대 3판) — 다음 판에서 다시 나오지 않게 한다
+  recentGameWords?: string[][];
   // 게임 1판의 식별자 — 시작마다 새로 발급, 대기실 복귀 시 제거. 지난 게임의 타이머·이벤트를 걸러내는 기준
   gameId?: string;
   // 새 게임이 시작될 때 시상식에 남아 있던 유저 - 게임 명단에서는 빠지지만 서로 채팅할 수 있다.

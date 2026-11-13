@@ -6,7 +6,7 @@ import { clearRoomTimers } from '../../services/roomTimers.js';
 import { clearRoomChat } from '../../services/chatStore.js';
 import { clearReviewSheets } from '../../services/reviewStore.js';
 import { clearRoomStrokes } from '../../services/strokeStore.js';
-import { compactSlots, ensureHost, resetToLobby } from '../../services/roomRules.js';
+import { compactSlots, ensureHost, resetToLobby, toPublicRoomState } from '../../services/roomRules.js';
 import { redis, setPresence } from '../../db/redis.js';
 import { broadcastPresenceUpdate } from '../presence.namespace.js';
 
@@ -88,7 +88,7 @@ export async function finishAward(game: GameNamespace, code: string, expectedGam
   await saveRoomState(state);
 
   const roomName = `room:${code}`;
-  game.to(roomName).emit(SERVER_EVENT.ROOM_STATE, state);
+  game.to(roomName).emit(SERVER_EVENT.ROOM_STATE, toPublicRoomState(state));
   for (const p of removed) game.to(roomName).emit(SERVER_EVENT.ROOM_PLAYER_LEAVE, { userId: p.id });
 }
 
@@ -130,7 +130,7 @@ export async function handleRematch(
   if (!socket.rooms.has(roomName)) await socket.join(roomName);
 
   if (!player.inAward) {
-    game.to(`user:${userId}`).emit(SERVER_EVENT.ROOM_STATE, state);
+    game.to(`user:${userId}`).emit(SERVER_EVENT.ROOM_STATE, toPublicRoomState(state));
     return;
   }
 
@@ -146,5 +146,5 @@ export async function handleRematch(
     await finishAward(game, code);
     return;
   }
-  game.to(roomName).emit(SERVER_EVENT.ROOM_STATE, state);
+  game.to(roomName).emit(SERVER_EVENT.ROOM_STATE, toPublicRoomState(state));
 }

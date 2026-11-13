@@ -29,7 +29,7 @@ import { toPlayerProfile } from '../lib/playerProfile.js';
 import { getBlockRelatedIds, hasBlockedMember } from '../services/moderation.service.js';
 import { getUserRoom, setPresence, setUserRoom } from '../db/redis.js';
 import { runInRoom } from '../services/roomQueue.js';
-import { countSeatedPlayers } from '../services/roomRules.js';
+import { countSeatedPlayers, toPublicRoomState } from '../services/roomRules.js';
 import { broadcastPresenceUpdate } from '../socket/presence.namespace.js';
 import { prisma } from '../db/prisma.js';
 import { logger } from '../lib/logger.js';
@@ -151,9 +151,9 @@ export const roomsRoutes: FastifyPluginAsync = async (app) => {
       await saveRoomState(state);
 
       // 대기실 참가자 전체에게 변경된 room:state 브로드캐스트
-      req.server.io.of(SOCKET_NAMESPACE).to(`room:${code}`).emit(SERVER_EVENT.ROOM_STATE, state);
+      req.server.io.of(SOCKET_NAMESPACE).to(`room:${code}`).emit(SERVER_EVENT.ROOM_STATE, toPublicRoomState(state));
 
-      return reply.send(state);
+      return reply.send(toPublicRoomState(state));
     });
   });
 
@@ -215,6 +215,6 @@ export const roomsRoutes: FastifyPluginAsync = async (app) => {
       return reply.status(500).send({ error: 'INTERNAL' });
     }
 
-    return reply.send(state);
+    return reply.send(toPublicRoomState(state));
   });
 };

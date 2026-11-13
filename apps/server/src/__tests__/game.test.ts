@@ -165,7 +165,7 @@ describe('game state machine (MD1-01, MD1-05)', () => {
       randomSpy.mockRestore();
     }
 
-    expect(mockPickWord).toHaveBeenCalledWith('ANIMAL', expect.any(Array), undefined);
+    expect(mockPickWord).toHaveBeenCalledWith('ANIMAL', expect.any(Array), undefined, undefined);
     const savedState = mockSaveRoomState.mock.calls[0]![0]! as RoomState;
     expect((savedState.current as Mode1RoundCurrent).prompt).toBe('강아지');
   });

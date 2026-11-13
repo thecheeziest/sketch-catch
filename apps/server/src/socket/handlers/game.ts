@@ -13,7 +13,7 @@ import { pickRoundWord } from '../../services/word.service.js';
 import { clearRoomTimer, clearRoomTimers, setRoomTimer } from '../../services/roomTimers.js';
 import { clearRoomChat, listMessages } from '../../services/chatStore.js';
 import { clearRoomStrokes, getRoundStrokes, hasRoundDrawing, strokeRoundKey } from '../../services/strokeStore.js';
-import { resetToLobby } from '../../services/roomRules.js';
+import { resetToLobby, toPublicRoomState } from '../../services/roomRules.js';
 import { recordMode1Round } from '../../services/coin.service.js';
 import { judgePenaltyLosers } from '../../services/penalty.js';
 import { beginAward } from './award.js';
@@ -109,7 +109,7 @@ async function abortGame(game: GameNamespace, state: RoomState): Promise<void> {
   clearRoomStrokes(state.code);
   resetToLobby(state);
   await saveRoomState(state);
-  game.to(`room:${state.code}`).emit(SERVER_EVENT.ROOM_STATE, state);
+  game.to(`room:${state.code}`).emit(SERVER_EVENT.ROOM_STATE, toPublicRoomState(state));
   game.to(`room:${state.code}`).emit(SERVER_EVENT.ERROR, {
     code: 'WORD_POOL_EMPTY',
     message: '제시어를 못 불러왔어요. 다시 시작해 주세요!',
@@ -142,7 +142,7 @@ export async function startRound(
 
   const picked = state.reviewOwnerId
     ? { word: REVIEW_WORDS[roundIndex % REVIEW_WORDS.length]!, category: 'ANIMAL' as const }
-    : await pickRoundWord(roundCategory, state.config.categories, state.usedWords);
+    : await pickRoundWord(roundCategory, state.config.categories, state.usedWords, state.recentGameWords);
   if (!picked) {
     await abortGame(game, state);
     return false;
@@ -153,7 +153,7 @@ export async function startRound(
   state.current = { roundIndex, drawerId, prompt: picked.word, startedAt: Date.now() } satisfies Mode1RoundCurrent;
   await saveRoomState(state);
 
-  if (isFirstRound) game.to(roomName).emit(SERVER_EVENT.ROOM_STATE, state);
+  if (isFirstRound) game.to(roomName).emit(SERVER_EVENT.ROOM_STATE, toPublicRoomState(state));
   for (const player of state.players.filter(p => !p.left)) {
     game.to(`user:${player.id}`).emit('game:round:start', {
       gameId: gameId ?? '',
@@ -292,7 +292,7 @@ export async function handlePlayerLeft(game: GameNamespace, code: string, userId
   // 3명 미만이면 게임 즉시 종료 (D-03)
   if (activePlayers.length < 3) {
     await saveRoomState(state);
-    game.to(`room:${code}`).emit(SERVER_EVENT.ROOM_STATE, state);
+    game.to(`room:${code}`).emit(SERVER_EVENT.ROOM_STATE, toPublicRoomState(state));
     await endGame(game, code, 'INSUFFICIENT_PLAYERS');
     return;
   }
@@ -305,7 +305,7 @@ export async function handlePlayerLeft(game: GameNamespace, code: string, userId
   }
 
   await saveRoomState(state);
-  game.to(`room:${code}`).emit(SERVER_EVENT.ROOM_STATE, state);
+  game.to(`room:${code}`).emit(SERVER_EVENT.ROOM_STATE, toPublicRoomState(state));
 
   // 퇴장 플레이어가 현재 출제자면 라운드 즉시 종료
   const currentDrawerId = (state.current as Mode1RoundCurrent | null)?.drawerId;
@@ -353,14 +353,14 @@ export async function endGame(game: GameNamespace, code: string, reason?: 'INSUF
   const penaltyConfig = state.mode === 1 && reason === undefined ? state.config.penalty : undefined;
   const penalty = penaltyConfig && {
     text: penaltyConfig.text,
-    loserIds: judgePenaltyLosers(ranked, penaltyConfig, new Set(state.players.filter(p => p.left).map(p => p.id))),
+    ...judgePenaltyLosers(ranked, penaltyConfig, new Set(state.players.filter(p => p.left).map(p => p.id))),
   };
 
   // 시상식 시작 — inAward 표시 + 선택 전까지 결과 유지
   await beginAward(game, state);
 
   // AWARD 상태를 클라이언트에 전파해 시상식 화면으로 이동하도록 함
-  game.to(`room:${code}`).emit(SERVER_EVENT.ROOM_STATE, state);
+  game.to(`room:${code}`).emit(SERVER_EVENT.ROOM_STATE, toPublicRoomState(state));
   game.to(`room:${code}`).emit('game:end', {
     gameId: state.gameId ?? '',
     finalScoreboard: state.scoreboard,

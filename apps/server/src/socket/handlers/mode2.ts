@@ -25,6 +25,7 @@ import {
   type Category,
 } from '@sketch-catch/shared';
 import { getRoomState, saveRoomState } from '../../services/rooms.service.js';
+import { toPublicRoomState } from '../../services/roomRules.js';
 import { pickRoundWord } from '../../services/word.service.js';
 import { clearRoomTimer, setRoomTimer } from '../../services/roomTimers.js';
 import { recordMode2Submit } from '../../services/coin.service.js';
@@ -278,7 +279,7 @@ export async function startMode2(game: GameNamespace, code: string): Promise<voi
   state.status = 'MODE2_PROMPT_PHASE';
   state.current = current;
   await saveRoomState(state);
-  game.to(`room:${code}`).emit(SERVER_EVENT.ROOM_STATE, state);
+  game.to(`room:${code}`).emit(SERVER_EVENT.ROOM_STATE, toPublicRoomState(state));
 
   emitSteps(game, state, current);
   scheduleStepTimeout(game, code, state.gameId, 'PROMPT');
@@ -480,6 +481,7 @@ async function timeoutPrompt(
     randomWordCategory(state.config.categories),
     state.config.categories,
     state.usedWords,
+    state.recentGameWords,
   );
   if (!picked) return { kind: 'PROMPT', authorId, text: FALLBACK_PROMPT };
   // 호출 측이 같은 state를 저장한다 — 한 게임 안에서 랜덤 제시어가 겹치지 않도록 기록
@@ -561,7 +563,7 @@ export async function advanceStep(game: GameNamespace, code: string, expectedGam
     state.status = 'MODE2_REVIEW';
     state.current = current;
     await saveRoomState(state);
-    game.to(`room:${code}`).emit(SERVER_EVENT.ROOM_STATE, state);
+    game.to(`room:${code}`).emit(SERVER_EVENT.ROOM_STATE, toPublicRoomState(state));
     await startMode2Review(game, code);
     return;
   }
@@ -591,7 +593,7 @@ export async function handleMode2PlayerLeft(game: GameNamespace, code: string, u
   if (state.status === 'MODE2_REVIEW') {
     player.inAward = false;
     await saveRoomState(state);
-    game.to(`room:${code}`).emit(SERVER_EVENT.ROOM_STATE, state);
+    game.to(`room:${code}`).emit(SERVER_EVENT.ROOM_STATE, toPublicRoomState(state));
     return;
   }
 
@@ -600,13 +602,13 @@ export async function handleMode2PlayerLeft(game: GameNamespace, code: string, u
   // 이어그리기는 활성 참가자 3명 이상이면 계속한다.
   if (activePlayers.length < MODE2_PLAYER_MIN) {
     await saveRoomState(state);
-    game.to(`room:${code}`).emit(SERVER_EVENT.ROOM_STATE, state);
+    game.to(`room:${code}`).emit(SERVER_EVENT.ROOM_STATE, toPublicRoomState(state));
     await endGame(game, code, 'INSUFFICIENT_PLAYERS');
     return;
   }
 
   await saveRoomState(state);
-  game.to(`room:${code}`).emit(SERVER_EVENT.ROOM_STATE, state);
+  game.to(`room:${code}`).emit(SERVER_EVENT.ROOM_STATE, toPublicRoomState(state));
 
   if (!isMode2Active(state.status)) return;
 

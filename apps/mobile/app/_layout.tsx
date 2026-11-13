@@ -26,6 +26,7 @@ import * as SplashScreen from 'expo-splash-screen';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { Animated, LogBox, StyleSheet, useWindowDimensions } from 'react-native';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
+import { KeyboardProvider } from 'react-native-keyboard-controller';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 
 function createWobble(logoRotate: Animated.Value): Animated.CompositeAnimation {
@@ -217,47 +218,49 @@ export default function RootLayout() {
 
   return (
     <GestureHandlerRootView style={{ flex: 1 }}>
-      <SafeAreaProvider>
-        <QueryClientProvider client={queryClient}>
-          <PushTokenRegistrar isAuthenticated={isAuthenticated} needsOnboarding={needsOnboarding} />
-          <DripsyProvider theme={theme}>
-            <AppFrame>
-              {/* 최소 빌드 미달이면 어떤 화면(로그인 포함)으로도 진입하지 못하게 업데이트 화면만 렌더한다 */}
-              {updateStatus === 'required' ? (
-                <ForceUpdateScreen />
-              ) : (
-                <>
-                  {/* Protected는 guard가 바뀌는 즉시 반응한다 — 사용 중 로그인이 풀리면 보호 화면에서 바로 빠져나간다 */}
-                  <Stack screenOptions={{ headerShown: false, fullScreenGestureEnabled: true }}>
-                    <Stack.Screen name="index" />
-                    <Stack.Protected guard={!isSignedIn}>
-                      <Stack.Screen name="(auth)" />
-                    </Stack.Protected>
-                    <Stack.Protected guard={isSignedIn}>
-                      <Stack.Screen name="(tabs)" />
-                      <Stack.Screen name="settings" />
-                      <Stack.Screen name="cosmetics" />
-                      {/* 방(대기실·게임·시상식)은 스와이프로 나가지 않는다 — 각 화면의 나가기 확인을 거친다 */}
-                      <Stack.Screen name="room" options={{ gestureEnabled: false }} />
-                    </Stack.Protected>
-                  </Stack>
-                  <NotificationGate ready={splashDone && isSignedIn} />
-                </>
+      <KeyboardProvider>
+        <SafeAreaProvider>
+          <QueryClientProvider client={queryClient}>
+            <PushTokenRegistrar isAuthenticated={isAuthenticated} needsOnboarding={needsOnboarding} />
+            <DripsyProvider theme={theme}>
+              <AppFrame>
+                {/* 최소 빌드 미달이면 어떤 화면(로그인 포함)으로도 진입하지 못하게 업데이트 화면만 렌더한다 */}
+                {updateStatus === 'required' ? (
+                  <ForceUpdateScreen />
+                ) : (
+                  <>
+                    {/* Protected는 guard가 바뀌는 즉시 반응한다 — 사용 중 로그인이 풀리면 보호 화면에서 바로 빠져나간다 */}
+                    <Stack screenOptions={{ headerShown: false, fullScreenGestureEnabled: true }}>
+                      <Stack.Screen name="index" />
+                      <Stack.Protected guard={!isSignedIn}>
+                        <Stack.Screen name="(auth)" />
+                      </Stack.Protected>
+                      <Stack.Protected guard={isSignedIn}>
+                        <Stack.Screen name="(tabs)" />
+                        <Stack.Screen name="settings" />
+                        <Stack.Screen name="cosmetics" />
+                        {/* 방(대기실·게임·시상식)은 스와이프로 나가지 않는다 — 각 화면의 나가기 확인을 거친다 */}
+                        <Stack.Screen name="room" options={{ gestureEnabled: false }} />
+                      </Stack.Protected>
+                    </Stack>
+                    <NotificationGate ready={splashDone && isSignedIn} />
+                  </>
+                )}
+                <ReportDialog />
+                <ToastHost />
+              </AppFrame>
+              {!splashDone && (
+                <SplashOverlay
+                  isAuthenticated={isAuthenticated}
+                  isCheckingVersion={updateStatus === 'checking'}
+                  skipAnimation={skipSplashAnimation}
+                  onDone={handleSplashDone}
+                />
               )}
-              <ReportDialog />
-              <ToastHost />
-            </AppFrame>
-            {!splashDone && (
-              <SplashOverlay
-                isAuthenticated={isAuthenticated}
-                isCheckingVersion={updateStatus === 'checking'}
-                skipAnimation={skipSplashAnimation}
-                onDone={handleSplashDone}
-              />
-            )}
-          </DripsyProvider>
-        </QueryClientProvider>
-      </SafeAreaProvider>
+            </DripsyProvider>
+          </QueryClientProvider>
+        </SafeAreaProvider>
+      </KeyboardProvider>
     </GestureHandlerRootView>
   );
 }

@@ -5,7 +5,12 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 const feedback = vi.hoisted(() => ({ play: vi.fn(() => vi.fn()) }));
 vi.mock('./tvFeedback', () => ({ playTvFeedback: feedback.play }));
 vi.mock('dripsy', () => ({ Text: 'Text', View: 'View' }));
-vi.mock('@/shared/config', () => ({ colors: {}, spacing: { LG: 24, MD: 16 } }));
+vi.mock('@/shared/config', () => ({ colors: {}, spacing: { XL: 32, LG: 24, MD: 16, SM: 8 } }));
+vi.mock('react-native-keyboard-controller', () => ({
+  KeyboardAvoidingView: 'KeyboardAvoidingView',
+  useKeyboardState: () => false,
+}));
+vi.mock('react-native-safe-area-context', () => ({ useSafeAreaInsets: () => ({ top: 0, bottom: 0, left: 0, right: 0 }) }));
 vi.mock('@/shared/ui/PixelFrame', () => ({ PixelFrame: 'PixelFrame' }));
 vi.mock('@/shared/ui/Button', () => ({ Button: 'Button' }));
 vi.mock('react-native', () => {

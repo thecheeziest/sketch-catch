@@ -76,51 +76,76 @@ const ranking = (scores: Record<string, number>) =>
 
 describe('judgePenaltyLosers', () => {
   const none = new Set<string>();
+  const penalty = (loserCount: number) => ({ loserCount, text: '커피' });
+  // 항상 0을 뽑는 rng — Fisher-Yates 결과를 고정한다
+  const firstPick = () => 0;
 
   it('최하위 1명을 고른다', () => {
-    const losers = judgePenaltyLosers(ranking({ a: 900, b: 500, c: 100 }), { loserCount: 1, text: '커피' }, none);
-    expect(losers).toEqual(['c']);
+    expect(judgePenaltyLosers(ranking({ a: 900, b: 500, c: 100 }), penalty(1), none)).toEqual({ loserIds: ['c'] });
   });
 
   it('꼴찌 2명이면 하위 2명을 고른다', () => {
-    const losers = judgePenaltyLosers(
-      ranking({ a: 900, b: 500, c: 300, d: 100 }),
-      { loserCount: 2, text: '커피' },
-      none,
-    );
-    expect(losers.sort()).toEqual(['c', 'd']);
+    const { loserIds, draw } = judgePenaltyLosers(ranking({ a: 900, b: 500, c: 300, d: 100 }), penalty(2), none);
+    expect(loserIds.sort()).toEqual(['c', 'd']);
+    expect(draw).toBeUndefined();
   });
 
-  it('꼴찌 경계 점수와 동점이면 모두 걸린다', () => {
-    const losers = judgePenaltyLosers(
-      ranking({ a: 900, b: 100, c: 100, d: 100 }),
-      { loserCount: 1, text: '커피' },
-      none,
-    );
-    expect(losers.sort()).toEqual(['b', 'c', 'd']);
+  it('경계 동점자가 벌칙 인원보다 많으면 동점자 중 1명만 추첨한다', () => {
+    const result = judgePenaltyLosers(ranking({ a: 900, b: 100, c: 100, d: 100 }), penalty(1), none, firstPick);
+    expect(result.loserIds).toHaveLength(1);
+    expect(['b', 'c', 'd']).toContain(result.loserIds[0]);
+    expect(result.draw?.candidateIds.sort()).toEqual(['b', 'c', 'd']);
   });
 
-  it('전원 동점이면 전원이 걸린다', () => {
-    const losers = judgePenaltyLosers(ranking({ a: 0, b: 0, c: 0 }), { loserCount: 1, text: '커피' }, none);
-    expect(losers.sort()).toEqual(['a', 'b', 'c']);
+  it('확정 꼴찌는 그대로 두고 남은 자리만 동점자 중에서 추첨한다', () => {
+    const result = judgePenaltyLosers(ranking({ a: 900, b: 300, c: 300, d: 300, e: 0 }), penalty(2), none, firstPick);
+    expect(result.loserIds).toHaveLength(2);
+    expect(result.loserIds).toContain('e');
+    expect(result.draw?.candidateIds.sort()).toEqual(['b', 'c', 'd']);
+  });
+
+  it('동점자 3명 중 2명을 뽑는다', () => {
+    const result = judgePenaltyLosers(ranking({ a: 900, b: 100, c: 100, d: 100 }), penalty(2), none);
+    expect(result.loserIds).toHaveLength(2);
+    expect(new Set(result.loserIds).size).toBe(2);
+    expect(result.draw?.candidateIds).toHaveLength(3);
+  });
+
+  it('동점자 수가 남은 자리와 같으면 추첨하지 않는다', () => {
+    const result = judgePenaltyLosers(ranking({ a: 900, b: 100, c: 100 }), penalty(2), none);
+    expect(result.loserIds.sort()).toEqual(['b', 'c']);
+    expect(result.draw).toBeUndefined();
+  });
+
+  it('전원 동점이면 단상에 1명 이상 남기고 추첨한다', () => {
+    const result = judgePenaltyLosers(ranking({ a: 0, b: 0, c: 0 }), penalty(2), none);
+    expect(result.loserIds).toHaveLength(2);
+    expect(result.draw?.candidateIds.sort()).toEqual(['a', 'b', 'c']);
+  });
+
+  it('추첨은 후보마다 고르게 걸린다', () => {
+    const hits: Record<string, number> = { b: 0, c: 0, d: 0 };
+    const runs = 3000;
+    for (let i = 0; i < runs; i++) {
+      const { loserIds } = judgePenaltyLosers(ranking({ a: 900, b: 100, c: 100, d: 100 }), penalty(1), none);
+      hits[loserIds[0]!]! += 1;
+    }
+    for (const count of Object.values(hits)) {
+      expect(count / runs).toBeGreaterThan(0.28);
+      expect(count / runs).toBeLessThan(0.39);
+    }
   });
 
   it('게임 중 나간 사람은 판정에서 빠진다', () => {
-    const losers = judgePenaltyLosers(
-      ranking({ a: 900, b: 500, c: 300, d: 0 }),
-      { loserCount: 1, text: '커피' },
-      new Set(['d']),
-    );
-    expect(losers).toEqual(['c']);
+    expect(judgePenaltyLosers(ranking({ a: 900, b: 500, c: 300, d: 0 }), penalty(1), new Set(['d']))).toEqual({
+      loserIds: ['c'],
+    });
   });
 
   it('인원이 줄어 꼴찌 수가 남은 인원 이상이면 최소 1명은 단상에 남긴다', () => {
-    const losers = judgePenaltyLosers(
-      ranking({ a: 900, b: 500, c: 300, d: 0 }),
-      { loserCount: 2, text: '커피' },
-      new Set(['c', 'd']),
-    );
-    expect(losers).toEqual(['b']);
+    expect(judgePenaltyLosers(ranking({ a: 900, b: 500, c: 300, d: 0 }), penalty(2), new Set(['c', 'd']))).toEqual({
+      loserIds: ['b'],
+    });
   });
 });
 
@@ -186,7 +211,11 @@ describe('벌칙 방 REST', () => {
 
   it('POST /rooms: 벌칙을 config에 담아 방을 만든다', async () => {
     const headers = await authHeader();
-    vi.mocked(prisma.user.findUnique).mockResolvedValue({ nickname: '방장', characterId: 'cat', friendCode: 'AAAAA' } as never);
+    vi.mocked(prisma.user.findUnique).mockResolvedValue({
+      nickname: '방장',
+      characterId: 'cat',
+      friendCode: 'AAAAA',
+    } as never);
     vi.mocked(createRoom).mockResolvedValue({ code: 'ABC123' } as RoomState);
 
     const app = await buildApp();

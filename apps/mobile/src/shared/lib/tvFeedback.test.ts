@@ -118,7 +118,7 @@ afterEach(() => {
 });
 
 // 효과음 플레이어 수 — BGM 플레이어는 그 다음 인덱스부터 만들어진다
-const EFFECT_PLAYERS = 20;
+const EFFECT_PLAYERS = 26;
 // 백그라운드 복귀 시 효과음 플레이어를 다시 만든 뒤 BGM을 만든다 — 효과음 + 첫 BGM + 다시 만든 효과음 다음 인덱스
 const RESUMED_BGM = EFFECT_PLAYERS * 2 + 1;
 
@@ -301,13 +301,18 @@ describe('게임 오디오 재생 제어', () => {
     expect(bgm?.volume).toBe(0.35);
   });
 
-  it('결과 연출 때 BGM을 낮추고, 백그라운드에서는 플레이어를 해제했다가 복귀하면 새로 만들어 재생한다', async () => {
+  it('결과 연출 때 BGM을 낮추거나 끄고, 백그라운드에서는 플레이어를 해제했다가 복귀하면 새로 만들어 재생한다', async () => {
     engine.setMusicScene('classic');
     await settle();
     const bgm = native.players[EFFECT_PLAYERS];
     engine.setMusicDucked(true);
     expect(bgm?.volume).toBeCloseTo(0.105);
     engine.setMusicDucked(false);
+    expect(bgm?.volume).toBe(0.35);
+    engine.setMusicMuted(true);
+    expect(bgm?.volume).toBe(0);
+    expect(bgm?.pause).not.toHaveBeenCalled();
+    engine.setMusicMuted(false);
     expect(bgm?.volume).toBe(0.35);
     native.appState = 'background';
     native.appListener?.('background');

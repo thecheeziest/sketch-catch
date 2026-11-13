@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState, type ReactNode } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { Image, Text, View } from 'dripsy';
 import { AccessibilityInfo, StyleSheet } from 'react-native';
 import Animated, {
@@ -14,9 +14,9 @@ import Animated, {
 } from 'react-native-reanimated';
 import { fontFamily, getCharacterImageSource } from '@/shared/config';
 import { makeStepEasing } from '@/shared/lib/stepEasing';
-import { PixelFrame } from '@/shared/ui/PixelFrame';
 import { PixelLoadingSpinner } from '@/shared/ui/PixelLoadingSpinner';
 import { chatStream, resultOverlay } from '@/features/game/config';
+import { PixelChip, PixelSlab } from '@/features/game/ui/PixelSlab';
 import type { GameResultOverlayData } from '@/features/game/model/resultOverlay';
 
 type Props = {
@@ -80,57 +80,6 @@ function useReducedMotionPref(): boolean {
     };
   }, []);
   return reduced;
-}
-
-// 결과 슬래브 / 정답 슬래브 — ink 4px 프레임 + 하단 3px 발판(foot)으로 3D 키캡 느낌
-function PixelSlab({
-  bg,
-  footColor,
-  footHeight,
-  paddingH,
-  paddingV,
-  children,
-}: {
-  bg: string;
-  footColor: string;
-  footHeight: number;
-  paddingH: number;
-  paddingV: number;
-  children: ReactNode;
-}) {
-  return (
-    <View>
-      <View sx={{ position: 'relative' }}>
-        <PixelFrame borderColor={chatStream.BORDER} borderWidth={4} notchSize={0} style={StyleSheet.absoluteFill}>
-          <View style={[StyleSheet.absoluteFill, { backgroundColor: bg }]} />
-        </PixelFrame>
-        <View sx={{ paddingHorizontal: paddingH, paddingVertical: paddingV, alignItems: 'center' }}>{children}</View>
-      </View>
-      <View style={{ height: footHeight, backgroundColor: footColor }} />
-    </View>
-  );
-}
-
-// 점수 칩 / 메타 칩 — ink 3px 프레임만 (발판 없음)
-function PixelChip({
-  bg,
-  paddingH,
-  paddingV,
-  children,
-}: {
-  bg: string;
-  paddingH: number;
-  paddingV: number;
-  children: ReactNode;
-}) {
-  return (
-    <View sx={{ position: 'relative' }}>
-      <PixelFrame borderColor={chatStream.BORDER} borderWidth={3} notchSize={0} style={StyleSheet.absoluteFill}>
-        <View style={[StyleSheet.absoluteFill, { backgroundColor: bg }]} />
-      </PixelFrame>
-      <View sx={{ paddingHorizontal: paddingH, paddingVertical: paddingV }}>{children}</View>
-    </View>
-  );
 }
 
 const PET_SIZE = 40;

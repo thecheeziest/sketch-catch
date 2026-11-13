@@ -9,6 +9,7 @@ import {
   computeAllReady,
   countSeatedPlayers,
   ensureHost,
+  toPublicRoomState,
   transferHost,
 } from '../../services/roomRules.js';
 import { setPresence, setUserRoom, clearUserRoom, getUserRoom } from '../../db/redis.js';
@@ -136,7 +137,7 @@ export async function handleRoomJoin(
   await socket.join(`room:${code}`);
 
   const roomName = `room:${code}`;
-  game.to(roomName).emit(SERVER_EVENT.ROOM_STATE, state);
+  game.to(roomName).emit(SERVER_EVENT.ROOM_STATE, toPublicRoomState(state));
 
   const player = state.players.find(p => p.id === userId)!;
   game.to(roomName).emit(SERVER_EVENT.ROOM_PLAYER_JOIN, { player });
@@ -181,7 +182,7 @@ export async function handleRoomReady(game: GameNamespace, socket: GameSocket, r
   state.allReady = computeAllReady(state);
 
   await saveRoomState(state);
-  game.to(roomName).emit(SERVER_EVENT.ROOM_STATE, state);
+  game.to(roomName).emit(SERVER_EVENT.ROOM_STATE, toPublicRoomState(state));
 }
 
 export async function handleRoomStart(game: GameNamespace, socket: GameSocket): Promise<void> {
@@ -331,7 +332,7 @@ async function leaveRoom(game: GameNamespace, code: string, userId: string, stat
     await finishAward(game, code);
     return;
   }
-  game.to(roomName).emit(SERVER_EVENT.ROOM_STATE, state);
+  game.to(roomName).emit(SERVER_EVENT.ROOM_STATE, toPublicRoomState(state));
   game.to(roomName).emit(SERVER_EVENT.ROOM_PLAYER_LEAVE, { userId });
 }
 
@@ -440,5 +441,5 @@ export async function handleRoomHostTransfer(
   // 방장은 준비 대상에서 빠지므로 allReady를 다시 계산한다
   state.allReady = computeAllReady(state);
   await saveRoomState(state);
-  game.to(roomName).emit(SERVER_EVENT.ROOM_STATE, state);
+  game.to(roomName).emit(SERVER_EVENT.ROOM_STATE, toPublicRoomState(state));
 }

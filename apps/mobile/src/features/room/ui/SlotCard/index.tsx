@@ -66,7 +66,6 @@ export function SlotCard({ player, isMe, cardWidth, isLeft = false, isWaiting = 
 
   const isHost = player.isHost;
   const isReady = player.isReady && !isLeft;
-  const backgroundColor = isLeft ? colors.DARK_100 : colors.SECONDARY_100;
   // 테두리를 장착하지 않았을 때만 쓰는 상태색
   const borderColor = (() => {
     if (isLeft) return colors.GRAY;
@@ -96,7 +95,7 @@ export function SlotCard({ player, isMe, cardWidth, isLeft = false, isWaiting = 
             backgroundId={player.backgroundId}
             size={cardWidth}
             defaultBorderColor={borderColor}
-            defaultBackgroundColor={backgroundColor}
+            defaultBackgroundColor={colors.DARK_100}
             backgroundOverlayColor={isReady ? READY_OVERLAY_COLOR : undefined}
             dimmed={isLeft || isWaiting}
           />
