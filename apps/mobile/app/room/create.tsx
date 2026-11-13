@@ -1,8 +1,9 @@
 import { FeedbackPressable } from '@/shared/ui/FeedbackPressable';
 import { playFeedback } from '@/shared/lib/feedback';
 import { useState } from 'react'
-import { ScrollView, Text, View } from 'dripsy'
+import { Text, View } from 'dripsy'
 import { Switch, StyleSheet } from 'react-native';
+import { KeyboardAwareScrollView } from 'react-native-keyboard-controller'
 import { SafeAreaView } from 'react-native-safe-area-context'
 import { useRouter } from 'expo-router'
 import { Button, AppInput, Icon } from '@/shared/ui'
@@ -79,7 +80,7 @@ export default function RoomCreateScreen() {
         <View sx={{ width: 32 }} />
       </View>
 
-      <ScrollView style={{ flex: 1 }} contentContainerStyle={{ paddingHorizontal: spacing.MD, paddingTop: spacing.MD, paddingBottom: spacing.LG, gap: spacing.LG }} keyboardShouldPersistTaps="handled">
+      <KeyboardAwareScrollView style={{ flex: 1 }} bottomOffset={spacing.LG} contentContainerStyle={{ paddingHorizontal: spacing.MD, paddingTop: spacing.MD, paddingBottom: spacing.LG, gap: spacing.LG }} keyboardShouldPersistTaps="handled">
         <AppInput label="방 제목" placeholder={nickname ? `${nickname}님의 방` : '방 제목을 입력하세요'} value={title} onChangeText={setTitle} maxLength={20} showCounter />
         <View sx={{ gap: spacing.SM }}>
           <Text sx={{ color: colors.LIGHT_500 }}>모드</Text>
@@ -128,7 +129,7 @@ export default function RoomCreateScreen() {
             onPress={() => handleCreate()}
           />
         </View>
-      </ScrollView>
+      </KeyboardAwareScrollView>
     </SafeAreaView>
   )
 }

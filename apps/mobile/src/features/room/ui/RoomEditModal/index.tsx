@@ -1,10 +1,11 @@
 import { playFeedback } from '@/shared/lib/feedback';
-import { ScrollView, Text, View } from 'dripsy'
+import { Text, View } from 'dripsy'
 import { useEffect, useState } from 'react'
 import { Switch } from 'react-native'
+import { KeyboardAwareScrollView } from 'react-native-keyboard-controller'
 import { MODE2_PLAYER_MIN, ROOM_PLAYER_MIN, type Category } from '@sketch-catch/shared'
 import { useRoomStore, useToastStore } from '@/shared/model'
-import { Dialog, Button, AppInput, Icon } from '@/shared/ui'
+import { Dialog, DIALOG_KEYBOARD_OFFSET, Button, AppInput, Icon } from '@/shared/ui'
 import { StepperField } from '@/features/room/ui/StepperField'
 import { CategorySelector, ALL_CATEGORIES } from '@/features/room/ui/CategorySelector'
 import { PenaltyField } from '@/features/room/ui/PenaltyField'
@@ -65,7 +66,7 @@ export function RoomEditModal({ visible, onClose, roomCode }: Props) {
 
   return (
     <Dialog visible={visible} onClose={onClose} title="방 설정">
-      <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={{ gap: spacing.MD, paddingBottom: spacing.MD }}>
+      <KeyboardAwareScrollView showsVerticalScrollIndicator={false} bottomOffset={DIALOG_KEYBOARD_OFFSET} contentContainerStyle={{ gap: spacing.MD, paddingBottom: spacing.MD }}>
         <AppInput label="방 제목" placeholder={roomState?.title ?? '방 제목'} value={title} onChangeText={setTitle} maxLength={20} showCounter />
         <StepperField label="인원" value={playerCountMax} min={playerMin} max={12} onChange={setPlayerCountMax} />
         <StepperField label="턴" value={roundCount} min={1} max={10} onChange={setRoundCount} />
@@ -93,7 +94,7 @@ export function RoomEditModal({ visible, onClose, roomCode }: Props) {
         )}
         {roomState?.mode === 1 && <PenaltyField form={penaltyForm} labelColor={colors.DARK_100} />}
         <Button label="저장" color="primary" disabled={isPending || !penaltyForm.isValid || isPasswordMissing || categories.length === 0} onPress={handleSave} />
-      </ScrollView>
+      </KeyboardAwareScrollView>
     </Dialog>
   )
 }
